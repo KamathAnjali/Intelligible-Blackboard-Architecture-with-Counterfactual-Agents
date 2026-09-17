@@ -1,0 +1,44 @@
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local model files and caches
+models/
+ollama_models/
+.cache/
+.huggingface/
+
+# Logs and generated outputs
+*.log
+logs/
+outputs/
+results/
+data/processed/
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
