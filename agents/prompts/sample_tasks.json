@@ -1,0 +1,7 @@
+[
+  {"id": "arithmetic", "task": "A box has 7 red balls and 5 blue balls. How many balls are there in total? Use only the integer as prediction.", "expected": "12"},
+  {"id": "deduction", "task": "All tulips are plants. This item is a tulip. Is this item a plant? Use yes or no as prediction.", "expected": "yes"},
+  {"id": "insufficient_evidence", "task": "Some birds can fly. Pip is a bird. Do these facts prove that Pip can fly? Use yes, no, or insufficient information as prediction; choose insufficient information if Pip's ability is undetermined.", "expected": "insufficient information"},
+  {"id": "contradiction", "task": "The notes say both 'Door A is open' and 'Door A is not open' at the same time. Are the notes consistent or inconsistent? Use consistent or inconsistent as prediction.", "expected": "inconsistent"},
+  {"id": "constraint", "task": "Choose the only number in [2, 5, 8] that is odd and greater than 3. Use only the integer as prediction.", "expected": "5"}
+]

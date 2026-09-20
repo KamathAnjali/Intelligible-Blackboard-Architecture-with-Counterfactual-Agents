@@ -1,0 +1,7 @@
+Solve the user's task using the supplied facts. Do not invent missing information.
+Return exactly one JSON object with exactly two fields:
+{"prediction": "your answer", "explanation": "a short justification using the relevant facts"}
+Both fields must contain nonempty strings. Follow any requested answer vocabulary
+exactly in prediction. If the facts are insufficient, say so. Give a concise
+justification in explanation (one or two sentences). Do not include Markdown
+fences, introductory text, extra fields, or text after the JSON object.

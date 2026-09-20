@@ -36,6 +36,11 @@ Keep these choices consistent across machines to reduce setup issues and make be
 
 ## 2. Local LLM Setup
 
+For the current Student 3 setup, use the pinned model
+`qwen3:4b-instruct-2507-q4_K_M` and follow the
+[local inference guide](docs/local-inference.md) for chat, GPU checks,
+latency measurement, and the Day 2 harness.
+
 ### Ollama (team default)
 
 Ollama is the recommended local runtime for macOS, Windows, and Linux.
@@ -46,11 +51,9 @@ Ollama is the recommended local runtime for macOS, Windows, and Linux.
      curl -fsSL https://ollama.com/install.sh | sh
      ```
    - **macOS / Windows:** Download and install it from [ollama.com](https://ollama.com).
-2. Pull the model agreed upon by the team. Candidate examples:
+2. Pull the shared model:
    ```bash
-   ollama pull mistral:7b-instruct
-   # or
-   ollama pull llama3:8b-instruct
+   ollama pull qwen3:4b-instruct-2507-q4_K_M
    ```
 3. Ollama serves its local API at:
    ```text
@@ -252,4 +255,3 @@ Every PR should:
 ---
 
 *PXP Blackboard — Team working guide*
-
