@@ -79,9 +79,9 @@ def validate_krama_schema(record: Any) -> Optional[str]:
     """
     if not isinstance(record, dict):
         return "Record is not a dict."
-    problem = record.get("problem_statement") or record.get("task_text")
+    problem = record.get("problem_statement") or record.get("task_text") or record.get("query")
     if not problem or not str(problem).strip():
-        return "Missing/empty 'problem_statement' or 'task_text'."
+        return "Missing/empty 'problem_statement', 'task_text', or 'query'."
     return None
 
 
@@ -100,13 +100,37 @@ def parse_krama_record(raw: Dict[str, Any]) -> TaskFormat:
     if err:
         raise ValueError(f"Invalid KramaBench record: {err}  raw={raw!r}")
 
-    task_id = str(raw.get("task_id") or f"kb_task_{uuid4().hex[:8]}")
-    task_text = str(raw.get("problem_statement") or raw.get("task_text")).strip()
-    expected_answer = str(raw.get("expected_answer", "")).strip()
-    domain = str(raw.get("domain", "general"))
-    difficulty = str(raw.get("difficulty", "medium"))
+    task_id = str(raw.get("task_id") or raw.get("id") or f"kb_task_{uuid4().hex[:8]}")
+    task_text = str(raw.get("problem_statement") or raw.get("task_text") or raw.get("query")).strip()
+    expected_answer = str(raw.get("expected_answer") or raw.get("answer") or "").strip()
+    # Extract domain and difficulty if not explicitly set
+    raw_id = str(raw.get("id") or raw.get("task_id") or "")
+    domain = str(raw.get("domain") or (raw_id.split("-")[0] if "-" in raw_id else "general"))
+    difficulty = str(raw.get("difficulty") or ("hard" if "hard" in raw_id else ("easy" if "easy" in raw_id else "medium")))
+
+    # Parse reference steps from either ground_truth_reasoning_steps or subtasks
     reference_steps = list(raw.get("ground_truth_reasoning_steps") or [])
+    if not reference_steps and "subtasks" in raw and isinstance(raw["subtasks"], list):
+        for idx, sub in enumerate(raw["subtasks"], start=1):
+            if isinstance(sub, dict):
+                step_desc = sub.get("step") or sub.get("query") or ""
+                sub_ans = sub.get("answer", "")
+                sub_query = sub.get("query", "")
+                if step_desc:
+                    if idx % 2 == 1:
+                        reference_steps.append(f"REVISE: Subtask step '{step_desc}' -> Candidate: {sub_ans}")
+                    else:
+                        reference_steps.append(f"RATIFY: Verified step '{sub_query or step_desc}' matches constraints.")
+                elif sub_query:
+                    reference_steps.append(f"RATIFY: Verified query '{sub_query}' -> Expected: {sub_ans}")
+    
     metadata = dict(raw.get("metadata") or {})
+    if "data_sources" in raw:
+        metadata["data_sources"] = raw["data_sources"]
+    if "deepresearch_subset" in raw:
+        metadata["deepresearch_subset"] = raw["deepresearch_subset"]
+    if "runtime" in raw:
+        metadata["benchmark_runtime"] = raw["runtime"]
 
     # TODO (Week 2): domain-specific prompt wrappers / pre-tokenisation
     return TaskFormat(
