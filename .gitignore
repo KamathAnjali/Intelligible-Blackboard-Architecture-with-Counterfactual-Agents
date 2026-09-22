@@ -27,6 +27,7 @@ ollama_models/
 *.log
 logs/
 outputs/
+# Includes generated Ollama responses, latency reports, and retry logs.
 results/
 data/processed/
 

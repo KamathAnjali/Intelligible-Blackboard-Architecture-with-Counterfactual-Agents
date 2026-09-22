@@ -1,8 +1,11 @@
 param(
-    [ValidateSet('help', 'start', 'chat', 'query', 'gpu', 'latency', 'samples', 'stop')]
+    [ValidateSet('help', 'start', 'chat', 'query', 'gpu', 'latency', 'samples', 'pex', 'stop')]
     [string]$Task = 'help',
     [string]$Prompt = 'Explain a blackboard architecture in three sentences.',
-    [ValidateRange(1, 100)][int]$Runs = 3
+    [ValidateRange(1, 100)][int]$Runs = 3,
+    [ValidateSet('cautious_verifier', 'aggressive_proposer')]
+    [string]$Persona = 'cautious_verifier',
+    [ValidateRange(0, 5)][int]$Retries = 2
 )
 $ErrorActionPreference = 'Stop'
 $model = 'qwen3:4b-instruct-2507-q4_K_M'
@@ -10,7 +13,7 @@ $env:OLLAMA_HOST = 'http://127.0.0.1:11434'
 $ollamaCommand = Get-Command ollama -ErrorAction SilentlyContinue
 $ollamaExe = if ($ollamaCommand) { $ollamaCommand.Source } else { Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe' }
 if ($Task -eq 'help') {
-    Write-Host 'Tasks: start | chat | query [-Prompt "..."] | gpu | latency [-Runs 3] | samples | stop'
+    Write-Host 'Tasks: start | chat | query [-Prompt "..."] | gpu | latency [-Runs 3] | samples | pex [-Persona cautious_verifier] [-Retries 2] [-Prompt "..."] | stop'
     exit 0
 }
 if (-not (Test-Path -LiteralPath $ollamaExe)) { throw 'Install Ollama for Windows first.' }
@@ -56,7 +59,9 @@ elseif (Get-Command python -ErrorAction SilentlyContinue) { $pythonExe = (Get-Co
 else { throw 'Install Python 3.10 or newer, then reopen PowerShell.' }
 Push-Location $PSScriptRoot
 try {
-    & $pythonExe -m agents.llm_client $Task --prompt $Prompt --runs $Runs
+    $clientArgs = @('-m', 'agents.llm_client', $Task, '--runs', $Runs, '--persona', $Persona, '--retries', $Retries)
+    if ($PSBoundParameters.ContainsKey('Prompt')) { $clientArgs += @('--prompt', $Prompt) }
+    & $pythonExe @clientArgs
     $resultCode = $LASTEXITCODE
 } finally { Pop-Location }
 exit $resultCode

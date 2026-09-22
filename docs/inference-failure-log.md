@@ -45,3 +45,23 @@ baselines, not benchmark results.
 
 For later failures, record the task, exact raw response/report filename,
 failure category, expected behavior, and whether a fix changes the result.
+
+## Day 3 validation and persona check (2026-09-22)
+
+Added Pydantic schema enforcement, schema-constrained Ollama generation, and
+bounded retries (two additional attempts by default). The 29 offline tests,
+including the existing blackboard tests, pass. New checks cover malformed JSON,
+missing/extra fields, strict string types, blank fields, truncation, successful
+retry recovery, budget exhaustion, transport errors, and persona composition.
+
+Both draft personas returned schema-valid output on a live call. On a general
+blackboard explanation question without supplied facts, the cautious verifier
+declined to infer an answer while the aggressive proposer used general
+knowledge. This is a behavioral difference to review during Day 4 testing;
+valid JSON alone does not establish that a response follows the evidence policy.
+
+The default `make pex` question now includes explicit tulip/plant facts. Both
+personas returned `yes` with the correct deduction on their first attempt.
+No live formatting retry was needed; retry behavior was exercised with
+controlled malformed responses in the offline tests. Full testing on three
+tasks per persona and frozen BoardEntry review remain Day 4 work.

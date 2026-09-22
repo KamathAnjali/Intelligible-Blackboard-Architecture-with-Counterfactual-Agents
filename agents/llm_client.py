@@ -1,4 +1,4 @@
-"""Day 2 inference harness. Uses only Python's standard library.
+"""Local inference harness: raw text plus Day 3 validated PEX generation.
 
 Run from the repository root: python -m agents.llm_client --help
 """
@@ -14,10 +14,15 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from pydantic import ValidationError
+
+from agents.pex import PEXGenerationError, PEXResponse
+
 MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 BASE_URL = "http://127.0.0.1:11434"
 OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 256}
 ROOT = Path(__file__).resolve().parents[1]
+PERSONAS = ("cautious_verifier", "aggressive_proposer")
 
 
 class OllamaClient:
@@ -40,15 +45,60 @@ class OllamaClient:
             raise RuntimeError(result["error"])
         return result
 
-    def generate(self, prompt, system=""):
+    def generate(self, prompt, system="", schema=None):
         """Return raw model text and timing metadata; no JSON repair or retries."""
         started = time.perf_counter()
-        result = self.request("/api/generate", {
+        payload = {
             "model": self.model, "prompt": prompt, "system": system,
             "stream": False, "keep_alive": "10m", "options": OPTIONS,
-        })
+        }
+        if schema is not None:
+            payload["format"] = schema
+        result = self.request("/api/generate", payload)
         result["wall_seconds"] = time.perf_counter() - started
         return result
+
+    def generate_pex(self, prompt, persona=None, max_retries=2):
+        """Validate every answer; retry malformed/truncated output only.
+
+        The result contains parsed PEX, final raw output, and every attempt's
+        raw output/timing. Semantic correctness requires separate evaluation.
+        Transport errors propagate without being retried as formatting errors.
+        """
+        if type(max_retries) is not int or not 0 <= max_retries <= 5:
+            raise ValueError("max_retries must be an integer between 0 and 5")
+        if persona is not None and persona not in PERSONAS:
+            raise ValueError(f"Unknown persona: {persona}")
+        prompts = ROOT / "agents/prompts"
+        system = (prompts / "pex_template.txt").read_text(encoding="utf-8")
+        if persona:
+            system = (prompts / f"{persona}.txt").read_text(encoding="utf-8") + "\n\n" + system
+        attempts = []
+        feedback = ""
+        for _ in range(max_retries + 1):
+            raw = self.generate(prompt, system=system + feedback, schema=PEXResponse.model_json_schema())
+            error = None
+            try:
+                if raw.get("done") is not True or raw.get("done_reason") == "length":
+                    raise ValueError("Response incomplete or truncated; use a shorter complete JSON answer.")
+                if not isinstance(raw.get("response"), str):
+                    raise ValueError("Response text is missing or is not a string.")
+                parsed = PEXResponse.model_validate_json(raw["response"])
+            except ValidationError as exc:
+                error = "; ".join(
+                    f"{'.'.join(map(str, issue['loc'])) or 'JSON'}: {issue['msg']}"
+                    for issue in exc.errors(include_input=False, include_url=False)
+                )
+            except ValueError as exc:
+                error = str(exc)
+            attempts.append({"raw": raw, "error": error})
+            if error is None:
+                return {"parsed": parsed.model_dump(), "raw": raw, "attempts": attempts}
+            feedback = (
+                f"\n\nAttempt {len(attempts)} failed output validation: {error}\n"
+                "Answer the original task again. Return only the required JSON with two nonempty strings."
+            )
+        raise PEXGenerationError(attempts)
 
 
 def timings(result):
@@ -142,12 +192,19 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["query", "latency", "samples"])
-    parser.add_argument("--prompt", default="Explain a blackboard architecture in three sentences.")
+    parser.add_argument("command", choices=["query", "latency", "samples", "pex"])
+    parser.add_argument("--persona", choices=PERSONAS, default="cautious_verifier")
+    parser.add_argument("--retries", type=int, choices=range(6), default=2)
+    parser.add_argument("--prompt")
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--runs", type=int, default=3, help="Number of warm requests for latency")
     args = parser.parse_args()
+    if args.prompt is None:
+        args.prompt = (
+            "All tulips are plants. This item is a tulip. Is it a plant? Use yes or no as prediction."
+            if args.command == "pex" else "Explain a blackboard architecture in three sentences."
+        )
     if args.runs < 1:
         parser.error("--runs must be at least 1")
     client = OllamaClient(args.model, args.base_url)
@@ -158,6 +215,18 @@ def main():
             print(json.dumps(timings(result), indent=2))
         elif args.command == "latency":
             benchmark(client, args.runs)
+        elif args.command == "pex":
+            record = {"prompt": args.prompt, "persona": args.persona, "max_retries": args.retries}
+            try:
+                result = client.generate_pex(args.prompt, args.persona, args.retries)
+            except PEXGenerationError as exc:
+                record.update({"attempts": exc.attempts, "error": str(exc)})
+                save_report("pex", client, [record])
+                raise
+            record.update(result)
+            print(json.dumps(result["parsed"], ensure_ascii=False, indent=2))
+            print(f"Validated after {len(result['attempts'])} attempt(s).")
+            save_report("pex", client, [record])
         else:
             return samples(client)
     except (RuntimeError, OSError, ValueError) as exc:

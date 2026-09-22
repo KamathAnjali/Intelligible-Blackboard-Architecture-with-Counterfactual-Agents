@@ -1,10 +1,18 @@
-# Student 3: local inference, Days 1 and 2
+# Student 3: local inference, Days 1 through 3
 
 Use **Windows PowerShell** on Dhruva's laptop. Ollama runs natively on Windows
 at `http://127.0.0.1:11434`. WSL is not needed. GNU Make is already installed
 on Dhruva's laptop. The Windows Makefile explicitly invokes PowerShell so scripts
 execute instead of opening in Notepad. The harness requires Python 3.10+ and
-has no pip dependencies. Run `make help` for available commands.
+uses the repo's Pydantic dependency for Day 3 validation. Set up dependencies
+once from the repo root (the runner automatically uses this virtual environment):
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Run `make help` for available commands.
 
 ## 1. Query the model
 
@@ -114,7 +122,7 @@ reasoning, unsupported claims, and irrelevance. Each record starts with
 `explanation_review: pending`; write your observations in the failure log.
 Five simple cases are a smoke test, not proof of benchmark quality.
 
-Day 3 adds runtime schema enforcement and retries; Day 5 maps output into
+Day 3 adds a separate validated call, described below; Day 5 maps output into
 `BoardEntry`. The client currently uses defaults or explicit CLI options;
 it does not read `.env`. Context size is supplied as API `options.num_ctx`;
 `OLLAMA_NUM_CTX` is not an Ollama server setting.
@@ -132,3 +140,47 @@ python3 -m agents.llm_client samples
 
 On Windows, `make stop` unloads the model to free memory while leaving
 the Ollama server available.
+
+## 5. Day 3: validated PEX and persona prompts
+
+```powershell
+make pex
+make pex PERSONA=aggressive_proposer RETRIES=2
+```
+
+For a custom task:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 pex -Persona cautious_verifier -Prompt "All tulips are plants. This is a tulip. Is it a plant?"
+```
+
+`OllamaClient.generate_pex(prompt, persona=None, max_retries=2)` sends the
+Pydantic-generated JSON schema to Ollama and validates the returned text locally.
+Exactly two nonempty string fields are accepted: `prediction` and `explanation`.
+Extra fields, wrong types, malformed JSON, and incomplete/truncated responses
+are rejected. Surrounding whitespace in field values is trimmed.
+
+The default budget is one initial call plus two retries. Each retry preserves
+the task and persona and adds feedback describing the formatting error.
+Connection/server errors propagate immediately. A schema-valid answer may still
+be factually wrong; answer evaluation remains separate from format validation.
+
+Successful calls return `parsed`, final `raw`, and `attempts` (including raw
+responses and timings for failed attempts). Exhaustion raises `PEXGenerationError`
+with the attempts attached. The `pex` command saves a report for success or
+validation exhaustion to `results/ollama/`; retries therefore remain visible
+when counting tokens and measuring cost. No model output is posted to the board.
+
+The two draft personas are `cautious_verifier` (check evidence and uncertainty)
+and `aggressive_proposer` (propose and test a concrete answer). Both use the same
+PEX output contract and require evidence-grounded answers. Persona testing on
+three tasks each and review of the frozen BoardEntry contract are Day 4 work.
+
+Run the offline tests, including malformed-output recovery and retry exhaustion:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+On macOS, install requirements into a virtual environment and use
+`python3 -m agents.llm_client pex --persona aggressive_proposer --retries 2`.

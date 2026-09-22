@@ -4,9 +4,11 @@ SHELL := cmd.exe
 .DEFAULT_GOAL := help
 
 RUNS ?= 3
+PERSONA ?= cautious_verifier
+RETRIES ?= 2
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
-.PHONY: help start chat query gpu latency samples stop
+.PHONY: help start chat query gpu latency samples pex stop
 
 help:
 	@echo make start                 Start Ollama if needed
@@ -15,6 +17,7 @@ help:
 	@echo make gpu                   Show model placement and GPU logs
 	@echo make latency RUNS=5        Measure one first request and 5 warm runs
 	@echo make samples               Run the five Day 2 sample tasks
+	@echo make pex PERSONA=aggressive_proposer RETRIES=2    Generate validated PEX
 	@echo make stop                  Unload the model
 
 start chat query gpu samples stop:
@@ -22,3 +25,6 @@ start chat query gpu samples stop:
 
 latency:
 	@$(RUNNER) latency -Runs "$(RUNS)"
+
+pex:
+	@$(RUNNER) pex -Persona "$(PERSONA)" -Retries "$(RETRIES)"
