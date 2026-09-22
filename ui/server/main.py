@@ -2,6 +2,7 @@ import json
 import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from ui.server.mock_stream import mock_event_stream_generator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ui-server")
@@ -27,7 +28,10 @@ async def root():
     return {
         "service": "Intelligible Blackboard UI Server",
         "status": "ok",
-        "ws_endpoint": "/ws",
+        "ws_endpoints": {
+            "/ws": "Primary board event stream (replays mock stream; plug in live board in Week 2)",
+            "/ws/mock": "Explicit mock replay endpoint with configurable delay (?delay=seconds)",
+        },
     }
 
 
@@ -40,47 +44,58 @@ async def health_check():
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, delay: float = 0.8):
+    """
+    Primary WebSocket endpoint.
+
+    For W1 Days 4-5: replays the canned mock event stream so the frontend can
+    receive live-style events without needing real agents running.
+
+    TODO (Student 1 / Student 2 Integration — Week 2):
+      Replace mock_event_stream_generator with the real board event publisher.
+      Expected interface:
+        async for event in board_store.subscribe_events(session_id):
+            await websocket.send_json(event.model_dump())
+    """
     await websocket.accept()
-    logger.info("WebSocket connection accepted.")
+    logger.info(f"Primary WebSocket connection accepted (mock mode, delay={delay}s).")
+
     try:
-        while True:
-            # Receive text / JSON message from client
-            data_str = await websocket.receive_text()
-            logger.info(f"Received message: {data_str}")
+        # Send a "connected" handshake immediately so the frontend can update status
+        await websocket.send_json({
+            "type": "connection_ack",
+            "mode": "mock_stream",
+            "message": "Connected to Intelligible Blackboard UI Server (mock mode)",
+        })
 
-            try:
-                payload = json.loads(data_str)
-            except json.JSONDecodeError:
-                payload = {"type": "raw_text", "content": data_str}
+        # Replay the mock stream
+        async for event in mock_event_stream_generator(delay_seconds=delay):
+            await websocket.send_json(event)
 
-            # TODO (Student 1 / Student 2 Integration):
-            # Process board event / command via Student 1's store or Student 2's scheduler here.
+        logger.info("Mock stream replay complete.")
+        await websocket.send_json({"type": "stream_complete"})
 
-            # Echo response back to client
-            echo_response = {
-                "type": "echo",
-                "received": payload,
-                "status": "acknowledged",
-            }
-            await websocket.send_json(echo_response)
     except WebSocketDisconnect:
-        logger.info("WebSocket client disconnected.")
+        logger.info("Primary WebSocket client disconnected.")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"Primary WebSocket error: {e}")
         await websocket.close()
 
 
 @app.websocket("/ws/mock")
 async def websocket_mock_endpoint(websocket: WebSocket, delay: float = 1.0):
     """
-    WebSocket endpoint for replaying canned mock event stream to local UI.
+    Explicit mock WebSocket endpoint for replaying canned event stream.
+    Supports configurable delay via query param: ws://localhost:8000/ws/mock?delay=0.5
     """
-    from ui.server.mock_stream import mock_event_stream_generator
-
     await websocket.accept()
     logger.info(f"Mock WebSocket connection accepted (delay={delay}s).")
     try:
+        await websocket.send_json({
+            "type": "connection_ack",
+            "mode": "mock_stream",
+            "message": "Connected to mock event stream endpoint",
+        })
         async for event in mock_event_stream_generator(delay_seconds=delay):
             await websocket.send_json(event)
         logger.info("Finished sending mock event stream.")
@@ -90,4 +105,3 @@ async def websocket_mock_endpoint(websocket: WebSocket, delay: float = 1.0):
     except Exception as e:
         logger.error(f"Mock WebSocket error: {e}")
         await websocket.close()
-

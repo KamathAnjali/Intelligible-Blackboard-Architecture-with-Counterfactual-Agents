@@ -1,98 +1,114 @@
 """
 KramaBench Ingest Parser — Student 4 (UI & Benchmarking)
+bench/ingest/krama_parser.py
 
-Skeleton for converting KramaBench benchmark records into our internal task format.
+Converts KramaBench benchmark records into our internal TaskFormat.
 
-Data Mapping Strategy (from docs/data_format_notes.md):
-------------------------------------------------------
-KramaBench raw fields -> Internal TaskFormat fields:
-  1. `task_id` (str)               -> `TaskFormat.task_id` (auto-generates UUID if missing)
-  2. `problem_statement` (str)     -> `TaskFormat.task_text` (mandatory prompt text)
-  3. `expected_answer` (str)       -> `TaskFormat.expected_answer` (canonical solution)
-  4. `domain` (str)                -> `TaskFormat.domain` (e.g. math, logic, planning)
-  5. `difficulty` (str)            -> `TaskFormat.difficulty` (easy, medium, hard)
-  6. `ground_truth_reasoning_steps` -> `TaskFormat.reference_steps` (list of step strings)
-  7. `metadata` (dict)             -> `TaskFormat.metadata` (extra execution params)
+Data Mapping (from docs/data_format_notes.md):
+  task_id                          -> TaskFormat.task_id  (auto-generates if absent)
+  problem_statement / task_text    -> TaskFormat.task_text  (mandatory)
+  expected_answer                  -> TaskFormat.expected_answer
+  domain                           -> TaskFormat.domain
+  difficulty                       -> TaskFormat.difficulty
+  ground_truth_reasoning_steps     -> TaskFormat.reference_steps
+  metadata                         -> TaskFormat.metadata
 
-Usage Example:
---------------
->>> from bench.ingest.krama_parser import load_krama_dataset, parse_krama_record
->>> task = parse_krama_record({"task_id": "math_1", "problem_statement": "Solve x^2=144", "expected_answer": "12 or -12"})
->>> tasks = load_krama_dataset("bench/data/kramabench_sample.jsonl")
+CLI Usage:
+  python -m bench.ingest.krama_parser --file bench/data/sample.jsonl --n 50
+  python bench/ingest/krama_parser.py                     # self-test on built-in sample data
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+)
 logger = logging.getLogger("krama-parser")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Internal task contract
+# ─────────────────────────────────────────────────────────────────────────────
+
 class TaskFormat(BaseModel):
-    """Internal standardized task contract used by the blackboard scheduler & benchmark runner."""
+    """
+    Standardised internal task used by the blackboard scheduler and benchmark runner.
+
+    TODO (Week 2 — Student 1 Integration):
+      Pass task_id directly to BlackboardState(task_id=task.task_id) when starting a new session.
+    """
 
     task_id: str = Field(default_factory=lambda: f"kb_task_{uuid4().hex[:8]}")
     task_text: str
-    expected_answer: str
+    expected_answer: str = ""
     domain: str = "general"
     difficulty: str = "medium"
     reference_steps: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("task_text")
+    @classmethod
+    def _non_empty_task_text(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("task_text cannot be empty — problem_statement is required.")
+        return v
 
-def validate_krama_schema(record: Dict[str, Any]) -> bool:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Validation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def validate_krama_schema(record: Any) -> Optional[str]:
     """
-    Validate that a raw dictionary record contains minimum required KramaBench fields.
-
-    Required fields:
-      - 'problem_statement' or 'task_text' (non-empty string)
-      - 'expected_answer' (string or representable as string)
-    """
-    if not isinstance(record, dict):
-        logger.error("Record is not a dictionary.")
-        return False
-
-    problem_text = record.get("problem_statement") or record.get("task_text")
-    if not problem_text or not isinstance(problem_text, str) or not problem_text.strip():
-        logger.error("Missing or empty 'problem_statement' / 'task_text' in record.")
-        return False
-
-    return True
-
-
-def parse_krama_record(raw_record: Dict[str, Any]) -> TaskFormat:
-    """
-    Convert a single raw KramaBench dictionary record into an internal TaskFormat instance.
-
-    Args:
-        raw_record: Raw dictionary from JSON dataset.
+    Validate a raw record dict.
 
     Returns:
-        TaskFormat: Standardized internal task object.
+        None if valid, or an error message string if invalid.
+    """
+    if not isinstance(record, dict):
+        return "Record is not a dict."
+    problem = record.get("problem_statement") or record.get("task_text")
+    if not problem or not str(problem).strip():
+        return "Missing/empty 'problem_statement' or 'task_text'."
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Single-record parser
+# ─────────────────────────────────────────────────────────────────────────────
+
+def parse_krama_record(raw: Dict[str, Any]) -> TaskFormat:
+    """
+    Convert one raw KramaBench dict into a TaskFormat.
 
     Raises:
-        ValueError: If record validation fails.
+        ValueError: if the record fails schema validation.
     """
-    if not validate_krama_schema(raw_record):
-        raise ValueError("Invalid KramaBench record format: missing mandatory problem_statement.")
+    err = validate_krama_schema(raw)
+    if err:
+        raise ValueError(f"Invalid KramaBench record: {err}  raw={raw!r}")
 
-    # Extract fields according to mapping plan
-    task_id = str(raw_record.get("task_id") or f"kb_task_{uuid4().hex[:8]}")
-    task_text = str(raw_record.get("problem_statement") or raw_record.get("task_text")).strip()
-    expected_answer = str(raw_record.get("expected_answer", "")).strip()
-    domain = str(raw_record.get("domain", "general"))
-    difficulty = str(raw_record.get("difficulty", "medium"))
-    reference_steps = list(raw_record.get("ground_truth_reasoning_steps") or [])
-    metadata = dict(raw_record.get("metadata") or {})
+    task_id = str(raw.get("task_id") or f"kb_task_{uuid4().hex[:8]}")
+    task_text = str(raw.get("problem_statement") or raw.get("task_text")).strip()
+    expected_answer = str(raw.get("expected_answer", "")).strip()
+    domain = str(raw.get("domain", "general"))
+    difficulty = str(raw.get("difficulty", "medium"))
+    reference_steps = list(raw.get("ground_truth_reasoning_steps") or [])
+    metadata = dict(raw.get("metadata") or {})
 
-    # TODO (Week 2): Add domain-specific prompt wrappers or token pre-counting
+    # TODO (Week 2): domain-specific prompt wrappers / pre-tokenisation
     return TaskFormat(
         task_id=task_id,
         task_text=task_text,
@@ -104,60 +120,147 @@ def parse_krama_record(raw_record: Dict[str, Any]) -> TaskFormat:
     )
 
 
-def load_krama_dataset(filepath: str | Path) -> List[TaskFormat]:
+# ─────────────────────────────────────────────────────────────────────────────
+# Dataset loader
+# ─────────────────────────────────────────────────────────────────────────────
+
+def load_krama_dataset(
+    filepath: str | Path,
+    n: Optional[int] = None,
+) -> List[TaskFormat]:
     """
-    Load and parse a full KramaBench dataset file (.json or .jsonl format).
+    Load up to *n* KramaBench tasks from a .json or .jsonl file.
 
     Args:
-        filepath: Path to the dataset file.
+        filepath: Path to dataset file.
+        n: Maximum number of tasks to load. None = load all.
 
     Returns:
-        List[TaskFormat]: List of parsed task objects.
+        List of TaskFormat objects (malformed records are skipped/logged).
     """
     path = Path(filepath)
     if not path.exists():
-        logger.warning(f"File not found: {path}. Returning empty task list.")
+        logger.warning("File not found: %s", path)
         return []
 
-    parsed_tasks: List[TaskFormat] = []
+    parsed: List[TaskFormat] = []
+    skipped = 0
+
+    def _try_parse(raw: Any, line_ref: str) -> None:
+        nonlocal skipped
+        try:
+            parsed.append(parse_krama_record(raw))
+        except Exception as exc:
+            logger.warning("Skipped malformed record (%s): %s", line_ref, exc)
+            skipped += 1
 
     try:
         if path.suffix == ".jsonl":
-            with open(path, "r", encoding="utf-8") as f:
-                for line_idx, line in enumerate(f):
+            with open(path, encoding="utf-8") as fh:
+                for idx, line in enumerate(fh):
+                    if n is not None and len(parsed) >= n:
+                        break
                     line = line.strip()
                     if not line:
                         continue
                     try:
-                        raw_dict = json.loads(line)
-                        parsed_tasks.append(parse_krama_record(raw_dict))
-                    except Exception as err:
-                        logger.error(f"Error parsing line {line_idx} in {path}: {err}")
+                        raw = json.loads(line)
+                    except json.JSONDecodeError as exc:
+                        logger.warning("JSON parse error at line %d: %s", idx + 1, exc)
+                        skipped += 1
+                        continue
+                    _try_parse(raw, f"line {idx + 1}")
         else:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    for raw_dict in data:
-                        parsed_tasks.append(parse_krama_record(raw_dict))
-                elif isinstance(data, dict):
-                    parsed_tasks.append(parse_krama_record(data))
-    except Exception as e:
-        logger.error(f"Failed to load KramaBench dataset from {path}: {e}")
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            records = data if isinstance(data, list) else [data]
+            for idx, raw in enumerate(records):
+                if n is not None and len(parsed) >= n:
+                    break
+                _try_parse(raw, f"index {idx}")
 
-    logger.info(f"Successfully loaded {len(parsed_tasks)} KramaBench tasks from {path}.")
-    return parsed_tasks
+    except Exception as exc:
+        logger.error("Failed to load dataset from %s: %s", path, exc)
+
+    logger.info(
+        "Loaded %d tasks successfully, skipped %d malformed records (from %s).",
+        len(parsed), skipped, path,
+    )
+    return parsed
 
 
-# Quick module self-test
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI entry-point
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _run_cli(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Load and validate a KramaBench dataset file.",
+    )
+    parser.add_argument(
+        "--file", "-f",
+        default=None,
+        help="Path to .json or .jsonl dataset file. Defaults to built-in sample data.",
+    )
+    parser.add_argument(
+        "--n", "-n",
+        type=int,
+        default=None,
+        help="Maximum number of records to load. Default: all.",
+    )
+    parser.add_argument(
+        "--print-tasks",
+        action="store_true",
+        help="Print each parsed task as JSON.",
+    )
+    args = parser.parse_args(argv)
+
+    if args.file:
+        tasks = load_krama_dataset(args.file, n=args.n)
+    else:
+        # Built-in sample data for self-test / CI smoke-test
+        sample_records = [
+            {
+                "task_id": "kb_demo_101",
+                "problem_statement": "Evaluate the stability of a 3-agent PXP consensus loop where Agent A proposes, B ratifies, C refutes.",
+                "expected_answer": "ULTRA_STRONG consensus is achievable if A revises after C's refutation.",
+                "domain": "multi-agent-coordination",
+                "difficulty": "hard",
+                "ground_truth_reasoning_steps": [
+                    "Agent A PROPOSE: x = 12",
+                    "Agent B RATIFY: agrees with x = 12",
+                    "Agent C REFUTE: x = -12 also satisfies x^2 = 144",
+                    "Agent A REVISE: x ∈ {-12, 12}",
+                    "Agent B RATIFY: consensus on updated solution",
+                ],
+            },
+            {
+                "task_id": "kb_demo_102",
+                "problem_statement": "Determine whether three conflicting agents can reach consensus on a modal logic deduction.",
+                "expected_answer": "STRONG consensus after one REVISE iteration.",
+                "domain": "logic",
+                "difficulty": "medium",
+            },
+            {
+                # malformed — missing problem_statement — should be skipped
+                "task_id": "kb_bad_001",
+                "expected_answer": "N/A",
+            },
+        ]
+        parsed_tasks: List[TaskFormat] = []
+        for raw in sample_records:
+            try:
+                parsed_tasks.append(parse_krama_record(raw))
+            except ValueError as e:
+                logger.warning("Skipped malformed record: %s", e)
+        tasks = parsed_tasks
+
+    print(f"\n✅  Successfully loaded {len(tasks)} task(s).")
+
+    if args.print_tasks or not args.file:
+        for task in tasks:
+            print(task.model_dump_json(indent=2))
+
+
 if __name__ == "__main__":
-    sample_record = {
-        "task_id": "kb_demo_101",
-        "problem_statement": "Evaluate the stability of a 3-agent consensus loop.",
-        "expected_answer": "ULTRA_STRONG consensus reached",
-        "domain": "multi-agent-coordination",
-        "difficulty": "hard",
-        "ground_truth_reasoning_steps": ["Agent_Alpha proposes", "Agent_Beta ratifies"],
-    }
-    parsed = parse_krama_record(sample_record)
-    print("Parsed KramaBench Task successfully:")
-    print(parsed.model_dump_json(indent=2))
+    _run_cli(sys.argv[1:])
