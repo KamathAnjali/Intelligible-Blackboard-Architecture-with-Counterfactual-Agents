@@ -40,6 +40,7 @@ export interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
 
 export type BoardMode = 'LIVE_TAP' | 'LOG_REPLAY' | 'MOCK_STREAM' | null;
 export type LayoutMode = 'radial' | 'force';
+export type ViewMode = 'unified' | 'split';
 
 interface CanvasProps {
   wsStatus?: 'connected' | 'connecting' | 'disconnected';
@@ -70,8 +71,8 @@ function modeBadgeClass(mode: BoardMode): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Bottleneck Detection Algorithm (W2 Day 4)
-// ─────────────────────────────────────────────────────────────────────────────
+// Bottleneck Detection
+// ──────────────────────────────────────────────────────────────────────────────
 
 interface BottleneckCluster {
   targetId: string;
@@ -86,7 +87,6 @@ function detectBottlenecks(nodes: GraphNode[]): {
   const bottleneckNodeIds = new Set<string>();
   const clusters: BottleneckCluster[] = [];
 
-  // Group negative tags (REFUTE, REJECT) by targetEntryId
   const negativeByTarget: Record<string, string[]> = {};
   nodes.forEach((n) => {
     if ((n.tag === 'REFUTE' || n.tag === 'REJECT') && n.targetEntryId) {
@@ -97,7 +97,6 @@ function detectBottlenecks(nodes: GraphNode[]): {
     }
   });
 
-  // 1. Multi-conflict on single entry threshold (>= 2 negative tags targeting same entry)
   Object.entries(negativeByTarget).forEach(([targetId, conflictingIds]) => {
     if (conflictingIds.length >= 2) {
       bottleneckNodeIds.add(targetId);
@@ -110,7 +109,6 @@ function detectBottlenecks(nodes: GraphNode[]): {
     }
   });
 
-  // 2. Consecutive negative sequence threshold (>= 2 in a row)
   let consecutiveNeg: string[] = [];
   nodes.forEach((n) => {
     if (n.tag === 'REFUTE' || n.tag === 'REJECT') {
@@ -143,6 +141,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('radial');
+  const [viewMode, setViewMode] = useState<ViewMode>('unified');
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
@@ -156,18 +155,20 @@ export const Canvas: React.FC<CanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // When user scrubs to a step, auto-inspect that node
   useEffect(() => {
     if (scrubIndex !== null && nodes[scrubIndex]) {
       setSelectedNode(nodes[scrubIndex]);
     }
   }, [scrubIndex, nodes]);
 
-  // Bottleneck detection
   const { bottleneckNodeIds, clusters } = useMemo(
     () => detectBottlenecks(nodes),
     [nodes],
   );
+
+  // Counterfactual nodes for split view
+  const cfNodes = useMemo(() => nodes.filter((n) => n.isCounterfactual), [nodes]);
+  const mainNodes = useMemo(() => nodes.filter((n) => !n.isCounterfactual), [nodes]);
 
   // ── D3 incremental update ──────────────────────────────────────────────────
   useEffect(() => {
@@ -175,7 +176,6 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     const svg = d3.select(svgRef.current);
 
-    // One-time setup
     if (!simulationRef.current) {
       svg.append('g').attr('class', 'graph-content');
 
@@ -190,7 +190,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       const content = svg.select<SVGGElement>('.graph-content');
       const defs = content.append('defs');
 
-      // Arrow markers — one per tag, colored to match
       (Object.entries(TAG_COLORS) as [PXPTag, string][]).forEach(([tag, color]) => {
         defs
           .append('marker')
@@ -206,7 +205,6 @@ export const Canvas: React.FC<CanvasProps> = ({
           .attr('fill', color);
       });
 
-      // Flashing alert marker for bottleneck edges
       defs
         .append('marker')
         .attr('id', 'arrow-bottleneck')
@@ -236,10 +234,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     const sim = simulationRef.current!;
     const content = svg.select<SVGGElement>('.graph-content');
-    const cx = dimensions.width / 2;
-    const cy = dimensions.height / 2;
 
-    // Filter nodes/links if scrubbing is active
     const visibleNodes =
       scrubIndex !== null && scrubIndex < nodes.length - 1
         ? nodes.slice(0, scrubIndex + 1)
@@ -251,8 +246,12 @@ export const Canvas: React.FC<CanvasProps> = ({
       return visibleNodeIds.has(s) && visibleNodeIds.has(t);
     });
 
-    // ── Calculate Radial Depth Positions if Radial mode active ───────────────
-    // Build tree depth map from root
+    // Compute center based on ViewMode
+    const isSplit = viewMode === 'split';
+    const leftCx = dimensions.width * 0.28;
+    const rightCx = dimensions.width * 0.72;
+    const cy = dimensions.height / 2;
+
     const depthMap = new Map<string, number>();
     const rootNodes = visibleNodes.filter((n) => !n.targetEntryId);
     const rootId = rootNodes.length > 0 ? rootNodes[0].id : visibleNodes[0]?.id;
@@ -274,7 +273,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
     }
 
-    // Group nodes by depth for radial angle distribution
     const nodesByDepth = new Map<number, GraphNode[]>();
     visibleNodes.forEach((n) => {
       const d = depthMap.get(n.id) ?? (n.targetEntryId ? 1 : 0);
@@ -282,7 +280,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       nodesByDepth.get(d)!.push(n);
     });
 
-    // Preserve existing positions / apply radial targets
     const nodesData: GraphNode[] = visibleNodes.map((d) => {
       const existing = sim.nodes().find((n) => n.id === d.id);
       const depth = depthMap.get(d.id) ?? 0;
@@ -290,13 +287,14 @@ export const Canvas: React.FC<CanvasProps> = ({
       const sibIdx = siblings.indexOf(d);
       const totalSib = siblings.length;
 
-      // In Radial mode: target concentric orbital rings
-      let radialTargetX = cx;
+      const nodeCx = isSplit ? (d.isCounterfactual ? rightCx : leftCx) : dimensions.width / 2;
+
+      let radialTargetX = nodeCx;
       let radialTargetY = cy;
       if (depth > 0) {
-        const radius = depth * 150;
+        const radius = depth * 140;
         const angle = (sibIdx / totalSib) * 2 * Math.PI - Math.PI / 2;
-        radialTargetX = cx + radius * Math.cos(angle);
+        radialTargetX = nodeCx + radius * Math.cos(angle);
         radialTargetY = cy + radius * Math.sin(angle);
       }
 
@@ -311,10 +309,8 @@ export const Canvas: React.FC<CanvasProps> = ({
             vy: existing.vy,
             isBottleneck: isAlert,
             depth,
-            ...(layoutMode === 'radial' && {
-              targetRadialX: radialTargetX,
-              targetRadialY: radialTargetY,
-            }),
+            targetX: radialTargetX,
+            targetY: radialTargetY,
           }
         : {
             ...d,
@@ -322,10 +318,8 @@ export const Canvas: React.FC<CanvasProps> = ({
             y: radialTargetY + (Math.random() - 0.5) * 40,
             isBottleneck: isAlert,
             depth,
-            ...(layoutMode === 'radial' && {
-              targetRadialX: radialTargetX,
-              targetRadialY: radialTargetY,
-            }),
+            targetX: radialTargetX,
+            targetY: radialTargetY,
           };
     });
 
@@ -337,27 +331,26 @@ export const Canvas: React.FC<CanvasProps> = ({
       return { ...d, isBottleneck: isBottleneckEdge };
     });
 
-    // ── Update Layout Forces ─────────────────────────────────────────────────
+    // Update Simulation Forces
     if (layoutMode === 'radial') {
-      sim.force('center', d3.forceCenter(cx, cy).strength(0.3));
+      sim.force('center', d3.forceCenter(dimensions.width / 2, cy).strength(isSplit ? 0.05 : 0.3));
       sim.force('charge', d3.forceManyBody().strength(-200));
       sim.force(
-        'radial',
-        d3
-          .forceRadial<GraphNode>(
-            (d) => (depthMap.get(d.id) ?? 0) * 150,
-            cx,
-            cy,
-          )
-          .strength(0.8),
+        'x',
+        d3.forceX<GraphNode>((d) => (d as any).targetX || dimensions.width / 2).strength(0.6),
+      );
+      sim.force(
+        'y',
+        d3.forceY<GraphNode>((d) => (d as any).targetY || cy).strength(0.6),
       );
     } else {
-      (sim.force('radial') as any)?.strength(0);
-      sim.force('center', d3.forceCenter(cx, cy).strength(1));
+      (sim.force('x') as any)?.strength(0);
+      (sim.force('y') as any)?.strength(0);
+      sim.force('center', d3.forceCenter(dimensions.width / 2, cy).strength(1));
       sim.force('charge', d3.forceManyBody().strength(-450));
     }
 
-    // ── Nodes ────────────────────────────────────────────────────────────────
+    // ── Nodes Enter/Update ───────────────────────────────────────────────────
     const nodeGroups = content
       .select<SVGGElement>('.nodes-group')
       .selectAll<SVGGElement, GraphNode>('g.node-group')
@@ -391,7 +384,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       });
     nodeEnter.call(drag as any);
 
-    // Glow ring / Bottleneck pulsing ring
+    // Glow ring / Simulation dashed ring
     nodeEnter
       .append('circle')
       .attr('class', 'glow-ring')
@@ -432,32 +425,47 @@ export const Canvas: React.FC<CanvasProps> = ({
       .attr('font-weight', '500')
       .text((d) => d.agentId.split(' ')[0]);
 
-    // Fade in new nodes
+    // Simulated / Sandbox badge above node
+    nodeEnter
+      .filter((d) => !!d.isCounterfactual)
+      .append('text')
+      .attr('class', 'sim-node-badge')
+      .attr('text-anchor', 'middle')
+      .attr('dy', -36)
+      .attr('fill', '#38bdf8')
+      .attr('font-size', '9px')
+      .attr('font-weight', '700')
+      .text('🧪 SIMULATED');
+
     nodeEnter.transition().duration(500).style('opacity', 1);
 
-    // Apply Bottleneck Alert & Active Scrub Styling to all node groups
+    // Apply active styling
     const activeNodeId =
       scrubIndex !== null && nodes[scrubIndex] ? nodes[scrubIndex].id : null;
 
     content
       .selectAll<SVGGElement, GraphNode>('g.node-group')
       .classed('bottleneck-alert', (d) => !!d.isBottleneck)
+      .classed('counterfactual-node', (d) => !!d.isCounterfactual)
       .select('circle.glow-ring')
       .attr('stroke', (d) =>
         d.id === activeNodeId
           ? '#fbbf24'
           : d.isBottleneck
           ? '#ef4444'
+          : d.isCounterfactual
+          ? '#38bdf8'
           : TAG_COLORS[d.tag],
       )
       .attr('stroke-width', (d) =>
-        d.id === activeNodeId ? 4 : d.isBottleneck ? 3.5 : 2,
+        d.id === activeNodeId ? 4 : d.isBottleneck ? 3.5 : d.isCounterfactual ? 3 : 2,
       )
+      .attr('stroke-dasharray', (d) => (d.isCounterfactual ? '4 2' : 'none'))
       .attr('fill-opacity', (d) =>
-        d.id === activeNodeId ? 0.4 : d.isBottleneck ? 0.35 : 0.18,
+        d.id === activeNodeId ? 0.4 : d.isBottleneck ? 0.35 : 0.22,
       );
 
-    // ── Links ─────────────────────────────────────────────────────────────────
+    // ── Links Enter/Update ───────────────────────────────────────────────────
     const linkLines = content
       .select<SVGGElement>('.links-group')
       .selectAll<SVGLineElement, GraphLink>('line.graph-link')
@@ -479,7 +487,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         if (d.isBottleneck) return '#ef4444';
         const srcId = typeof d.source === 'object' ? d.source.id : String(d.source);
         const src = nodesData.find((n) => n.id === srcId);
-        return src ? TAG_COLORS[src.tag] : 'rgba(255,255,255,0.3)';
+        return src ? (src.isCounterfactual ? '#38bdf8' : TAG_COLORS[src.tag]) : 'rgba(255,255,255,0.3)';
       })
       .attr('marker-end', (d) => {
         if (d.isBottleneck) return 'url(#arrow-bottleneck)';
@@ -492,9 +500,12 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     content
       .selectAll<SVGLineElement, GraphLink>('line.graph-link')
-      .classed('bottleneck-link', (d) => !!d.isBottleneck);
+      .classed('bottleneck-link', (d) => !!d.isBottleneck)
+      .classed('cf-link', (d) => {
+        const srcId = typeof d.source === 'object' ? d.source.id : String(d.source);
+        return !!nodesData.find((n) => n.id === srcId)?.isCounterfactual;
+      });
 
-    // ── Feed simulation ───────────────────────────────────────────────────────
     sim.nodes(nodesData);
     (sim.force('link') as d3.ForceLink<GraphNode, GraphLink>).links(linksData);
     sim.alpha(0.35).restart();
@@ -513,7 +524,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         .selectAll<SVGGElement, GraphNode>('g.node-group')
         .attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
-  }, [nodes, links, dimensions, scrubIndex, layoutMode, bottleneckNodeIds]);
+  }, [nodes, links, dimensions, scrubIndex, layoutMode, viewMode, bottleneckNodeIds]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const hasNodes = nodes.length > 0;
@@ -541,13 +552,33 @@ export const Canvas: React.FC<CanvasProps> = ({
           <span className="status-text">WS: {wsStatus.toUpperCase()}</span>
         </div>
 
-        {/* Layout Mode Selector (W2 Day 4) */}
+        {/* View Mode Toggle: Unified vs Split Alternative Timeline (W3 Day 1) */}
+        <div className="view-mode-selector">
+          <button
+            id="btn-view-unified"
+            className={`view-btn ${viewMode === 'unified' ? 'active' : ''}`}
+            onClick={() => setViewMode('unified')}
+            title="Unified DAG Canvas"
+          >
+            ◻ Unified
+          </button>
+          <button
+            id="btn-view-split"
+            className={`view-btn ${viewMode === 'split' ? 'active' : ''}`}
+            onClick={() => setViewMode('split')}
+            title="Split-Panel Alternative Timeline View"
+          >
+            ◫ Split Timeline
+          </button>
+        </div>
+
+        {/* Layout Mode Selector */}
         <div className="layout-selector">
           <button
             id="btn-layout-radial"
             className={`layout-btn ${layoutMode === 'radial' ? 'active' : ''}`}
             onClick={() => setLayoutMode('radial')}
-            title="Concentric Radial Tree layout rooted at problem statement"
+            title="Concentric Radial Tree layout"
           >
             ◎ Radial
           </button>
@@ -567,13 +598,29 @@ export const Canvas: React.FC<CanvasProps> = ({
         {streamDone && <div className="stream-done-badge">✓ Stream Complete</div>}
       </div>
 
-      {/* Bottleneck Alert Banner (W2 Day 4) */}
+      {/* Split Panel Headers when Split View active (W3 Day 1) */}
+      {viewMode === 'split' && (
+        <div className="split-view-headers">
+          <div className="split-panel-title left-title">
+            <span className="panel-dot live-dot" />
+            <strong>Live Mainline Board</strong>
+            <span className="panel-count">({mainNodes.length} entries)</span>
+          </div>
+          <div className="split-divider-line" />
+          <div className="split-panel-title right-title">
+            <span className="panel-dot cf-dot" />
+            <strong>Rollback & Sandbox Simulation</strong>
+            <span className="panel-count">({cfNodes.length} simulated entries)</span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottleneck Alert Banner */}
       {hasBottlenecks && (
         <div className="bottleneck-banner">
           <div className="alert-flashing-icon">🚨</div>
           <div className="alert-content">
-            <strong>Bottleneck Alert:</strong>{' '}
-            <span>{clusters[0].reason}</span>
+            <strong>Bottleneck Alert:</strong> <span>{clusters[0].reason}</span>
           </div>
           <button
             className="alert-jump-btn"
@@ -648,10 +695,9 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       {/* Footer counter */}
       <div className="hud-overlay footer-hud">
-        <span className="hud-label">S4 — {layoutMode === 'radial' ? 'Radial Tree' : 'Force'} View</span>
+        <span className="hud-label">S4 — {viewMode === 'split' ? 'Split Timeline' : 'Unified'} View</span>
         <span className="hud-detail">
-          {nodes.length} nodes · {links.length} edges
-          {bottleneckNodeIds.size > 0 && ` · ${bottleneckNodeIds.size} alerted`}
+          {nodes.length} nodes ({cfNodes.length} simulated) · {links.length} edges
         </span>
       </div>
 
@@ -675,6 +721,12 @@ export const Canvas: React.FC<CanvasProps> = ({
             </button>
           </div>
           <div className="drawer-body">
+            {selectedNode.isCounterfactual && (
+              <div className="drawer-cf-alert">
+                🧪 <strong>Isolated Sandbox Simulation Entry</strong>
+                <p className="cf-subtext">Rollback alternative branch tested by Student 1 sandbox.</p>
+              </div>
+            )}
             {selectedNode.isBottleneck && (
               <div className="drawer-bottleneck-alert">
                 ⚠️ Bottleneck conflict node (cascading refutations / deadlock)
@@ -722,9 +774,6 @@ export const Canvas: React.FC<CanvasProps> = ({
               <span className="field-label">Explanation (Why)</span>
               <p className="field-text">{selectedNode.explanation}</p>
             </div>
-            {selectedNode.isCounterfactual && (
-              <div className="cf-badge">★ Counterfactual Simulation Entry</div>
-            )}
           </div>
         </div>
       )}

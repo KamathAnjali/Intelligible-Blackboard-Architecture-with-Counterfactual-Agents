@@ -10,12 +10,15 @@ export interface AgentTokenStats {
   total_prompt_tokens?: number;
   total_completion_tokens?: number;
   total_tokens: number;
+  simulation_tokens?: number;
   tags_used?: Record<string, number>;
 }
 
 export interface TokenTallyReport {
   total_tokens: number;
   turn_count: number;
+  mainline_tokens?: number;
+  simulation_tokens?: number;
   agents: Record<string, AgentTokenStats>;
 }
 
@@ -26,6 +29,11 @@ interface TokenTallyProps {
 export const TokenTally: React.FC<TokenTallyProps> = ({ tally }) => {
   const [isOpen, setIsOpen] = useState(false);
   const agentList = Object.values(tally.agents || {});
+
+  const simTokens =
+    tally.simulation_tokens ??
+    agentList.reduce((acc, a) => acc + (a.simulation_tokens || 0), 0);
+  const mainTokens = tally.mainline_tokens ?? Math.max(0, tally.total_tokens - simTokens);
 
   return (
     <div className="token-tally-container">
@@ -40,6 +48,11 @@ export const TokenTally: React.FC<TokenTallyProps> = ({ tally }) => {
         <span className="token-pill-text">
           <strong>{tally.total_tokens.toLocaleString()}</strong> tokens
         </span>
+        {simTokens > 0 && (
+          <span className="sim-token-badge" title="Simulation / Rollback Tokens">
+            🧪 {simTokens.toLocaleString()}t sim
+          </span>
+        )}
         <span className="token-pill-badge">{tally.turn_count} turns</span>
         <span className="token-chevron">{isOpen ? '▲' : '▼'}</span>
       </button>
@@ -51,28 +64,36 @@ export const TokenTally: React.FC<TokenTallyProps> = ({ tally }) => {
             <div className="token-header-title">
               <span className="token-icon-lg">⚡</span>
               <div>
-                <h4>Token Consumption Tally</h4>
-                <p className="token-header-subtitle">Live metrics from Student 3 LLM client</p>
+                <h4>Token Cost Analysis View</h4>
+                <p className="token-header-subtitle">
+                  Per-agent & session totals (including counterfactual sandbox simulations)
+                </p>
               </div>
             </div>
-            <button className="token-close-btn" onClick={() => setIsOpen(false)}>×</button>
+            <button
+              id="btn-close-token-card"
+              className="token-close-btn"
+              onClick={() => setIsOpen(false)}
+            >
+              ×
+            </button>
           </div>
 
           <div className="token-summary-row">
             <div className="token-stat-box">
               <span className="stat-label">Total Tokens</span>
-              <span className="stat-val highlight">{tally.total_tokens.toLocaleString()}</span>
+              <span className="stat-val highlight">
+                {tally.total_tokens.toLocaleString()}
+              </span>
             </div>
             <div className="token-stat-box">
-              <span className="stat-label">Total Turns</span>
-              <span className="stat-val">{tally.turn_count}</span>
+              <span className="stat-label">Mainline Board</span>
+              <span className="stat-val">{mainTokens.toLocaleString()}</span>
             </div>
-            <div className="token-stat-box">
-              <span className="stat-label">Avg / Turn</span>
-              <span className="stat-val">
-                {tally.turn_count > 0
-                  ? Math.round(tally.total_tokens / tally.turn_count)
-                  : 0}
+            <div className="token-stat-box sim-box">
+              <span className="stat-label">CF Sandbox</span>
+              <span className="stat-val sim-highlight">
+                {simTokens.toLocaleString()}
               </span>
             </div>
           </div>
@@ -83,52 +104,75 @@ export const TokenTally: React.FC<TokenTallyProps> = ({ tally }) => {
               <p className="no-data-msg">No agent turns recorded yet.</p>
             ) : (
               <div className="agent-token-list">
-                {agentList.map((agent) => (
-                  <div key={agent.agent_id} className="agent-token-row">
-                    <div className="agent-token-info">
-                      <span className="agent-name">{agent.agent_id}</span>
-                      <div className="agent-tag-chips">
-                        {agent.tags_used &&
-                          Object.entries(agent.tags_used).map(([tag, count]) => (
-                            <span
-                              key={tag}
-                              className="mini-tag-chip"
-                              style={{
-                                color: TAG_COLORS[tag as PXPTag] || '#94a3b8',
-                                borderColor: TAG_COLORS[tag as PXPTag] || '#334155',
-                              }}
-                            >
-                              {tag}: {count}
-                            </span>
-                          ))}
-                      </div>
-                    </div>
+                {agentList.map((agent) => {
+                  const isCf =
+                    agent.agent_id.toLowerCase().includes('sandbox') ||
+                    agent.agent_id.toLowerCase().includes('counterfactual') ||
+                    (agent.simulation_tokens ?? 0) > 0;
 
-                    <div className="agent-token-bars">
-                      <div className="token-bar-track">
-                        <div
-                          className="token-bar-fill"
-                          style={{
-                            width: `${
-                              tally.total_tokens > 0
-                                ? (agent.total_tokens / tally.total_tokens) * 100
-                                : 0
-                            }%`,
-                          }}
-                        />
+                  return (
+                    <div
+                      key={agent.agent_id}
+                      className={`agent-token-row ${isCf ? 'cf-agent-row' : ''}`}
+                    >
+                      <div className="agent-token-info">
+                        <div className="agent-title-wrap">
+                          <span className="agent-name">{agent.agent_id}</span>
+                          {isCf && (
+                            <span className="agent-cf-tag">
+                              ★ Sandbox Agent
+                            </span>
+                          )}
+                        </div>
+                        <div className="agent-tag-chips">
+                          {agent.tags_used &&
+                            Object.entries(agent.tags_used).map(([tag, count]) => (
+                              <span
+                                key={tag}
+                                className="mini-tag-chip"
+                                style={{
+                                  color: TAG_COLORS[tag as PXPTag] || '#94a3b8',
+                                  borderColor: TAG_COLORS[tag as PXPTag] || '#334155',
+                                }}
+                              >
+                                {tag}: {count}
+                              </span>
+                            ))}
+                        </div>
                       </div>
-                      <div className="token-counts-split">
-                        <span className="split-detail">
-                          pred: <strong>{agent.total_prediction_tokens}</strong> · expl:{' '}
-                          <strong>{agent.total_explanation_tokens}</strong>
-                        </span>
-                        <span className="agent-total-tokens">
-                          <strong>{agent.total_tokens.toLocaleString()}</strong> t
-                        </span>
+
+                      <div className="agent-token-bars">
+                        <div className="token-bar-track">
+                          <div
+                            className={`token-bar-fill ${isCf ? 'cf-bar-fill' : ''}`}
+                            style={{
+                              width: `${
+                                tally.total_tokens > 0
+                                  ? (agent.total_tokens / tally.total_tokens) * 100
+                                  : 0
+                              }%`,
+                            }}
+                          />
+                        </div>
+                        <div className="token-counts-split">
+                          <span className="split-detail">
+                            pred: <strong>{agent.total_prediction_tokens}</strong> ·
+                            expl:{' '}
+                            <strong>{agent.total_explanation_tokens}</strong>
+                            {(agent.simulation_tokens ?? 0) > 0 && (
+                              <span className="sim-split-badge">
+                                {' '}· sim: {agent.simulation_tokens}
+                              </span>
+                            )}
+                          </span>
+                          <span className="agent-total-tokens">
+                            <strong>{agent.total_tokens.toLocaleString()}</strong> t
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
