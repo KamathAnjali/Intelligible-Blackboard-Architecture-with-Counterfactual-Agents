@@ -12,9 +12,10 @@ endif
 RUNS ?= 3
 PERSONA ?= cautious_verifier
 RETRIES ?= 2
+TURNS ?= 6
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
-.PHONY: help start chat query gpu latency samples pex entry personas test stop
+.PHONY: help start chat query gpu latency samples pex entry conversation personas test stop
 
 help:
 	@echo make start                 Start Ollama if needed
@@ -26,6 +27,7 @@ help:
 	@echo make pex PERSONA=aggressive_proposer RETRIES=2    Generate validated PEX
 	@echo make personas              Run Day 4 checks - two personas, three tasks each
 	@echo make entry                 Preview one complete BoardEntry without posting
+	@echo make conversation TURNS=6  Run the Day 6 live two-agent blackboard session
 	@echo make test                  Run offline tests without requiring Ollama
 	@echo make stop                  Unload the model
 
@@ -40,3 +42,6 @@ pex:
 
 entry:
 	@$(RUNNER) entry -Persona "$(PERSONA)" -Retries "$(RETRIES)"
+
+conversation:
+	@$(RUNNER) conversation -Turns "$(TURNS)" -Retries "$(RETRIES)"

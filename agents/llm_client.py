@@ -27,6 +27,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PERSONAS = ("cautious_verifier", "aggressive_proposer")
 
 
+class GenerationTransportError(RuntimeError):
+    """A request failed; retain earlier attempts for the conversation log."""
+
+    def __init__(self, message, attempts):
+        super().__init__(message)
+        self.attempts = attempts
+
+
 class OllamaClient:
     def __init__(self, model=MODEL, base_url=BASE_URL):
         self.model = model
@@ -127,7 +135,11 @@ class OllamaClient:
         attempts = []
         feedback = ""
         for _ in range(max_retries + 1):
-            raw = self.generate(prompt, system=system + feedback, schema=response_model.model_json_schema())
+            try:
+                raw = self.generate(prompt, system=system + feedback, schema=response_model.model_json_schema())
+            except (RuntimeError, OSError) as exc:
+                attempts.append({"raw": None, "error": str(exc)})
+                raise GenerationTransportError(str(exc), attempts) from exc
             error = None
             try:
                 if raw.get("done") is not True or raw.get("done_reason") == "length":

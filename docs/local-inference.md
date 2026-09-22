@@ -280,6 +280,58 @@ Run both live mapping cases (initial proposal and reply) explicitly:
 
 All pytest files and configuration hooks now live under `tests/`. The manual
 scheduler check is `python -m tests.lopez_testing`. `pytest.ini` sets test
-discovery to `tests/`. Ordinary test runs skip live Ollama cases. Day 6 will add
-the real two-agent conversation loop; see `docs/day5-mapping.md` for the mapping
-design and verification notes.
+discovery to `tests/`. Ordinary test runs skip live Ollama cases. See
+`docs/day5-mapping.md` for the mapping design and verification notes.
+
+## 8. Day 6: live two-agent conversation
+
+From Windows or WSL in this repository:
+
+```text
+make start
+make conversation
+make conversation TURNS=6 RETRIES=2
+make test
+```
+
+The aggressive proposer and cautious verifier alternate through the existing
+Scheduler. Both use the shared local model. Each receives the original task
+and the latest real Blackboard history; its validated BoardEntry is then posted
+through the scheduler. The opening proposal uses REVISE. Later tags are chosen
+by the model. Turns stop on scheduler consensus, deadlock, the turn limit, or
+an error. No manual model chat is required.
+
+Use a custom task from PowerShell (explicitly invoking PowerShell also avoids
+the `.ps1` file association opening an editor):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 conversation -Turns 6 -Prompt "Some birds fly. Pip is a bird. Does Pip fly? Use insufficient information, yes, or no as prediction."
+```
+
+On macOS, or directly with Python in an activated virtual environment:
+
+```text
+python -m agents.conversation --turns 6 --retries 2
+python -m agents.conversation --prompt "Your task with supplied facts"
+```
+
+Each run creates `results/conversations/conversation-<UTC timestamp>/` with
+`transcript.json` and a final Blackboard snapshot. The transcript is checkpointed
+after every completed turn, and includes prompt templates, settings, original
+task, ordered entries, target references, every generation attempt, timing data,
+failure categories and stop reason. These generated files are Git-ignored.
+Reports are saved on validation/transport failures and Ctrl+C too; they do not
+need another successful server call to be written.
+
+`TURNS` allows 1–12 turns (default 6); `RETRIES` allows 0–5 additional attempts
+per turn (default 2). This is a short-session demonstration with full history,
+not a long-context runner. Exit code is zero for `scheduler_consensus` and
+nonzero for all other stop reasons, including budget exhaustion.
+
+Always review predictions and explanations. The board's STRONG/ULTRA_STRONG
+classification is a prototype tag heuristic, not proof of correctness or a
+productive revision. RATIFY with different prediction text is flagged for review
+and prevents reporting an unqualified successful session; equivalent paraphrases
+can also trigger this conservative check. Off-topic or unsupported explanations
+still need review. See [Day 6 run log](day6-live-run.md) and
+[failure-mode log v2](day6-failure-log-v2.md).
