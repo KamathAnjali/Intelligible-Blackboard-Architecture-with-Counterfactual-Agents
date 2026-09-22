@@ -44,6 +44,7 @@ def load_results_csv(csv_path: str | Path) -> List[Dict[str, Any]]:
         reader = csv.DictReader(fh)
         for r in reader:
             rows.append({
+                "mode": r.get("mode", "unknown"),
                 "task_id": r["task_id"],
                 "benchmark_source": r["benchmark_source"],
                 "config_pct": int(r["config_pct"]),
@@ -63,10 +64,13 @@ def load_results_csv(csv_path: str | Path) -> List[Dict[str, Any]]:
 def load_all_phase_csvs(phase_dir: str | Path) -> Dict[int, List[Dict[str, Any]]]:
     """Scan a phase directory and group results by config_pct (0, 33, 66, 100)."""
     p_dir = Path(phase_dir)
-    csv_files = sorted(p_dir.glob("run_*_config-*pct.csv"))
-    # Exclude dry runs if real batch runs exist
-    real_csvs = [f for f in csv_files if "dry-run" not in f.name]
-    target_csvs = real_csvs if real_csvs else csv_files
+    # Match mode-prefixed CSV files
+    pilot_csvs = sorted(p_dir.glob("pilot_run_*_config-*pct.csv"))
+    dryrun_csvs = sorted(p_dir.glob("dryrun_run_*_config-*pct.csv"))
+    example_csvs = sorted(p_dir.glob("example_run_*_config-*pct.csv"))
+    all_other_csvs = sorted(p_dir.glob("*run_*_config-*pct.csv"))
+
+    target_csvs = pilot_csvs if pilot_csvs else (dryrun_csvs if dryrun_csvs else (example_csvs if example_csvs else all_other_csvs))
 
     by_config: Dict[int, List[Dict[str, Any]]] = {}
     for f in target_csvs:
