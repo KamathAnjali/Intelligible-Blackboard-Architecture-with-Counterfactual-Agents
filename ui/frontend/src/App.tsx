@@ -36,9 +36,6 @@ interface WsEnvelope {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Convert a board_entry event into a GraphNode.
- */
 function entryToNode(entry: BoardEntryEvent): GraphNode {
   return {
     id: entry.entry_id,
@@ -78,56 +75,83 @@ export const App: React.FC = () => {
 
   const socketRef = useRef<WebSocket | null>(null);
 
-  const handleMessage = useCallback((envelope: WsEnvelope) => {
-    // Detailed console logging for demo narration
-    if (envelope.type === 'connection_ack') {
-      console.log(`[WS] ✅ Connected — mode: ${envelope.mode}`, envelope.message);
-    } else if (envelope.type === 'board_entry' && envelope.entry) {
-      console.log(
-        `[WS] 📋 board_entry  tag=${envelope.entry.tag}  agent=${envelope.entry.agent_id}  id=${envelope.entry.entry_id}`,
-        envelope.entry,
-      );
-    } else if (envelope.type === 'session_summary') {
-      console.log('[WS] 📊 session_summary', envelope.summary ?? envelope);
-    } else if (envelope.type === 'stream_complete') {
-      console.log('[WS] ✓ stream_complete — all events received');
-    }
+  // Batched incoming queue to prevent race conditions during high-frequency streaming (W2 Day 5)
+  const incomingBufferRef = useRef<WsEnvelope[]>([]);
+  const seenNodeIdsRef = useRef<Set<string>>(new Set());
+  const seenLinkKeysRef = useRef<Set<string>>(new Set());
+  const frameIdRef = useRef<number | null>(null);
 
-    if (envelope.type === 'connection_ack' && envelope.mode) {
-      setBoardMode(envelope.mode);
-    }
+  // Flush buffer on animation frame
+  const flushBuffer = useCallback(() => {
+    if (incomingBufferRef.current.length === 0) return;
 
-    if (envelope.token_tally) {
-      setTokenTally(envelope.token_tally);
-    }
+    const batch = [...incomingBufferRef.current];
+    incomingBufferRef.current = [];
 
-    if (envelope.type === 'board_entry' && envelope.entry) {
-      const newNode = entryToNode(envelope.entry);
-      const newLink = nodeToLink(newNode);
+    const newNodesToAdd: GraphNode[] = [];
+    const newLinksToAdd: GraphLink[] = [];
+    let latestTally: TokenTallyReport | null = null;
+    let isComplete = false;
+    let detectedMode: BoardMode = null;
 
-      setNodes((prev) => {
-        if (prev.find((n) => n.id === newNode.id)) return prev;
-        return [...prev, newNode];
-      });
-
-      if (newLink) {
-        setLinks((prev) => {
-          const key = `${String(newLink.source)}->${String(newLink.target)}`;
-          if (prev.find((l) => `${String(l.source)}->${String(l.target)}` === key)) return prev;
-          return [...prev, newLink];
-        });
+    batch.forEach((envelope) => {
+      if (envelope.type === 'connection_ack' && envelope.mode) {
+        detectedMode = envelope.mode;
       }
+      if (envelope.token_tally) {
+        latestTally = envelope.token_tally;
+      }
+      if (envelope.type === 'stream_complete') {
+        isComplete = true;
+      }
+      if (envelope.type === 'board_entry' && envelope.entry) {
+        const eid = envelope.entry.entry_id;
+        if (!seenNodeIdsRef.current.has(eid)) {
+          seenNodeIdsRef.current.add(eid);
+          const newNode = entryToNode(envelope.entry);
+          newNodesToAdd.push(newNode);
 
-      // If token_tally wasn't attached directly to envelope, compute running tally on client
-      if (!envelope.token_tally) {
-        setTokenTally((prev) => {
-          const predTok = newNode.tokenCount?.prediction_tokens ?? Math.max(1, Math.round(newNode.prediction.split(/\s+/).length * 1.3));
-          const explTok = newNode.tokenCount?.explanation_tokens ?? Math.max(1, Math.round(newNode.explanation.split(/\s+/).length * 1.3));
+          const newLink = nodeToLink(newNode);
+          if (newLink) {
+            const linkKey = `${String(newLink.source)}->${String(newLink.target)}`;
+            if (!seenLinkKeysRef.current.has(linkKey)) {
+              seenLinkKeysRef.current.add(linkKey);
+              newLinksToAdd.push(newLink);
+            }
+          }
+        }
+      }
+    });
+
+    if (detectedMode) {
+      setBoardMode(detectedMode);
+    }
+    if (newNodesToAdd.length > 0) {
+      setNodes((prev) => [...prev, ...newNodesToAdd]);
+    }
+    if (newLinksToAdd.length > 0) {
+      setLinks((prev) => [...prev, ...newLinksToAdd]);
+    }
+    if (latestTally) {
+      setTokenTally(latestTally);
+    } else if (newNodesToAdd.length > 0) {
+      // Incremental client-side tally calculation
+      setTokenTally((prev) => {
+        let addedTotal = 0;
+        const agentMap = { ...prev.agents };
+
+        newNodesToAdd.forEach((n) => {
+          const predTok =
+            n.tokenCount?.prediction_tokens ??
+            Math.max(1, Math.round(n.prediction.split(/\s+/).length * 1.3));
+          const explTok =
+            n.tokenCount?.explanation_tokens ??
+            Math.max(1, Math.round(n.explanation.split(/\s+/).length * 1.3));
           const totalTok = predTok + explTok;
+          addedTotal += totalTok;
 
-          const agentId = newNode.agentId;
-          const currentAgent = prev.agents[agentId] || {
-            agent_id: agentId,
+          const currentAgent = agentMap[n.agentId] || {
+            agent_id: n.agentId,
             turn_count: 0,
             total_prediction_tokens: 0,
             total_explanation_tokens: 0,
@@ -135,7 +159,7 @@ export const App: React.FC = () => {
             tags_used: {},
           };
 
-          const updatedAgent = {
+          agentMap[n.agentId] = {
             ...currentAgent,
             turn_count: currentAgent.turn_count + 1,
             total_prediction_tokens: currentAgent.total_prediction_tokens + predTok,
@@ -143,61 +167,88 @@ export const App: React.FC = () => {
             total_tokens: currentAgent.total_tokens + totalTok,
             tags_used: {
               ...(currentAgent.tags_used || {}),
-              [newNode.tag]: ((currentAgent.tags_used || {})[newNode.tag] || 0) + 1,
-            },
-          };
-
-          return {
-            total_tokens: prev.total_tokens + totalTok,
-            turn_count: prev.turn_count + 1,
-            agents: {
-              ...prev.agents,
-              [agentId]: updatedAgent,
+              [n.tag]: ((currentAgent.tags_used || {})[n.tag] || 0) + 1,
             },
           };
         });
-      }
-    }
 
-    if (envelope.type === 'stream_complete') {
+        return {
+          total_tokens: prev.total_tokens + addedTotal,
+          turn_count: prev.turn_count + newNodesToAdd.length,
+          agents: agentMap,
+        };
+      });
+    }
+    if (isComplete) {
       setStreamDone(true);
     }
   }, []);
 
+  const handleMessage = useCallback(
+    (envelope: WsEnvelope) => {
+      // Log for narration
+      if (envelope.type === 'connection_ack') {
+        console.log(`[WS] ✅ Connected — mode: ${envelope.mode}`, envelope.message);
+      } else if (envelope.type === 'board_entry' && envelope.entry) {
+        console.log(
+          `[WS] 📋 board_entry tag=${envelope.entry.tag} agent=${envelope.entry.agent_id} id=${envelope.entry.entry_id}`,
+        );
+      }
+
+      incomingBufferRef.current.push(envelope);
+
+      if (!frameIdRef.current) {
+        frameIdRef.current = requestAnimationFrame(() => {
+          frameIdRef.current = null;
+          flushBuffer();
+        });
+      }
+    },
+    [flushBuffer],
+  );
+
   useEffect(() => {
     let socket: WebSocket;
+    let reconnectTimer: any = null;
 
-    try {
-      socket = new WebSocket(WS_URL);
-      socketRef.current = socket;
+    const connect = () => {
+      try {
+        socket = new WebSocket(WS_URL);
+        socketRef.current = socket;
 
-      socket.onopen = () => {
-        console.log('[WS] Connection open');
-        setWsStatus('connected');
-      };
+        socket.onopen = () => {
+          console.log('[WS] Connection open');
+          setWsStatus('connected');
+        };
 
-      socket.onmessage = (event) => {
-        try {
-          handleMessage(JSON.parse(event.data) as WsEnvelope);
-        } catch (e) {
-          console.warn('[WS] Failed to parse message:', event.data, e);
-        }
-      };
+        socket.onmessage = (event) => {
+          try {
+            handleMessage(JSON.parse(event.data) as WsEnvelope);
+          } catch (e) {
+            console.warn('[WS] Failed to parse message:', event.data, e);
+          }
+        };
 
-      socket.onerror = () => {
-        console.warn('[WS] Error — is the server running? (uvicorn ui.server.main:app --reload)');
+        socket.onerror = () => {
+          setWsStatus('disconnected');
+        };
+
+        socket.onclose = () => {
+          setWsStatus('disconnected');
+          // Auto-reconnect after 3s
+          reconnectTimer = setTimeout(connect, 3000);
+        };
+      } catch {
         setWsStatus('disconnected');
-      };
+        reconnectTimer = setTimeout(connect, 3000);
+      }
+    };
 
-      socket.onclose = () => {
-        console.log('[WS] Closed');
-        setWsStatus('disconnected');
-      };
-    } catch {
-      setWsStatus('disconnected');
-    }
+    connect();
 
     return () => {
+      clearTimeout(reconnectTimer);
+      if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
       socketRef.current?.close();
     };
   }, [handleMessage]);
