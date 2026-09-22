@@ -36,7 +36,7 @@ names or types. A PEX object alone is not a BoardEntry: `agent_id` and `tag`
 are additionally required. The application still needs to register the agent
 and resolve the response target before submitting to the board.
 
-`test_agent_contract.py` constructs synthetic entries for each of the four tags,
+`tests/test_agent_contract.py` constructs synthetic entries for each of the four tags,
 checks JSON round trips and default metadata, and verifies that bare PEX is
 rejected as an incomplete BoardEntry. This is a compatibility test, not a
 production adapter or a live agent-to-board interaction.

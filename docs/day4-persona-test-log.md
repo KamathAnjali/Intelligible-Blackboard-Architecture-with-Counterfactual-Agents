@@ -6,7 +6,7 @@ Assignment: Week 1 Plan, Day 4, cells F9:G9 of the project Excel.
 ## Run and settings
 
 Executed `make personas` from WSL, invoking Windows Python and local Ollama.
-The command runs `test_personas_live.py`: three tasks for each of the two
+The command runs `tests/test_personas_live.py`: three tasks for each of the two
 personas. Tasks come from `agents/prompts/sample_tasks.json`, using the
 deduction, insufficient-evidence, and contradiction cases. Expected answers
 are test-side checks only and are not included as separate input to the model.

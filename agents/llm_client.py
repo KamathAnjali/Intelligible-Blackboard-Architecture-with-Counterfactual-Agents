@@ -1,4 +1,4 @@
-"""Local inference harness: raw text plus Day 3 validated PEX generation.
+"""Local inference harness: raw text, validated PEX, and PXP-to-BoardEntry mapping.
 
 Run from the repository root: python -m agents.llm_client --help
 """
@@ -17,6 +17,8 @@ from urllib.request import Request, urlopen
 from pydantic import ValidationError
 
 from agents.pex import PEXGenerationError, PEXResponse
+from agents.pxp import InitialPXPResponse, PXPGenerationError, PXPResponse
+from blackboard.models import AgentRecord, BlackboardState, BoardEntry
 
 MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 BASE_URL = "http://127.0.0.1:11434"
@@ -59,9 +61,58 @@ class OllamaClient:
         return result
 
     def generate_pex(self, prompt, persona=None, max_retries=2):
+        """Return validated PEX plus raw output and all attempts."""
+        return self._generate_structured(
+            prompt, persona, max_retries, "pex_template.txt", PEXResponse, PEXGenerationError,
+        )
+
+    def generate_entry(self, task, state: BlackboardState, agent_id: str,
+                       target_entry_id=None, max_retries=2, is_counterfactual_sim=False):
+        """Build one BoardEntry from a snapshot without posting or mutating it.
+
+        The application selects the target (latest entry by default). The model
+        selects the tag, prediction and explanation; metadata is supplied here.
+        Posting later must still pass Blackboard's registration/reference checks.
+        """
+        if not isinstance(task, str) or not task.strip():
+            raise ValueError("task must be a nonempty string")
+        if type(is_counterfactual_sim) is not bool:
+            raise ValueError("is_counterfactual_sim must be a bool")
+        snapshot = state.model_copy(deep=True)
+        agent = snapshot.agents.get(agent_id)
+        if agent is None or not agent.active or agent.agent_id != agent_id:
+            raise ValueError("agent_id must identify a registered, active agent")
+        if agent.model_name not in ("unspecified", self.model):
+            raise ValueError("Registered agent model_name does not match this client's model")
+        if target_entry_id is None and snapshot.entries:
+            target_entry_id = snapshot.entries[-1].entry_id
+        if target_entry_id is not None and not any(
+            entry.entry_id == target_entry_id for entry in snapshot.entries
+        ):
+            raise ValueError("target_entry_id must exist in the supplied board snapshot")
+        prompt = json.dumps({
+            "task": task, "task_id": snapshot.task_id, "acting_agent_id": agent_id,
+            "target_entry_id": target_entry_id,
+            "history": [entry.model_dump(mode="json") for entry in snapshot.entries],
+        }, ensure_ascii=False)
+        schema = PXPResponse if snapshot.entries else InitialPXPResponse
+        result = self._generate_structured(
+            prompt, agent.persona, max_retries, "pxp_template.txt", schema, PXPGenerationError,
+        )
+        # Explicitly copy model-owned fields; never unpack arbitrary model metadata.
+        parsed = result["parsed"]
+        result["entry"] = BoardEntry(
+            agent_id=agent_id, tag=parsed["tag"], prediction=parsed["prediction"],
+            explanation=parsed["explanation"], target_entry_id=target_entry_id,
+            is_counterfactual_sim=is_counterfactual_sim,
+        )
+        return result
+
+    def _generate_structured(self, prompt, persona, max_retries, template_name,
+                             response_model, error_class):
         """Validate every answer; retry malformed/truncated output only.
 
-        The result contains parsed PEX, final raw output, and every attempt's
+        The result contains parsed fields, final raw output, and every attempt's
         raw output/timing. Semantic correctness requires separate evaluation.
         Transport errors propagate without being retried as formatting errors.
         """
@@ -70,20 +121,20 @@ class OllamaClient:
         if persona is not None and persona not in PERSONAS:
             raise ValueError(f"Unknown persona: {persona}")
         prompts = ROOT / "agents/prompts"
-        system = (prompts / "pex_template.txt").read_text(encoding="utf-8")
+        system = (prompts / template_name).read_text(encoding="utf-8")
         if persona:
             system = (prompts / f"{persona}.txt").read_text(encoding="utf-8") + "\n\n" + system
         attempts = []
         feedback = ""
         for _ in range(max_retries + 1):
-            raw = self.generate(prompt, system=system + feedback, schema=PEXResponse.model_json_schema())
+            raw = self.generate(prompt, system=system + feedback, schema=response_model.model_json_schema())
             error = None
             try:
                 if raw.get("done") is not True or raw.get("done_reason") == "length":
                     raise ValueError("Response incomplete or truncated; use a shorter complete JSON answer.")
                 if not isinstance(raw.get("response"), str):
                     raise ValueError("Response text is missing or is not a string.")
-                parsed = PEXResponse.model_validate_json(raw["response"])
+                parsed = response_model.model_validate_json(raw["response"])
             except ValidationError as exc:
                 error = "; ".join(
                     f"{'.'.join(map(str, issue['loc'])) or 'JSON'}: {issue['msg']}"
@@ -93,12 +144,12 @@ class OllamaClient:
                 error = str(exc)
             attempts.append({"raw": raw, "error": error})
             if error is None:
-                return {"parsed": parsed.model_dump(), "raw": raw, "attempts": attempts}
+                return {"parsed": parsed.model_dump(mode="json"), "raw": raw, "attempts": attempts}
             feedback = (
                 f"\n\nAttempt {len(attempts)} failed output validation: {error}\n"
-                "Answer the original task again. Return only the required JSON with two nonempty strings."
+                "Answer the original task again. Return only JSON matching the supplied schema."
             )
-        raise PEXGenerationError(attempts)
+        raise error_class(attempts)
 
 
 def timings(result):
@@ -192,7 +243,7 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["query", "latency", "samples", "pex"])
+    parser.add_argument("command", choices=["query", "latency", "samples", "pex", "entry"])
     parser.add_argument("--persona", choices=PERSONAS, default="cautious_verifier")
     parser.add_argument("--retries", type=int, choices=range(6), default=2)
     parser.add_argument("--prompt")
@@ -203,7 +254,7 @@ def main():
     if args.prompt is None:
         args.prompt = (
             "All tulips are plants. This item is a tulip. Is it a plant? Use yes or no as prediction."
-            if args.command == "pex" else "Explain a blackboard architecture in three sentences."
+            if args.command in ("pex", "entry") else "Explain a blackboard architecture in three sentences."
         )
     if args.runs < 1:
         parser.error("--runs must be at least 1")
@@ -215,18 +266,24 @@ def main():
             print(json.dumps(timings(result), indent=2))
         elif args.command == "latency":
             benchmark(client, args.runs)
-        elif args.command == "pex":
+        elif args.command in ("pex", "entry"):
             record = {"prompt": args.prompt, "persona": args.persona, "max_retries": args.retries}
             try:
-                result = client.generate_pex(args.prompt, args.persona, args.retries)
+                if args.command == "entry":
+                    agent = AgentRecord(agent_id="dhruva-preview", persona=args.persona, model_name=client.model)
+                    state = BlackboardState(task_id="day5-preview", agents={agent.agent_id: agent})
+                    result = client.generate_entry(args.prompt, state, agent.agent_id, max_retries=args.retries)
+                    result["entry"] = result["entry"].model_dump(mode="json")
+                else:
+                    result = client.generate_pex(args.prompt, args.persona, args.retries)
             except PEXGenerationError as exc:
                 record.update({"attempts": exc.attempts, "error": str(exc)})
-                save_report("pex", client, [record])
+                save_report(args.command, client, [record])
                 raise
             record.update(result)
-            print(json.dumps(result["parsed"], ensure_ascii=False, indent=2))
+            print(json.dumps(result.get("entry", result["parsed"]), ensure_ascii=False, indent=2))
             print(f"Validated after {len(result['attempts'])} attempt(s).")
-            save_report("pex", client, [record])
+            save_report(args.command, client, [record])
         else:
             return samples(client)
     except (RuntimeError, OSError, ValueError) as exc:

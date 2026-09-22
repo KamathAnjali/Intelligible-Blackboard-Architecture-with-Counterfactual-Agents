@@ -39,7 +39,9 @@ Keep these choices consistent across machines to reduce setup issues and make be
 For the current Student 3 setup, use the pinned model
 `qwen3:4b-instruct-2507-q4_K_M` and follow the
 [local inference guide](docs/local-inference.md) for chat, GPU checks,
-latency measurement, and the Day 2 harness.
+latency measurement, validated PEX/PXP output, and the Day 5 BoardEntry adapter.
+Use `make entry` for a complete entry preview and `make test` for offline tests.
+Test scripts live under `tests/`; generated reports and snapshots are ignored.
 
 ### Ollama (team default)
 

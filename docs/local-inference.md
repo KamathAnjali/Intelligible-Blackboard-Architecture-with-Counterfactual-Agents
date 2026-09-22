@@ -1,4 +1,4 @@
-# Student 3: local inference, Days 1 through 4
+# Student 3: local inference, Days 1 through 5
 
 Use **Windows PowerShell** on Dhruva's laptop. Ollama runs natively on Windows
 at `http://127.0.0.1:11434`. WSL is not needed. GNU Make is already installed
@@ -217,10 +217,69 @@ Default `python -m pytest -q` runs the offline tests and skips the six live
 checks. To run the same live checks directly with a local Python environment:
 
 ```bash
-python -m pytest -q -s --run-ollama test_personas_live.py
+python -m pytest -q -s --run-ollama tests/test_personas_live.py
 ```
 
 The Make command also works from WSL and uses Windows Python/Ollama. Mac
 teammates can use the direct Python command in their own virtual environment.
 `docs/day4-contract-review.md` records compatibility evidence and review comments
-for Student 1/2's message schema; the actual adapter remains Day 5 work.
+for Student 1/2's message schema. Day 5 implements the adapter described below.
+
+## 7. Day 5: generate a complete BoardEntry
+
+```powershell
+make entry
+make entry PERSONA=aggressive_proposer RETRIES=2
+make test
+```
+
+`make entry` previews one initial entry for the same small tulip task. It prints
+the complete BoardEntry JSON and saves a local report; it does not post to a
+shared session. Use `run.ps1 entry -Prompt "..."` through PowerShell to provide
+a different task. `make test` runs the offline suite without needing Ollama.
+
+For application integration:
+
+```python
+result = client.generate_entry(
+    task="All tulips are plants. This is a tulip. Is it a plant?",
+    state=board.get_state(),
+    agent_id=acting_agent.agent_id,
+)
+entry = result["entry"]  # Validated BoardEntry object
+# The caller submits when appropriate for its scheduled turn:
+scheduler.submit_entry(entry)
+```
+
+Register the agent in both the board and the current scheduler before use.
+The registered persona must be one of the supported prompts, and a specified
+model name must match the client. The adapter rejects unknown/inactive agents
+and nonexistent targets before calling the model. By default, a reply targets
+the latest entry; pass `target_entry_id` to choose another existing entry.
+
+The model receives the original task and a serialized snapshot of the board.
+It returns only `tag`, `prediction`, and `explanation`. The separate PXP schema
+uses the shared PXPTag enum, while the original two-field PEX calls continue to
+work. Application code supplies agent and target IDs, generates the entry ID
+and UTC timestamp, and controls the simulation flag. Extra model metadata is
+rejected, not trusted. Successful results retain every attempt and its timing
+and token metadata alongside the complete entry.
+
+Opening entries use REVISE with no target, following the existing schema draft
+and board demo. Replies can use any of the four valid tags. The adapter does
+not mutate the snapshot or automatically post an entry. The caller still owns
+turn scheduling and final submission; the board checks references again at post
+time. Full-history input is intended for the short Week 1 sessions; long-history
+selection and context-budget management are not implemented here.
+
+Run both live mapping cases (initial proposal and reply) explicitly:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q -s --run-ollama tests/test_entry_live.py
+```
+
+All pytest files and configuration hooks now live under `tests/`. The manual
+scheduler check is `python -m tests.lopez_testing`. `pytest.ini` sets test
+discovery to `tests/`. Ordinary test runs skip live Ollama cases. Day 6 will add
+the real two-agent conversation loop; see `docs/day5-mapping.md` for the mapping
+design and verification notes.

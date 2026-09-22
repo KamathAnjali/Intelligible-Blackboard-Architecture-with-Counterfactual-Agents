@@ -14,7 +14,7 @@ PERSONA ?= cautious_verifier
 RETRIES ?= 2
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
-.PHONY: help start chat query gpu latency samples pex personas stop
+.PHONY: help start chat query gpu latency samples pex entry personas test stop
 
 help:
 	@echo make start                 Start Ollama if needed
@@ -25,9 +25,11 @@ help:
 	@echo make samples               Run the five Day 2 sample tasks
 	@echo make pex PERSONA=aggressive_proposer RETRIES=2    Generate validated PEX
 	@echo make personas              Run Day 4 checks - two personas, three tasks each
+	@echo make entry                 Preview one complete BoardEntry without posting
+	@echo make test                  Run offline tests without requiring Ollama
 	@echo make stop                  Unload the model
 
-start chat query gpu samples personas stop:
+start chat query gpu samples personas test stop:
 	@$(RUNNER) $@
 
 latency:
@@ -35,3 +37,6 @@ latency:
 
 pex:
 	@$(RUNNER) pex -Persona "$(PERSONA)" -Retries "$(RETRIES)"
+
+entry:
+	@$(RUNNER) entry -Persona "$(PERSONA)" -Retries "$(RETRIES)"

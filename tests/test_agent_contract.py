@@ -1,4 +1,4 @@
-"""Day 4 compatibility checks, not the Day 5 production message adapter."""
+"""Day 4 compatibility checks, separate from the Day 5 production adapter tests."""
 
 import pytest
 from pydantic import ValidationError

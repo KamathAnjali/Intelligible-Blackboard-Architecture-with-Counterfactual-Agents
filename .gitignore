@@ -11,6 +11,10 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # Environment variables and secrets
 .env
@@ -29,6 +33,8 @@ logs/
 outputs/
 # Includes generated Ollama responses, latency reports, and retry logs.
 results/
+# Default directory used by InMemoryJSONStore.snapshot_to_disk.
+/snapshots/
 data/processed/
 
 # OS/editor files

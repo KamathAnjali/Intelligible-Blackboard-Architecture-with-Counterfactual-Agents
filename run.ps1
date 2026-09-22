@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('help', 'start', 'chat', 'query', 'gpu', 'latency', 'samples', 'pex', 'personas', 'stop')]
+    [ValidateSet('help', 'start', 'chat', 'query', 'gpu', 'latency', 'samples', 'pex', 'entry', 'personas', 'test', 'stop')]
     [string]$Task = 'help',
     [string]$Prompt = 'Explain a blackboard architecture in three sentences.',
     [ValidateRange(1, 100)][int]$Runs = 3,
@@ -13,10 +13,10 @@ $env:OLLAMA_HOST = 'http://127.0.0.1:11434'
 $ollamaCommand = Get-Command ollama -ErrorAction SilentlyContinue
 $ollamaExe = if ($ollamaCommand) { $ollamaCommand.Source } else { Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe' }
 if ($Task -eq 'help') {
-    Write-Host 'Tasks: start | chat | query [-Prompt "..."] | gpu | latency [-Runs 3] | samples | pex [-Persona cautious_verifier] [-Retries 2] [-Prompt "..."] | personas | stop'
+    Write-Host 'Tasks: start | chat | query [-Prompt "..."] | gpu | latency [-Runs 3] | samples | pex | entry [-Persona cautious_verifier] [-Retries 2] [-Prompt "..."] | personas | test | stop'
     exit 0
 }
-if (-not (Test-Path -LiteralPath $ollamaExe)) { throw 'Install Ollama for Windows first.' }
+if ($Task -ne 'test' -and -not (Test-Path -LiteralPath $ollamaExe)) { throw 'Install Ollama for Windows first.' }
 if ($Task -eq 'start') {
     try {
         Invoke-RestMethod "$env:OLLAMA_HOST/api/version" -TimeoutSec 3 | Out-Host
@@ -29,8 +29,10 @@ if ($Task -eq 'start') {
     }
     exit 0
 }
-try { $null = Invoke-RestMethod "$env:OLLAMA_HOST/api/version" -TimeoutSec 3 }
-catch { throw 'Open Ollama from Start, or run .\run.ps1 start, then try again.' }
+if ($Task -ne 'test') {
+    try { $null = Invoke-RestMethod "$env:OLLAMA_HOST/api/version" -TimeoutSec 3 }
+    catch { throw 'Open Ollama from Start, or run .\run.ps1 start, then try again.' }
+}
 switch ($Task) {
     'chat' { & $ollamaExe run $model; exit $LASTEXITCODE }
     'stop' { & $ollamaExe stop $model; exit $LASTEXITCODE }
@@ -60,7 +62,9 @@ else { throw 'Install Python 3.10 or newer, then reopen PowerShell.' }
 Push-Location $PSScriptRoot
 try {
     if ($Task -eq 'personas') {
-        $clientArgs = @('-m', 'pytest', '-q', '-s', '--run-ollama', 'test_personas_live.py')
+        $clientArgs = @('-m', 'pytest', '-q', '-s', '--run-ollama', 'tests/test_personas_live.py')
+    } elseif ($Task -eq 'test') {
+        $clientArgs = @('-m', 'pytest', '-q')
     } else {
         $clientArgs = @('-m', 'agents.llm_client', $Task, '--runs', $Runs, '--persona', $Persona, '--retries', $Retries)
         if ($PSBoundParameters.ContainsKey('Prompt')) { $clientArgs += @('--prompt', $Prompt) }
