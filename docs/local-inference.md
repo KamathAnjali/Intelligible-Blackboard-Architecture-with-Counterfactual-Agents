@@ -1,4 +1,4 @@
-# Student 3: local inference, Days 1 through 3
+# Student 3: local inference, Days 1 through 4
 
 Use **Windows PowerShell** on Dhruva's laptop. Ollama runs natively on Windows
 at `http://127.0.0.1:11434`. WSL is not needed. GNU Make is already installed
@@ -192,3 +192,35 @@ Run the offline tests, including malformed-output recovery and retry exhaustion:
 
 On macOS, install requirements into a virtual environment and use
 `python3 -m agents.llm_client pex --persona aggressive_proposer --retries 2`.
+
+## 6. Day 4: test both personas and review the board contract
+
+```powershell
+make personas
+```
+
+This runs six live checks: cautious verifier and aggressive proposer each answer
+the deduction, insufficient-evidence, and contradiction tasks from the existing
+sample file. Each call uses zero retries so the result measures the first
+response. Tests verify schema validity and the expected prediction separately.
+Expected answers are used only by the tests; they are not added to model input.
+Inspect the explanations as well; format and answer checks do not assess all
+reasoning quality or establish that the two personas behave differently.
+
+The command prints all successful responses and saves every case, including
+raw attempts or request failures, under `results/ollama/day4-personas-*.json`.
+Reports also include model settings, prompt texts, Ollama version, and loaded
+model metadata when available. Generated reports remain ignored by Git; the
+reviewed summary is in `docs/day4-persona-test-log.md`.
+
+Default `python -m pytest -q` runs the offline tests and skips the six live
+checks. To run the same live checks directly with a local Python environment:
+
+```bash
+python -m pytest -q -s --run-ollama test_personas_live.py
+```
+
+The Make command also works from WSL and uses Windows Python/Ollama. Mac
+teammates can use the direct Python command in their own virtual environment.
+`docs/day4-contract-review.md` records compatibility evidence and review comments
+for Student 1/2's message schema; the actual adapter remains Day 5 work.
