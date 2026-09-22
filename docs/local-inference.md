@@ -14,6 +14,14 @@ py -m venv .venv
 
 Run `make help` for available commands.
 
+You can also run these Make targets from WSL while in the repo under
+`/mnt/c/Users/user/Desktop/AI/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents`.
+The Makefile uses WSL's shell for quoting and invokes `powershell.exe` through
+Windows interoperability. The script still runs Windows Python and connects to
+Windows Ollama, so no separate WSL server or network configuration is needed.
+Direct `python3 -m agents.llm_client` inside WSL is a separate Linux client and
+does not use this bridge. On macOS, use the Python commands below instead.
+
 ## 1. Query the model
 
 ```powershell

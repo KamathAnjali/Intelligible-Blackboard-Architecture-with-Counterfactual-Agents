@@ -1,6 +1,12 @@
-# Windows task shortcuts. Invoke PowerShell explicitly so .ps1 files execute.
+# Use the host shell for argument quoting, then invoke Windows PowerShell.
+# WSL shares the Windows Ollama server and Python environment through run.ps1.
+ifeq ($(OS),Windows_NT)
 SHELL := cmd.exe
 .SHELLFLAGS := /c
+else
+SHELL := /bin/sh
+.SHELLFLAGS := -c
+endif
 .DEFAULT_GOAL := help
 
 RUNS ?= 3
@@ -12,7 +18,7 @@ RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
 help:
 	@echo make start                 Start Ollama if needed
-	@echo make chat                  Open interactive chat; /bye to exit
+	@echo make chat                  Open interactive chat - use /bye to exit
 	@echo make query                 Send one example prompt
 	@echo make gpu                   Show model placement and GPU logs
 	@echo make latency RUNS=5        Measure one first request and 5 warm runs
