@@ -65,22 +65,45 @@ RECORDED_SESSION_PATH: Path = Path(
 )
 
 
+from bench.metrics.token_counter import count_tokens_for_entry, global_token_tracker
+
+
 # ── Helper: convert BoardEntry → wire event dict ──────────────────────────────
 
 def _entry_to_event(entry_dict: dict) -> dict:
-    """Wrap a BoardEntry dict in the standard board_entry envelope."""
+    """Wrap a BoardEntry dict in the standard board_entry envelope with token counts."""
+    pred = entry_dict.get("prediction", "")
+    expl = entry_dict.get("explanation", "")
+    agent = entry_dict.get("agent_id", "")
+    eid = entry_dict.get("entry_id", "")
+    tag = entry_dict.get("tag", "")
+
+    # Calculate token count for this specific entry
+    tokens = count_tokens_for_entry(pred, expl, agent_id=agent)
+
+    # Track in global tracker
+    global_token_tracker.record_turn(
+        entry_id=eid,
+        agent_id=agent,
+        tag=tag,
+        prediction=pred,
+        explanation=expl,
+    )
+
     return {
         "type": "board_entry",
         "entry": {
-            "entry_id": entry_dict.get("entry_id", ""),
-            "agent_id": entry_dict.get("agent_id", ""),
-            "tag": entry_dict.get("tag", ""),
-            "prediction": entry_dict.get("prediction", ""),
-            "explanation": entry_dict.get("explanation", ""),
+            "entry_id": eid,
+            "agent_id": agent,
+            "tag": tag,
+            "prediction": pred,
+            "explanation": expl,
             "target_entry_id": entry_dict.get("target_entry_id"),
             "is_counterfactual_sim": entry_dict.get("is_counterfactual_sim", False),
             "timestamp": entry_dict.get("timestamp", ""),
+            "token_count": tokens,
         },
+        "token_tally": global_token_tracker.export_tally_report(),
     }
 
 

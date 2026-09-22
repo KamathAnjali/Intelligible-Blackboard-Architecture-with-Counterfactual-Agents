@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { TAG_COLORS } from '../constants/tagColors';
 import type { PXPTag } from '../constants/tagColors';
+import { HistoryScrubber } from './HistoryScrubber';
+import { TokenTally } from './TokenTally';
+import type { TokenTallyReport } from './TokenTally';
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Re-export for consumers that used to import these from Canvas directly
-// ──────────────────────────────────────────────────────────────────────────────
 export type { PXPTag };
 export { TAG_COLORS };
 
@@ -22,6 +22,11 @@ export interface GraphNode extends d3.SimulationNodeDatum {
   targetEntryId?: string;
   isCounterfactual?: boolean;
   timestamp?: string;
+  tokenCount?: {
+    prediction_tokens: number;
+    explanation_tokens: number;
+    total_tokens: number;
+  };
 }
 
 export interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
@@ -38,6 +43,9 @@ interface CanvasProps {
   nodes?: GraphNode[];
   links?: GraphLink[];
   streamDone?: boolean;
+  tokenTally?: TokenTallyReport;
+  scrubIndex?: number | null;
+  onScrub?: (index: number | null) => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -67,6 +75,9 @@ export const Canvas: React.FC<CanvasProps> = ({
   nodes = [],
   links = [],
   streamDone = false,
+  tokenTally = { total_tokens: 0, turn_count: 0, agents: {} },
+  scrubIndex = null,
+  onScrub = () => {},
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
@@ -82,6 +93,13 @@ export const Canvas: React.FC<CanvasProps> = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // When user scrubs to a step, auto-inspect that node
+  useEffect(() => {
+    if (scrubIndex !== null && nodes[scrubIndex]) {
+      setSelectedNode(nodes[scrubIndex]);
+    }
+  }, [scrubIndex, nodes]);
 
   // ── D3 incremental update ──────────────────────────────────────────────────
   useEffect(() => {
@@ -137,14 +155,26 @@ export const Canvas: React.FC<CanvasProps> = ({
     const sim = simulationRef.current!;
     const content = svg.select<SVGGElement>('.graph-content');
 
-    // Preserve existing positions
-    const nodesData: GraphNode[] = nodes.map((d) => {
+    // Filter nodes/links if scrubbing is active (show nodes up to active scrub step)
+    const visibleNodes =
+      scrubIndex !== null && scrubIndex < nodes.length - 1
+        ? nodes.slice(0, scrubIndex + 1)
+        : nodes;
+    const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
+    const visibleLinks = links.filter((l) => {
+      const s = typeof l.source === 'object' ? (l.source as any).id : l.source;
+      const t = typeof l.target === 'object' ? (l.target as any).id : l.target;
+      return visibleNodeIds.has(s) && visibleNodeIds.has(t);
+    });
+
+    // Preserve existing node positions
+    const nodesData: GraphNode[] = visibleNodes.map((d) => {
       const existing = sim.nodes().find((n) => n.id === d.id);
       return existing
         ? { ...d, x: existing.x, y: existing.y, vx: existing.vx, vy: existing.vy }
         : { ...d };
     });
-    const linksData: GraphLink[] = links.map((d) => ({ ...d }));
+    const linksData: GraphLink[] = visibleLinks.map((d) => ({ ...d }));
 
     // ── Nodes ────────────────────────────────────────────────────────────────
     const nodeGroups = content
@@ -166,17 +196,24 @@ export const Canvas: React.FC<CanvasProps> = ({
       .drag<SVGGElement, GraphNode>()
       .on('start', (event, d) => {
         if (!event.active) sim.alphaTarget(0.3).restart();
-        d.fx = d.x; d.fy = d.y;
+        d.fx = d.x;
+        d.fy = d.y;
       })
-      .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+      .on('drag', (event, d) => {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
       .on('end', (event, d) => {
         if (!event.active) sim.alphaTarget(0);
-        d.fx = null; d.fy = null;
+        d.fx = null;
+        d.fy = null;
       });
     nodeEnter.call(drag as any);
 
     // Glow ring
-    nodeEnter.append('circle')
+    nodeEnter
+      .append('circle')
+      .attr('class', 'glow-ring')
       .attr('r', 30)
       .attr('fill', (d) => TAG_COLORS[d.tag])
       .attr('fill-opacity', 0.18)
@@ -185,25 +222,47 @@ export const Canvas: React.FC<CanvasProps> = ({
       .attr('filter', 'drop-shadow(0px 0px 12px rgba(0,0,0,0.6))');
 
     // Filled core
-    nodeEnter.append('circle')
+    nodeEnter
+      .append('circle')
+      .attr('class', 'core-circle')
       .attr('r', 22)
       .attr('fill', (d) => TAG_COLORS[d.tag]);
 
     // Tag abbreviation
-    nodeEnter.append('text')
-      .attr('text-anchor', 'middle').attr('dy', 4)
-      .attr('fill', '#fff').attr('font-size', '10px')
-      .attr('font-weight', '700').attr('letter-spacing', '0.05em')
+    nodeEnter
+      .append('text')
+      .attr('class', 'tag-text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', 4)
+      .attr('fill', '#fff')
+      .attr('font-size', '10px')
+      .attr('font-weight', '700')
+      .attr('letter-spacing', '0.05em')
       .text((d) => d.tag.slice(0, 3));
 
     // Agent label
-    nodeEnter.append('text')
-      .attr('text-anchor', 'middle').attr('dy', 44)
-      .attr('fill', '#e2e8f0').attr('font-size', '11px').attr('font-weight', '500')
+    nodeEnter
+      .append('text')
+      .attr('class', 'agent-label')
+      .attr('text-anchor', 'middle')
+      .attr('dy', 44)
+      .attr('fill', '#e2e8f0')
+      .attr('font-size', '11px')
+      .attr('font-weight', '500')
       .text((d) => d.agentId.split(' ')[0]);
 
     // Fade in new nodes
     nodeEnter.transition().duration(500).style('opacity', 1);
+
+    // Update existing and new nodes highlight for active scrubbed node
+    const activeNodeId =
+      scrubIndex !== null && nodes[scrubIndex] ? nodes[scrubIndex].id : null;
+    content
+      .selectAll<SVGGElement, GraphNode>('g.node-group')
+      .select('circle.glow-ring')
+      .attr('stroke', (d) => (d.id === activeNodeId ? '#fbbf24' : TAG_COLORS[d.tag]))
+      .attr('stroke-width', (d) => (d.id === activeNodeId ? 4 : 2))
+      .attr('fill-opacity', (d) => (d.id === activeNodeId ? 0.4 : 0.18));
 
     // ── Links ─────────────────────────────────────────────────────────────────
     const linkLines = content
@@ -220,16 +279,16 @@ export const Canvas: React.FC<CanvasProps> = ({
       .attr('stroke-width', 2)
       .attr('stroke-opacity', 0)
       .attr('stroke-dasharray', (d) => {
-        const srcId = typeof d.source === 'object' ? d.source.id : String(d.source);
+        const srcId = typeof d.source === 'object' ? (d.source as any).id : String(d.source);
         return nodesData.find((n) => n.id === srcId)?.isCounterfactual ? '6 4' : 'none';
       })
       .attr('stroke', (d) => {
-        const srcId = typeof d.source === 'object' ? d.source.id : String(d.source);
+        const srcId = typeof d.source === 'object' ? (d.source as any).id : String(d.source);
         const src = nodesData.find((n) => n.id === srcId);
         return src ? TAG_COLORS[src.tag] : 'rgba(255,255,255,0.3)';
       })
       .attr('marker-end', (d) => {
-        const srcId = typeof d.source === 'object' ? d.source.id : String(d.source);
+        const srcId = typeof d.source === 'object' ? (d.source as any).id : String(d.source);
         const src = nodesData.find((n) => n.id === srcId);
         return src ? `url(#arrow-${src.tag})` : '';
       });
@@ -239,28 +298,29 @@ export const Canvas: React.FC<CanvasProps> = ({
     // ── Feed simulation ───────────────────────────────────────────────────────
     sim.nodes(nodesData);
     (sim.force('link') as d3.ForceLink<GraphNode, GraphLink>).links(linksData);
-    sim.alpha(0.4).restart();
+    sim.alpha(0.3).restart();
 
     sim.on('tick', () => {
-      content.select('.links-group')
+      content
+        .select('.links-group')
         .selectAll<SVGLineElement, GraphLink>('line.graph-link')
         .attr('x1', (d: any) => d.source.x)
         .attr('y1', (d: any) => d.source.y)
         .attr('x2', (d: any) => d.target.x)
         .attr('y2', (d: any) => d.target.y);
 
-      content.select('.nodes-group')
+      content
+        .select('.nodes-group')
         .selectAll<SVGGElement, GraphNode>('g.node-group')
         .attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
-  }, [nodes, links, dimensions]);
+  }, [nodes, links, dimensions, scrubIndex]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const hasNodes = nodes.length > 0;
 
   return (
     <div className="canvas-container">
-
       {/* Header HUD */}
       <div className="hud-overlay header-hud">
         <div className="title-badge">
@@ -281,9 +341,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           <span className="status-text">WS: {wsStatus.toUpperCase()}</span>
         </div>
 
-        {streamDone && (
-          <div className="stream-done-badge">✓ Stream Complete</div>
-        )}
+        {/* Token Tally Pill */}
+        <TokenTally tally={tokenTally} />
+
+        {streamDone && <div className="stream-done-badge">✓ Stream Complete</div>}
       </div>
 
       {/* Tag legend */}
@@ -306,8 +367,18 @@ export const Canvas: React.FC<CanvasProps> = ({
         height={dimensions.height}
       >
         <defs>
-          <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+          <pattern
+            id="grid-pattern"
+            width="40"
+            height="40"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M 40 0 L 0 0 0 40"
+              fill="none"
+              stroke="rgba(255,255,255,0.04)"
+              strokeWidth="1"
+            />
             <circle cx="40" cy="40" r="1.5" fill="rgba(99,102,241,0.12)" />
           </pattern>
         </defs>
@@ -328,13 +399,22 @@ export const Canvas: React.FC<CanvasProps> = ({
         </div>
       )}
 
+      {/* History Scrubber Controls (W2 Day 2) */}
+      <HistoryScrubber
+        nodes={nodes}
+        scrubIndex={scrubIndex}
+        onScrub={onScrub}
+      />
+
       {/* Footer counter */}
       <div className="hud-overlay footer-hud">
-        <span className="hud-label">S4 — Live Graph</span>
-        <span className="hud-detail">{nodes.length} nodes · {links.length} edges</span>
+        <span className="hud-label">S4 — Live Graph & Scrub Inspector</span>
+        <span className="hud-detail">
+          {nodes.length} nodes · {links.length} edges
+        </span>
       </div>
 
-      {/* Node detail drawer */}
+      {/* Node detail drawer / inspector */}
       {selectedNode && (
         <div className="node-drawer">
           <div className="drawer-header">
@@ -345,7 +425,13 @@ export const Canvas: React.FC<CanvasProps> = ({
               {selectedNode.tag}
             </span>
             <span className="drawer-title">{selectedNode.agentId}</span>
-            <button className="drawer-close" onClick={() => setSelectedNode(null)}>×</button>
+            <button
+              id="btn-close-drawer"
+              className="drawer-close"
+              onClick={() => setSelectedNode(null)}
+            >
+              ×
+            </button>
           </div>
           <div className="drawer-body">
             <div className="drawer-field">
@@ -364,6 +450,22 @@ export const Canvas: React.FC<CanvasProps> = ({
                 <span className="field-value mono">
                   {new Date(selectedNode.timestamp).toLocaleTimeString()}
                 </span>
+              </div>
+            )}
+            {selectedNode.tokenCount && (
+              <div className="drawer-field">
+                <span className="field-label">Turn Token Cost</span>
+                <div className="drawer-token-chips">
+                  <span className="token-chip-mini">
+                    Pred: <strong>{selectedNode.tokenCount.prediction_tokens}</strong>
+                  </span>
+                  <span className="token-chip-mini">
+                    Expl: <strong>{selectedNode.tokenCount.explanation_tokens}</strong>
+                  </span>
+                  <span className="token-chip-mini total">
+                    Total: <strong>{selectedNode.tokenCount.total_tokens}</strong>
+                  </span>
+                </div>
               </div>
             )}
             <div className="drawer-field">

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from './components/Canvas';
 import type { GraphLink, GraphNode, PXPTag } from './components/Canvas';
+import type { TokenTallyReport } from './components/TokenTally';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,13 +18,19 @@ interface BoardEntryEvent {
   target_entry_id?: string | null;
   is_counterfactual_sim?: boolean;
   timestamp?: string;
+  token_count?: {
+    prediction_tokens: number;
+    explanation_tokens: number;
+    total_tokens: number;
+  };
 }
 
 interface WsEnvelope {
-  type: 'board_entry' | 'session_summary' | 'stream_complete' | 'connection_ack' | string;
+  type: 'board_entry' | 'session_summary' | 'stream_complete' | 'connection_ack' | 'token_tally' | string;
   mode?: BoardMode;
   entry?: BoardEntryEvent;
   summary?: Record<string, unknown>;
+  token_tally?: TokenTallyReport;
   message?: string;
 }
 
@@ -31,9 +38,6 @@ interface WsEnvelope {
 
 /**
  * Convert a board_entry event into a GraphNode.
- *
- * TODO (Student 1/2 Integration): Confirm tag enum values at standup.
- * See docs/tag_field_review.md for current assumptions.
  */
 function entryToNode(entry: BoardEntryEvent): GraphNode {
   return {
@@ -45,6 +49,7 @@ function entryToNode(entry: BoardEntryEvent): GraphNode {
     targetEntryId: entry.target_entry_id ?? undefined,
     isCounterfactual: entry.is_counterfactual_sim ?? false,
     timestamp: entry.timestamp,
+    tokenCount: entry.token_count,
   };
 }
 
@@ -64,6 +69,13 @@ export const App: React.FC = () => {
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [links, setLinks] = useState<GraphLink[]>([]);
   const [streamDone, setStreamDone] = useState(false);
+  const [tokenTally, setTokenTally] = useState<TokenTallyReport>({
+    total_tokens: 0,
+    turn_count: 0,
+    agents: {},
+  });
+  const [scrubIndex, setScrubIndex] = useState<number | null>(null);
+
   const socketRef = useRef<WebSocket | null>(null);
 
   const handleMessage = useCallback((envelope: WsEnvelope) => {
@@ -79,12 +91,14 @@ export const App: React.FC = () => {
       console.log('[WS] 📊 session_summary', envelope.summary ?? envelope);
     } else if (envelope.type === 'stream_complete') {
       console.log('[WS] ✓ stream_complete — all events received');
-    } else {
-      console.log(`[WS] ℹ event: ${envelope.type}`, envelope);
     }
 
     if (envelope.type === 'connection_ack' && envelope.mode) {
       setBoardMode(envelope.mode);
+    }
+
+    if (envelope.token_tally) {
+      setTokenTally(envelope.token_tally);
     }
 
     if (envelope.type === 'board_entry' && envelope.entry) {
@@ -101,6 +115,46 @@ export const App: React.FC = () => {
           const key = `${String(newLink.source)}->${String(newLink.target)}`;
           if (prev.find((l) => `${String(l.source)}->${String(l.target)}` === key)) return prev;
           return [...prev, newLink];
+        });
+      }
+
+      // If token_tally wasn't attached directly to envelope, compute running tally on client
+      if (!envelope.token_tally) {
+        setTokenTally((prev) => {
+          const predTok = newNode.tokenCount?.prediction_tokens ?? Math.max(1, Math.round(newNode.prediction.split(/\s+/).length * 1.3));
+          const explTok = newNode.tokenCount?.explanation_tokens ?? Math.max(1, Math.round(newNode.explanation.split(/\s+/).length * 1.3));
+          const totalTok = predTok + explTok;
+
+          const agentId = newNode.agentId;
+          const currentAgent = prev.agents[agentId] || {
+            agent_id: agentId,
+            turn_count: 0,
+            total_prediction_tokens: 0,
+            total_explanation_tokens: 0,
+            total_tokens: 0,
+            tags_used: {},
+          };
+
+          const updatedAgent = {
+            ...currentAgent,
+            turn_count: currentAgent.turn_count + 1,
+            total_prediction_tokens: currentAgent.total_prediction_tokens + predTok,
+            total_explanation_tokens: currentAgent.total_explanation_tokens + explTok,
+            total_tokens: currentAgent.total_tokens + totalTok,
+            tags_used: {
+              ...(currentAgent.tags_used || {}),
+              [newNode.tag]: ((currentAgent.tags_used || {})[newNode.tag] || 0) + 1,
+            },
+          };
+
+          return {
+            total_tokens: prev.total_tokens + totalTok,
+            turn_count: prev.turn_count + 1,
+            agents: {
+              ...prev.agents,
+              [agentId]: updatedAgent,
+            },
+          };
         });
       }
     }
@@ -155,6 +209,9 @@ export const App: React.FC = () => {
       nodes={nodes}
       links={links}
       streamDone={streamDone}
+      tokenTally={tokenTally}
+      scrubIndex={scrubIndex}
+      onScrub={setScrubIndex}
     />
   );
 };
