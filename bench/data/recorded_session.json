@@ -1,0 +1,96 @@
+{
+  "task_id": "recorded_session_001",
+  "intelligibility": "ULTRA_STRONG",
+  "entries": [
+    {
+      "entry_id": "56b1f9c36cde",
+      "agent_id": "Agent_Alpha (Proposer)",
+      "tag": "PROPOSE",
+      "prediction": "x = 12",
+      "explanation": "Solving x^2 = 144, positive root.",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-22T10:00:00+00:00"
+    },
+    {
+      "entry_id": "283c5f71a22a",
+      "agent_id": "Agent_Beta (Verifier)",
+      "tag": "RATIFY",
+      "prediction": "Verified x = 12",
+      "explanation": "12 * 12 = 144. Solution is correct.",
+      "target_entry_id": "56b1f9c36cde",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-22T10:00:03+00:00"
+    },
+    {
+      "entry_id": "804698c29b6e",
+      "agent_id": "Agent_Gamma (Critic)",
+      "tag": "REFUTE",
+      "prediction": "Solution incomplete",
+      "explanation": "(-12)^2 = 144 \u2014 negative root omitted.",
+      "target_entry_id": "56b1f9c36cde",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-22T10:00:06+00:00"
+    },
+    {
+      "entry_id": "5a284df42b59",
+      "agent_id": "Agent_Alpha (Proposer)",
+      "tag": "REVISE",
+      "prediction": "x \u2208 {-12, 12}",
+      "explanation": "Incorporating negative root per Agent_Gamma refutation.",
+      "target_entry_id": "804698c29b6e",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-22T10:00:10+00:00"
+    },
+    {
+      "entry_id": "003564ba7a04",
+      "agent_id": "Agent_Beta (Verifier)",
+      "tag": "RATIFY",
+      "prediction": "Consensus: x \u2208 {-12, 12}",
+      "explanation": "Revised solution set is complete and verified.",
+      "target_entry_id": "5a284df42b59",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-22T10:00:13+00:00"
+    },
+    {
+      "entry_id": "040b97be3c9e",
+      "agent_id": "Agent_Delta (CF Sandbox)",
+      "tag": "REJECT",
+      "prediction": "Alt hypothesis x = 0 rejected",
+      "explanation": "0^2 = 0 \u2260 144. Counterfactual branch is invalid.",
+      "target_entry_id": "804698c29b6e",
+      "is_counterfactual_sim": true,
+      "timestamp": "2026-09-22T10:00:16+00:00"
+    }
+  ],
+  "agents": {
+    "Agent_Alpha (Proposer)": {
+      "agent_id": "Agent_Alpha (Proposer)",
+      "persona": "aggressive_proposer",
+      "model_name": "mistral-7b-instruct",
+      "active": true,
+      "counterfactual_capable": false
+    },
+    "Agent_Beta (Verifier)": {
+      "agent_id": "Agent_Beta (Verifier)",
+      "persona": "cautious_verifier",
+      "model_name": "mistral-7b-instruct",
+      "active": true,
+      "counterfactual_capable": false
+    },
+    "Agent_Gamma (Critic)": {
+      "agent_id": "Agent_Gamma (Critic)",
+      "persona": "critic",
+      "model_name": "mistral-7b-instruct",
+      "active": true,
+      "counterfactual_capable": false
+    },
+    "Agent_Delta (CF Sandbox)": {
+      "agent_id": "Agent_Delta (CF Sandbox)",
+      "persona": "counterfactual",
+      "model_name": "mistral-7b-instruct",
+      "active": true,
+      "counterfactual_capable": true
+    }
+  }
+}
