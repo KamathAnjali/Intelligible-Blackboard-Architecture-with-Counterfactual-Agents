@@ -40,5 +40,11 @@ node_modules/
 dist/
 build/
 
+# Benchmark raw source datasets (read-only, never committed)
+bench/data/*_raw/
+bench/data/krama_raw/
+bench/data/mscore_raw/
+bench/data/medagentbench_raw/
+
 # Jupyter
 .ipynb_checkpoints/
