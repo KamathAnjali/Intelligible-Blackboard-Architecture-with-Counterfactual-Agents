@@ -56,7 +56,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # TODO (Student 1 / Student 2 Integration):
             # Process board event / command via Student 1's store or Student 2's scheduler here.
-            # Example: response_data = await process_board_event(payload)
 
             # Echo response back to client
             echo_response = {
@@ -70,3 +69,25 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         await websocket.close()
+
+
+@app.websocket("/ws/mock")
+async def websocket_mock_endpoint(websocket: WebSocket, delay: float = 1.0):
+    """
+    WebSocket endpoint for replaying canned mock event stream to local UI.
+    """
+    from ui.server.mock_stream import mock_event_stream_generator
+
+    await websocket.accept()
+    logger.info(f"Mock WebSocket connection accepted (delay={delay}s).")
+    try:
+        async for event in mock_event_stream_generator(delay_seconds=delay):
+            await websocket.send_json(event)
+        logger.info("Finished sending mock event stream.")
+        await websocket.send_json({"type": "stream_complete"})
+    except WebSocketDisconnect:
+        logger.info("Mock WebSocket client disconnected.")
+    except Exception as e:
+        logger.error(f"Mock WebSocket error: {e}")
+        await websocket.close()
+
