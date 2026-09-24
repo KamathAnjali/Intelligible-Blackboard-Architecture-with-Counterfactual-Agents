@@ -85,6 +85,21 @@ class Blackboard:
         with self._lock:
             return self._state.model_copy(deep=True)
 
+    @property
+    def current_intelligibility(self) -> IntelligibilityLevel:
+        """Return the session outcome without copying its full history."""
+        with self._lock:
+            return self._state.intelligibility
+
+    def get_agents(self, *, active_only: bool = False) -> dict[str, AgentRecord]:
+        """Return a safe copy of the registry without copying board history."""
+        with self._lock:
+            return {
+                agent_id: agent.model_copy(deep=True)
+                for agent_id, agent in self._state.agents.items()
+                if not active_only or agent.active
+            }
+
     def get_history(self, agent_id: str | None = None) -> list[BoardEntry]:
         with self._lock:
             if agent_id is None:
