@@ -142,6 +142,21 @@ def run_conversation(client, task=DEFAULT_TASK, max_turns=6, max_retries=2,
     return report, path
 
 
+def is_clean_ratify_demo(report):
+    """Check the short live sequence used for the Week 1 demonstration."""
+    turns = report["turns"]
+    expected = [("proposer", "REVISE"), ("verifier", "RATIFY"),
+                ("proposer", "RATIFY")]
+    return (
+        report["outcome"] == "scheduler_consensus"
+        and not report["failures"]
+        and len(turns) == len(expected)
+        and [(turn["agent_id"], turn["entry"]["tag"]) for turn in turns] == expected
+        and all(len(turn["attempts"]) == 1 for turn in turns)
+        and len({turn["entry"]["prediction"].strip().casefold() for turn in turns}) == 1
+    )
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -151,8 +166,14 @@ def main():
     parser.add_argument("--retries", type=int, choices=range(6), default=2)
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
+    parser.add_argument("--demo", action="store_true", help="Require a clean REVISE, RATIFY, RATIFY sequence")
     args = parser.parse_args()
-    report, _ = run_conversation(OllamaClient(args.model, args.base_url), args.prompt, args.turns, args.retries)
+    turns = 3 if args.demo else args.turns
+    report, _ = run_conversation(OllamaClient(args.model, args.base_url), args.prompt, turns, args.retries)
+    if args.demo:
+        passed = is_clean_ratify_demo(report)
+        print(f"Demo sequence: {'PASS' if passed else 'FAIL'}", flush=True)
+        return 0 if passed else 1
     return 0 if report["outcome"] == "scheduler_consensus" else 1
 
 

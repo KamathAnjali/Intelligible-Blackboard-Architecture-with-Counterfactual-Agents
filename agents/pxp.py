@@ -11,7 +11,7 @@ class PXPResponse(PEXResponse):
 
 
 class InitialPXPResponse(PXPResponse):
-    # Follows the opening proposal in docs/Schema_Draft.md and demo.py.
+    # The current board protocol starts with a REVISE proposal and no target.
     tag: Literal[PXPTag.REVISE]
 
 

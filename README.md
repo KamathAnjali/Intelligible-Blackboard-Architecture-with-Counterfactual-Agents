@@ -1,259 +1,62 @@
-# Intelligible-Blackboard-Architecture-with-Counterfactual-Agents
+# Intelligible Blackboard with Counterfactual Agents
 
-## PXP Blackboard
+This project studies whether agents that can revisit an earlier decision help a group reach a correct, explainable answer. Agents share a blackboard and post a prediction, an explanation, and a PXP tag: `RATIFY`, `REVISE`, `REFUTE`, or `REJECT`. The planned counterfactual component will test alternative earlier contributions in an isolated replay before any change reaches the live session.
 
-## Environment Setup & Team Guidelines
+The current `3-Dhruva` branch runs two local Ollama personas through the scheduler and blackboard. It records every turn and can demonstrate a three-turn agreement sequence. Counterfactual replay, a connected UI, and benchmark evaluation remain future integration work. See [progress](docs/PROGRESS_REPORT.md) and [milestones](docs/PROJECT_MILESTONES.md).
 
-This README covers the development environment, local LLM setup, repository layout, and team conventions for working on PXP Blackboard.
+## Run locally
 
----
+Use Python 3.10 or newer and Ollama. The shared model is `qwen3:4b-instruct-2507-q4_K_M`; all agents in one session use that tag. Start Ollama and pull the model before running inference.
 
-## 1. Development Environment
+Windows PowerShell setup:
 
-### Recommended: Develop locally
-
-Each teammate should run the blackboard, agents, and UI on their own machine and work from the shared GitHub repository.
-
-| Environment | Guidance |
-|---|---|
-| **Local machine** | Recommended for daily development and demos. Use Ollama to run the agreed local model. |
-| **Google Colab** | Use only for one-off experiments, such as testing a prompt. Colab runtimes can disconnect or recycle, so it is not suitable for the persistent server, scheduler, or stateful agents. |
-| **Shared cloud VM** | Optional for the Week 3 ablation batch if local runs are too slow. A teammate with suitable GPU access may run the benchmark locally instead. |
-
-### Team environment agreement
-
-Before development gets underway, agree on and document:
-
-- Python version
-- Node.js version (for the frontend)
-- Ollama model name and exact tag
-- Model quantization, where applicable
-- Required environment variables and default ports
-
-Keep these choices consistent across machines to reduce setup issues and make benchmark results comparable.
-
----
-
-## 2. Local LLM Setup
-
-For the current Student 3 setup, use the pinned model
-`qwen3:4b-instruct-2507-q4_K_M` and follow the
-[local inference guide](docs/local-inference.md) for chat, GPU checks,
-latency measurement, validated PEX/PXP output, and the Day 5 BoardEntry adapter.
-Use `make entry` for a complete entry preview and `make test` for offline tests.
-Test scripts live under `tests/`; generated reports and snapshots are ignored.
-
-### Ollama (team default)
-
-Ollama is the recommended local runtime for macOS, Windows, and Linux.
-
-1. Install Ollama:
-   - **Linux:**  
-     ```bash
-     curl -fsSL https://ollama.com/install.sh | sh
-     ```
-   - **macOS / Windows:** Download and install it from [ollama.com](https://ollama.com).
-2. Pull the shared model:
-   ```bash
-   ollama pull qwen3:4b-instruct-2507-q4_K_M
-   ```
-3. Ollama serves its local API at:
-   ```text
-   http://localhost:11434
-   ```
-4. Configure the agent wrapper to use the local Ollama endpoint.
-5. Confirm that all teammates are using the same model identifier and tag.
-
-> **Important:** Choose one model as a team and pin its exact name/tag and quantization in `.env.example` and this README. Do not silently switch models during comparable experiments.
-
-### Optional: vLLM
-
-Use vLLM only if a teammate has an NVIDIA GPU and needs higher throughput for the Week 3 benchmark batch. It generally requires Linux and compatible NVIDIA/CUDA setup, so it is not the default for daily development.
-
-Example:
-
-```bash
-pip install vllm
-vllm serve mistralai/Mistral-7B-Instruct-v0.3
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+ollama pull qwen3:4b-instruct-2507-q4_K_M
 ```
 
----
-
-## 3. Repository Structure
-
-Use a single monorepo, organized around the team's responsibility boundaries.
+With GNU Make in PowerShell or WSL, run:
 
 ```text
-pxp-blackboard/
-├── blackboard/          # Student 1 — schema, store, scheduler
-│   ├── models.py        # PXP tags and shared message contract
-│   ├── store.py
-│   ├── core.py
-│   └── scheduler.py
-├── agents/              # Student 2 — LLM wrappers, prompts, sandbox
-│   ├── llm_client.py
-│   ├── prompts/
-│   └── counterfactual.py
-├── ui/                  # Student 3 — interface
-│   ├── server/          # FastAPI + WebSocket
-│   └── frontend/        # React + D3/Vis.js
-├── bench/               # Student 3 — dataset ingest and evaluation
-│   ├── ingest/
-│   └── metrics/
-├── tests/
-├── docs/
-│   └── pxp-message-contract.md
-├── .env.example
-├── .gitignore
-├── requirements.txt     # or pyproject.toml
-├── docker-compose.yml   # optional
-└── README.md
+make start
+make demo
+make conversation TURNS=6
 ```
 
-### Shared contract: `blackboard/models.py`
+The Make targets use Windows PowerShell, Python, and Ollama. Without Make, invoke the wrapper explicitly from PowerShell:
 
-All three teammates depend on `blackboard/models.py`. Treat it as the shared interface between components.
-
-- Freeze the message schema around **Week 1, Days 3–4**.
-- Document the agreed contract in `docs/pxp-message-contract.md`.
-- Any change after the freeze must be discussed with both teammates before merging.
-- PRs that modify `models.py` must explicitly tag both other teammates for review.
-
----
-
-## 4. Getting Started
-
-### Prerequisites
-
-Install:
-
-- Git
-- The agreed Python version
-- Node.js and npm (for the React frontend)
-- Ollama and the agreed model
-
-### Clone the repository
-
-```bash
-git clone <REPOSITORY_URL>
-cd pxp-blackboard
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 demo
 ```
 
-### Set up Python
+On macOS or Linux, start Ollama, then run:
 
-```bash
-python -m venv .venv
-
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-
-pip install -r requirements.txt
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+ollama pull qwen3:4b-instruct-2507-q4_K_M
+python -m agents.conversation --demo
 ```
 
-If the project uses `pyproject.toml` instead of `requirements.txt`, follow the install command documented there.
+The direct Python CLI also accepts `--prompt`, `--turns`, and `--retries` for a general conversation.
 
-### Configure environment variables
+| Command | Purpose |
+| --- | --- |
+| `make chat` | Query the model interactively. |
+| `make query` / `make pex` / `make entry` | Inspect raw output, validated PEX, or a mapped BoardEntry. |
+| `make demo` | Require proposer `REVISE`, verifier `RATIFY`, proposer `RATIFY`, with one valid attempt per turn. |
+| `make conversation TURNS=6` | Run a bounded two-agent session on the default task. |
+| `make latency RUNS=5` / `make gpu` | Measure local inference or inspect Windows model placement. |
+| `make test` | Run the existing offline test suite. |
 
-```bash
-cp .env.example .env
-```
+`make demo` exits with an error if the required sequence does not occur. Each conversation saves a transcript and board snapshot under `results/conversations/`; Ollama reports are under `results/ollama/`. These generated files are ignored by Git. For another task in PowerShell, use `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 conversation -Prompt "Your task with supplied facts"`.
 
-On Windows, copy `.env.example` to `.env` using your file manager or PowerShell.
+## Code layout
 
-Fill in local paths, ports, and model settings as required. **Never commit `.env` or secrets.** Keep `.env.example` updated with placeholder values only.
+- `blackboard/` defines the PXP contract, synchronized board, JSON snapshot store, and round-robin scheduler.
+- `agents/` contains the Ollama client, strict PEX/PXP validation, persona prompts, and live conversation runner.
+- `tests/` contains existing checks; `demo.py` is a board-only example.
 
-Example settings to document in `.env.example`:
-
-```dotenv
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=<team-agreed-model-tag>
-```
-
-### Run the system
-
-Commands below assume the repository uses the paths shown in the structure above. Adjust them if the implementation differs.
-
-```bash
-# Backend
-uvicorn ui.server.main:app --reload
-```
-
-In another terminal:
-
-```bash
-# Frontend
-cd ui/frontend
-npm install
-npm run dev
-```
-
-Run the core sanity-check demo, if present:
-
-```bash
-python demo.py
-```
-
----
-
-## 5. Git and Pull Request Guidelines
-
-### Branching
-
-- Keep `main` runnable at all times.
-- Create a branch for each feature or fix.
-- Do not push directly to `main`.
-- Open a pull request (PR) and get at least **one teammate review** before merging.
-
-Suggested branch names:
-
-```text
-infra/scheduler
-agents/rollback-sandbox
-ui/graph-view
-```
-
-### Commits
-
-- Make small, focused, frequent commits.
-- Use clear commit messages that describe the change.
-- Avoid one large end-of-week dump.
-
-### Pull requests
-
-Every PR should:
-
-- Explain what changed and why.
-- Link the relevant milestone or sprint task.
-- Mention how the change was tested.
-- Call out any interface, environment, or dependency changes.
-- Tag both other teammates if `blackboard/models.py` changes.
-
----
-
-## 6. Team Coordination
-
-- **Daily async check-in:** Post what you completed, what you plan next, and any blockers in the team's Slack/Discord thread.
-- **Schema freeze:** Hold a short team sync around Week 1, Days 3–4 to agree on `blackboard/models.py`.
-- **Data-contract review:** Schedule the Day 10 retrospection/data-contract review on the shared calendar.
-- **Weekly demo:** Demo progress every Friday, even if the implementation is still rough.
-- **Cross-boundary changes:** Discuss changes that affect another teammate's interface before merging them.
-
----
-
-## 7. Week 1 Setup Checklist
-
-- [ ] Agree on Python and Node.js versions.
-- [ ] Select and pin the shared Ollama model/tag and quantization.
-- [ ] Create the monorepo and confirm ownership boundaries.
-- [ ] Add `.env.example` and ensure `.env` is gitignored.
-- [ ] Confirm every teammate can install dependencies and run the core demo.
-- [ ] Agree on branch naming, PR review, and commit conventions.
-- [ ] Freeze `blackboard/models.py` and document the contract.
-- [ ] Schedule the Day 10 review and Friday demos.
-
----
-
-*PXP Blackboard — Team working guide*
+The board's agreement label is a prototype tag heuristic. A successful demo confirms the interaction path and the checked sequence, not answer accuracy across tasks. Predictions and explanations need independent evaluation for the planned study.
