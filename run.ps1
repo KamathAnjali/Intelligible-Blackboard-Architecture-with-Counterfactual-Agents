@@ -3,7 +3,7 @@ param(
     [string]$Task = 'help',
     [string]$Prompt = 'Explain a blackboard architecture in three sentences.',
     [ValidateRange(1, 100)][int]$Runs = 3,
-    [ValidateSet('cautious_verifier', 'aggressive_proposer')]
+    [ValidateSet('cautious_verifier', 'aggressive_proposer', 'evidence_auditor', 'counterexample_challenger')]
     [string]$Persona = 'cautious_verifier',
     [ValidateRange(0, 5)][int]$Retries = 2,
     [ValidateRange(1, 12)][int]$Turns = 6

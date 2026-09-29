@@ -18,6 +18,15 @@ def response(text, done=True, reason="stop"):
 VALID = json.dumps({"prediction": "yes", "explanation": "The supplied rule applies."})
 
 
+@pytest.fixture(autouse=True)
+def supported_review(monkeypatch):
+    """Keep the existing output-format tests independent of model judgement."""
+    monkeypatch.setattr(OllamaClient, "check_explanation", Mock(return_value={
+        "parsed": {"supported": True, "reason": "Controlled review."},
+        "raw": response('{"supported": true, "reason": "Controlled review."}'), "error": None,
+    }))
+
+
 @pytest.mark.parametrize("text", [
     "not JSON", "```json\n" + VALID + "\n```", "[]", "null",
     '{"prediction": "yes"}',

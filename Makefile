@@ -25,7 +25,7 @@ help:
 	@echo make latency RUNS=5        Measure one first request and 5 warm runs
 	@echo make samples               Run five sample prompts
 	@echo make pex PERSONA=aggressive_proposer RETRIES=2    Generate validated PEX
-	@echo make personas              Check both personas on three tasks each
+	@echo make personas              Check all four personas on three tasks each
 	@echo make entry                 Preview one complete BoardEntry without posting
 	@echo make conversation TURNS=6  Run a live two-agent blackboard session
 	@echo make demo                  Require a clean three-turn RATIFY demonstration

@@ -1,4 +1,4 @@
-"""Day 4: two personas x three tasks, opt in with --run-ollama.
+"""Check the available personas on three tasks, opt in with --run-ollama.
 
 These are live model checks, not deterministic unit tests. No retries are
 allowed here so schema failures cannot be hidden by successful recovery.
@@ -29,7 +29,7 @@ def live_run(request):
         "max_retries": 0,
         "prompts": {
             name: (ROOT / "agents/prompts" / name).read_text(encoding="utf-8")
-            for name in ("pex_template.txt", *(f"{persona}.txt" for persona in PERSONAS))
+            for name in ("pex_template.txt", "explanation_check.txt", *(f"{persona}.txt" for persona in PERSONAS))
         },
         "records": [],
     }
@@ -45,9 +45,9 @@ def live_run(request):
         directory = ROOT / "results/ollama"
         directory.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        path = directory / f"day4-personas-{stamp}.json"
+        path = directory / f"persona-checks-{stamp}.json"
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"\nDay 4 report: {path}")
+        print(f"\nPersona report: {path}")
 
 
 @pytest.mark.parametrize("persona", PERSONAS)

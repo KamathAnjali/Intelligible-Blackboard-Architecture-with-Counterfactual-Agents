@@ -16,7 +16,7 @@ from urllib.request import Request, urlopen
 
 from pydantic import ValidationError
 
-from agents.pex import PEXGenerationError, PEXResponse
+from agents.pex import ExplanationCheck, PEXGenerationError, PEXResponse
 from agents.pxp import InitialPXPResponse, PXPGenerationError, PXPResponse
 from blackboard.models import AgentRecord, BlackboardState, BoardEntry
 
@@ -24,7 +24,8 @@ MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 BASE_URL = "http://127.0.0.1:11434"
 OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 256}
 ROOT = Path(__file__).resolve().parents[1]
-PERSONAS = ("cautious_verifier", "aggressive_proposer")
+PERSONAS = ("cautious_verifier", "aggressive_proposer",
+            "evidence_auditor", "counterexample_challenger")
 
 
 class GenerationTransportError(RuntimeError):
@@ -69,7 +70,7 @@ class OllamaClient:
         return result
 
     def generate_pex(self, prompt, persona=None, max_retries=2):
-        """Return validated PEX plus raw output and all attempts."""
+        """Return validated, self-checked PEX and every generation/review attempt."""
         return self._generate_structured(
             prompt, persona, max_retries, "pex_template.txt", PEXResponse, PEXGenerationError,
         )
@@ -106,6 +107,7 @@ class OllamaClient:
         schema = PXPResponse if snapshot.entries else InitialPXPResponse
         result = self._generate_structured(
             prompt, agent.persona, max_retries, "pxp_template.txt", schema, PXPGenerationError,
+            task=task,
         )
         # Explicitly copy model-owned fields; never unpack arbitrary model metadata.
         parsed = result["parsed"]
@@ -116,13 +118,25 @@ class OllamaClient:
         )
         return result
 
-    def _generate_structured(self, prompt, persona, max_retries, template_name,
-                             response_model, error_class):
-        """Validate every answer; retry malformed/truncated output only.
+    def check_explanation(self, task, answer):
+        """Review task support separately from the actor's board history."""
+        prompt = json.dumps({"task": task, "prediction": answer["prediction"],
+                             "explanation": answer["explanation"]}, ensure_ascii=False)
+        system = (ROOT / "agents/prompts/explanation_check.txt").read_text(encoding="utf-8")
+        raw = self.generate(prompt, system=system, schema=ExplanationCheck.model_json_schema())
+        try:
+            parsed = parse_response(raw, ExplanationCheck).model_dump(mode="json")
+            return {"raw": raw, "parsed": parsed, "error": None}
+        except ValueError as exc:
+            return {"raw": raw, "error": str(exc)}
 
-        The result contains parsed fields, final raw output, and every attempt's
-        raw output/timing. Semantic correctness requires separate evaluation.
-        Transport errors propagate without being retried as formatting errors.
+    def _generate_structured(self, prompt, persona, max_retries, template_name,
+                             response_model, error_class, task=None):
+        """Validate and review each candidate within the existing retry budget.
+
+        A valid candidate gets one model self-check before it can be returned.
+        Rejected or malformed reviews trigger regeneration; transport failures
+        preserve the attempts and stop. Independent evaluation is still needed.
         """
         if type(max_retries) is not int or not 0 <= max_retries <= 5:
             raise ValueError("max_retries must be an integer between 0 and 5")
@@ -140,28 +154,64 @@ class OllamaClient:
             except (RuntimeError, OSError) as exc:
                 attempts.append({"raw": None, "error": str(exc)})
                 raise GenerationTransportError(str(exc), attempts) from exc
-            error = None
+            attempt = {"raw": raw, "error": None}
+            attempts.append(attempt)
+            parsed = None
             try:
-                if raw.get("done") is not True or raw.get("done_reason") == "length":
-                    raise ValueError("Response incomplete or truncated; use a shorter complete JSON answer.")
-                if not isinstance(raw.get("response"), str):
-                    raise ValueError("Response text is missing or is not a string.")
-                parsed = response_model.model_validate_json(raw["response"])
-            except ValidationError as exc:
-                error = "; ".join(
-                    f"{'.'.join(map(str, issue['loc'])) or 'JSON'}: {issue['msg']}"
-                    for issue in exc.errors(include_input=False, include_url=False)
-                )
+                parsed = parse_response(raw, response_model).model_dump(mode="json")
             except ValueError as exc:
-                error = str(exc)
-            attempts.append({"raw": raw, "error": error})
-            if error is None:
-                return {"parsed": parsed.model_dump(mode="json"), "raw": raw, "attempts": attempts}
+                attempt["error"] = str(exc)
+            if parsed is not None:
+                try:
+                    check = self.check_explanation(task if task is not None else prompt, parsed)
+                except (RuntimeError, OSError) as exc:
+                    attempt["self_check"] = {"raw": None, "error": str(exc)}
+                    attempt["error"] = f"Explanation self-check transport error: {exc}"
+                    raise GenerationTransportError(str(exc), attempts) from exc
+                attempt["self_check"] = check
+                if check["error"]:
+                    attempt["error"] = f"Explanation self-check output invalid: {check['error']}"
+                elif not check["parsed"]["supported"]:
+                    attempt["error"] = f"Unsupported explanation: {check['parsed']['reason']}"
+            if attempt["error"] is None:
+                return {"parsed": parsed, "raw": raw, "attempts": attempts,
+                        "usage": inference_usage(attempts)}
+            previous = f"Previous answer: {json.dumps(parsed, ensure_ascii=False)}\n" if parsed else ""
             feedback = (
-                f"\n\nAttempt {len(attempts)} failed output validation: {error}\n"
+                f"\n\nAttempt {len(attempts)} failed output validation or explanation review: {attempt['error']}\n"
+                f"{previous}"
                 "Answer the original task again. Return only JSON matching the supplied schema."
             )
         raise error_class(attempts)
+
+
+def parse_response(raw, response_model):
+    """Apply the same completion and strict-schema rules to answers and reviews."""
+    if raw.get("done") is not True or raw.get("done_reason") == "length":
+        raise ValueError("Response incomplete or truncated; use a shorter complete JSON answer.")
+    if not isinstance(raw.get("response"), str):
+        raise ValueError("Response text is missing or is not a string.")
+    try:
+        return response_model.model_validate_json(raw["response"])
+    except ValidationError as exc:
+        message = "; ".join(
+            f"{'.'.join(map(str, issue['loc'])) or 'JSON'}: {issue['msg']}"
+            for issue in exc.errors(include_input=False, include_url=False)
+        )
+        raise ValueError(message) from exc
+
+
+def inference_usage(attempts):
+    """Include candidate generation, self-checks, and retries in the call cost."""
+    calls = [attempt.get("raw") for attempt in attempts]
+    calls.extend(attempt["self_check"].get("raw") for attempt in attempts if "self_check" in attempt)
+    completed = [raw for raw in calls if raw is not None]
+    return {
+        "calls": len(calls),
+        "prompt_tokens": sum(raw.get("prompt_eval_count", 0) for raw in completed),
+        "output_tokens": sum(raw.get("eval_count", 0) for raw in completed),
+        "wall_seconds": round(sum(raw.get("wall_seconds", 0) for raw in completed), 3),
+    }
 
 
 def timings(result):
@@ -185,9 +235,13 @@ def save_report(kind, client, records):
     report = {
         "created_at": stamp.isoformat(), "model": client.model,
         "base_url": client.base_url, "platform": platform.platform(),
-        "options": OPTIONS, "ollama": client.request("/api/version"),
-        "loaded_models": client.request("/api/ps"), "records": records,
+        "options": OPTIONS, "records": records,
     }
+    for key, endpoint in (("ollama", "/api/version"), ("loaded_models", "/api/ps")):
+        try:
+            report[key] = client.request(endpoint)
+        except (RuntimeError, OSError, ValueError) as exc:
+            report[key] = {"unavailable": str(exc)}
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Report: {path}")
     return path
@@ -234,17 +288,22 @@ def pex_failures(text, done_reason, expected):
 
 
 def samples(client):
-    template = (ROOT / "agents/prompts/pex_template.txt").read_text(encoding="utf-8")
     cases = json.loads((ROOT / "agents/prompts/sample_tasks.json").read_text(encoding="utf-8"))
     records = []
     for case in cases:
         print(f"Running {case['id']}...", flush=True)
-        result = client.generate(case["task"], system=template)
-        failures, parsed = pex_failures(result["response"], result.get("done_reason"), case["expected"])
-        records.append({**case, "failures": failures, "parsed": parsed,
-                        "explanation_review": "pending", "metrics": timings(result), "raw": result})
-        print(result["response"], flush=True)
-        print(f"Checks: {', '.join(failures) if failures else 'passed'}; explanation requires human review.", flush=True)
+        record = {**case, "explanation_review": "pending"}
+        records.append(record)
+        try:
+            result = client.generate_pex(case["task"], max_retries=0)
+            failures, _ = pex_failures(result["raw"]["response"], result["raw"].get("done_reason"), case["expected"])
+            record.update(result, failures=failures, metrics=timings(result["raw"]))
+            print(result["raw"]["response"], flush=True)
+            print(f"Checks: {', '.join(failures) if failures else 'passed'}; human review remains pending.", flush=True)
+        except (PEXGenerationError, GenerationTransportError) as exc:
+            record.update(attempts=exc.attempts, error=str(exc),
+                          usage=inference_usage(exc.attempts), failures=["generation_or_self_check_failed"])
+            print(f"Checks: {exc}", flush=True)
     save_report("pex-samples", client, records)
     print("Inspect every raw response for unsupported claims, faulty reasoning, and irrelevant explanation.")
     return int(any(row["failures"] for row in records))
@@ -288,13 +347,16 @@ def main():
                     result["entry"] = result["entry"].model_dump(mode="json")
                 else:
                     result = client.generate_pex(args.prompt, args.persona, args.retries)
-            except PEXGenerationError as exc:
-                record.update({"attempts": exc.attempts, "error": str(exc)})
+            except (PEXGenerationError, GenerationTransportError) as exc:
+                record.update({"attempts": exc.attempts, "error": str(exc),
+                               "usage": inference_usage(exc.attempts)})
                 save_report(args.command, client, [record])
                 raise
             record.update(result)
             print(json.dumps(result.get("entry", result["parsed"]), ensure_ascii=False, indent=2))
-            print(f"Validated after {len(result['attempts'])} attempt(s).")
+            print(f"Validated and self-checked after {len(result['attempts'])} attempt(s).")
+            print(f"Self-check: {result['attempts'][-1]['self_check']['parsed']['reason']}")
+            print(f"Total usage: {json.dumps(result['usage'])}")
             save_report(args.command, client, [record])
         else:
             return samples(client)

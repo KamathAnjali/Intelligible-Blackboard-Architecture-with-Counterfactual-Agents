@@ -30,6 +30,10 @@ def state():
 def client():
     client = OllamaClient()
     client.generate = Mock(return_value=model_response())
+    client.check_explanation = Mock(return_value={
+        "parsed": {"supported": True, "reason": "Controlled review."},
+        "raw": {"wall_seconds": 0.1}, "error": None,
+    })
     return client
 
 

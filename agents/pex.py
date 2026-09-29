@@ -10,6 +10,15 @@ class PEXResponse(BaseModel):
     explanation: str = Field(min_length=1, pattern=r"\S")
 
 
+class ExplanationCheck(BaseModel):
+    """Separate model review; never included in the PEX or BoardEntry fields."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, str_strip_whitespace=True)
+
+    supported: bool
+    reason: str = Field(min_length=1, max_length=300, pattern=r"\S")
+
+
 class PEXGenerationError(RuntimeError):
     """No valid response within the budget; raw attempts remain inspectable."""
 

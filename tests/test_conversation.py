@@ -19,6 +19,10 @@ def response(tag="REVISE", prediction="yes", **fields):
 def run(tmp_path, responses, **kwargs):
     client = OllamaClient()
     client.generate = Mock(side_effect=responses)
+    client.check_explanation = Mock(return_value={
+        "parsed": {"supported": True, "reason": "Controlled review."},
+        "raw": {"wall_seconds": 0.1}, "error": None,
+    })
     report, path = run_conversation(client, output_dir=tmp_path, **kwargs)
     assert json.loads(path.read_text(encoding="utf-8")) == report
     snapshot = path.parent / f"{report['task_id']}.json"

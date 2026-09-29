@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from agents.llm_client import BASE_URL, MODEL, OPTIONS, ROOT, OllamaClient, timings
+from agents.llm_client import BASE_URL, MODEL, OPTIONS, ROOT, OllamaClient, inference_usage, timings
 from agents.pxp import InitialPXPResponse, PXPResponse
 from blackboard.core import Blackboard
 from blackboard.models import AgentRecord, PXPTag
@@ -19,12 +19,18 @@ DEFAULT_TASK = "All tulips are plants. This item is a tulip. Is it a plant? Use 
 
 
 def attempt_failures(attempt, initial=False):
-    """Categorize format failures; explanation relevance needs separate review."""
+    """Distinguish output-format failures from model self-check failures."""
     raw = attempt.get("raw")
     if raw is None:
         return ["transport_error"]
     if not attempt.get("error"):
         return []
+    check = attempt.get("self_check")
+    if check is not None:
+        if check.get("error"):
+            return ["self_check_transport_error" if check.get("raw") is None else "self_check_invalid_output"]
+        if check.get("parsed", {}).get("supported") is False:
+            return ["unsupported_explanation"]
     if raw.get("done") is not True or raw.get("done_reason") == "length":
         return ["incomplete_output"]
     if not isinstance(raw.get("response"), str):
@@ -76,8 +82,9 @@ def run_conversation(client, task=DEFAULT_TASK, max_turns=6, max_retries=2,
         "model": client.model, "base_url": client.base_url, "options": dict(OPTIONS),
         "max_turns": max_turns, "max_retries": max_retries, "turns": [],
         "failures": [], "outcome": "running", "explanation_review": "pending",
+        "self_check_enabled": True,
         "prompts": {name: (ROOT / "agents" / "prompts" / f"{name}.txt").read_text(encoding="utf-8")
-                    for name in ("pxp_template", "aggressive_proposer", "cautious_verifier")},
+                    for name in ("pxp_template", "explanation_check", "aggressive_proposer", "cautious_verifier")},
     }
     path = directory / "transcript.json"
 
@@ -118,6 +125,7 @@ def run_conversation(client, task=DEFAULT_TASK, max_turns=6, max_retries=2,
                 turn["error"] = str(exc)
                 report["outcome"] = "error"
                 report["failures"].append({"turn": number, "category": "turn_error", "error": str(exc)})
+            turn["usage"] = inference_usage(turn["attempts"])
             for index, attempt in enumerate(turn["attempts"], start=1):
                 for category in attempt_failures(attempt, initial=not state.entries):
                     report["failures"].append({"turn": number, "attempt": index, "category": category})
