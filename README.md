@@ -1,262 +1,174 @@
-# Intelligible-Blackboard-Architecture-with-Counterfactual-Agents
+# Intelligible Blackboard Architecture with Counterfactual Agents
 
-## PXP Blackboard
-
-## Environment Setup & Team Guidelines
-
-This README covers the development environment, local LLM setup, repository layout, and team conventions for working on PXP Blackboard.
+This project investigates whether multi-agent reasoning over a shared blackboard architecture—augmented with PXP (Prediction-Explanation Protocol) and retrospective counterfactual rollback—enables autonomous agents to resolve deadlocks, avoid hallucinated consensus, and achieve verifiable, intelligible outcomes.
 
 ---
 
-## 1. Development Environment
+## 1. Workstream Overview & Team Ownership
 
-### Recommended: Develop locally
+The project integrates three core workstreams into a unified execution pipeline:
 
-Each teammate should run the blackboard, agents, and UI on their own machine and work from the shared GitHub repository.
+- **Student 1 (Data Model & Storage - `1-Anjali`)**:
+  - Central `Blackboard` state engine with thread-safe `RLock` synchronization.
+  - PXP message schema contracts (`BoardEntry`, `AgentRecord`, `BlackboardState`, `PXPTag`, `BoardEvent`).
+  - In-memory storage with JSON disk snapshotting and replay trace export (`InMemoryJSONStore`).
+  - Real-time Board Event Emitter hooks for WebSocket streaming.
+  - Refined unanimous Intelligibility Classification (`STRONG` vs `ULTRA_STRONG`) with anti-impersonation logic.
+  - Retrospective rollback history slicing and isolated simulation sandbox forking.
 
-| Environment | Guidance |
-|---|---|
-| **Local machine** | Recommended for daily development and demos. Use Ollama to run the agreed local model. |
-| **Google Colab** | Use only for one-off experiments, such as testing a prompt. Colab runtimes can disconnect or recycle, so it is not suitable for the persistent server, scheduler, or stateful agents. |
-| **Shared cloud VM** | Optional for the Week 3 ablation batch if local runs are too slow. A teammate with suitable GPU access may run the benchmark locally instead. |
+- **Student 2 (Protocol & Scheduler - `2-Lopez`)**:
+  - Deterministic round-robin turn management (`Scheduler.next_agent()`).
+  - Strict turn ownership enforcement and out-of-turn submission rejection (`Scheduler.submit_entry()`).
+  - Terminal state transitions (`UNRESOLVED`, `STRONG`, `ULTRA_STRONG`, `DEADLOCKED`).
+  - Live session stop criteria and registration synchronization.
 
-### Team environment agreement
-
-Before development gets underway, agree on and document:
-
-- Python version
-- Node.js version (for the frontend)
-- Ollama model name and exact tag
-- Model quantization, where applicable
-- Required environment variables and default ports
-
-Keep these choices consistent across machines to reduce setup issues and make benchmark results comparable.
-
----
-
-## 2. Local LLM Setup
-
-### Ollama (team default)
-
-Ollama is the recommended local runtime for macOS, Windows, and Linux.
-
-1. Install Ollama:
-   - **Linux:**  
-     ```bash
-     curl -fsSL https://ollama.com/install.sh | sh
-     ```
-   - **macOS / Windows:** Download and install it from [ollama.com](https://ollama.com).
-2. Pull the model agreed upon by the team. Candidate examples:
-   ```bash
-   ollama pull mistral:7b-instruct
-   # or
-   ollama pull llama3:8b-instruct
-   ```
-3. Ollama serves its local API at:
-   ```text
-   http://localhost:11434
-   ```
-4. Configure the agent wrapper to use the local Ollama endpoint.
-5. Confirm that all teammates are using the same model identifier and tag.
-
-> **Important:** Choose one model as a team and pin its exact name/tag and quantization in `.env.example` and this README. Do not silently switch models during comparable experiments.
-
-### Optional: vLLM
-
-Use vLLM only if a teammate has an NVIDIA GPU and needs higher throughput for the Week 3 benchmark batch. It generally requires Linux and compatible NVIDIA/CUDA setup, so it is not the default for daily development.
-
-Example:
-
-```bash
-pip install vllm
-vllm serve mistralai/Mistral-7B-Instruct-v0.3
-```
+- **Student 3 (Agents & Counterfactual Reasoning - `3-Dhruva`)**:
+  - Local LLM inference integration (Ollama / `qwen3:4b-instruct-2507-q4_K_M` / `mistral:7b-instruct`).
+  - Library of 4 distinct reasoning personas: `aggressive_proposer`, `cautious_verifier`, `evidence_auditor`, `counterexample_challenger`.
+  - Strict PEX/PXP grammatical parsing, schema validation, and automatic retries with model self-checks.
+  - Multi-agent conversation loop driving consensus and structured disagreement resolution.
 
 ---
 
-## 3. Repository Structure
-
-Use a single monorepo, organized around the team's responsibility boundaries.
+## 2. Integrated Architecture Flow
 
 ```text
-pxp-blackboard/
-├── blackboard/          # Student 1 — schema, store, scheduler
-│   ├── models.py        # PXP tags and shared message contract
-│   ├── store.py
-│   ├── core.py
-│   └── scheduler.py
-├── agents/              # Student 2 — LLM wrappers, prompts, sandbox
-│   ├── llm_client.py
-│   ├── prompts/
-│   └── counterfactual.py
-├── ui/                  # Student 3 — interface
-│   ├── server/          # FastAPI + WebSocket
-│   └── frontend/        # React + D3/Vis.js
-├── bench/               # Student 3 — dataset ingest and evaluation
-│   ├── ingest/
-│   └── metrics/
-├── tests/
-├── docs/
-│   ├── Schema_Draft.md
-│   ├── API_USAGE.md
-│   ├── rollback-contract.md
-│   ├── PROGRESS_REPORT.md
-│   ├── progress_report_week2.md
-│   └── PROJECT_MILESTONES.md
-├── architecture/
-│   ├── ADR-001-Storage-Architecture.md
-│   └── backing-store.md
-├── .env.example
-├── .gitignore
-├── requirements.txt
-└── README.md
+  [Task Input]
+       │
+       ▼
+ ┌────────────────────────────────────────────────────────┐
+ │                 Scheduler (Student 2)                  │
+ │   - Round-robin turn selection (next_agent())          │
+ │   - Turn ownership enforcement (submit_entry())        │
+ └───────────────────────────┬────────────────────────────┘
+                             │ Selected Agent Turn
+                             ▼
+ ┌────────────────────────────────────────────────────────┐
+ │               Local LLM Agents (Student 3)             │
+ │   - Ollama / local model prompt generation             │
+ │   - Personas: Proposer, Verifier, Auditor, Challenger  │
+ │   - Strict PXP validation & retry with self-check      │
+ └───────────────────────────┬────────────────────────────┘
+                             │ Submits BoardEntry
+                             ▼
+ ┌────────────────────────────────────────────────────────┐
+ │             Blackboard Core (Student 1)                │
+ │   - Thread-safe RLock mutation                         │
+ │   - PXP schema & target entry verification             │
+ │   - Unanimous consensus & deadlock streak classifier   │
+ └─────┬─────────────────────┬──────────────────────┬─────┘
+       │                     │                      │
+       │ Emits state deltas  │ Slices/forks sandbox │ Saves state
+       ▼                     ▼                      ▼
+┌───────────────────┐ ┌──────────────────────┐ ┌──────────────────────┐
+│ Event Emitter Bus │ │ Counterfactual Fork  │ │  InMemoryJSONStore   │
+│ (WebSocket / UI)  │ │  (Student 3 Sandbox) │ │ (Snapshots & Replay) │
+│ - Real-time stream│ │  - Isolated timeline │ │ - snapshot_to_disk   │
+│ - Node & edge sync│ │  - delta_score eval  │ │ - export_replay      │
+└───────────────────┘ └──────────────────────┘ └──────────────────────┘
 ```
-
-### Shared contract: `blackboard/models.py`
-
-All three teammates depend on `blackboard/models.py`. Treat it as the shared interface between components.
-
-- Freeze the message schema around **Week 1, Days 3–4**.
-- Document the agreed contract in `docs/pxp-message-contract.md`.
-- Any change after the freeze must be discussed with both teammates before merging.
-- PRs that modify `models.py` must explicitly tag both other teammates for review.
 
 ---
 
-## 4. Getting Started
+## 3. Getting Started & Installation
 
 ### Prerequisites
+- Python 3.10+ (macOS, Linux, or Windows/WSL)
+- [Ollama](https://ollama.com) (for local LLM agent execution)
 
-Install:
-
-- Git
-- The agreed Python version
-- Node.js and npm (for the React frontend)
-- Ollama and the agreed model
-
-### Clone the repository
+### Environment Setup
 
 ```bash
-git clone <REPOSITORY_URL>
-cd pxp-blackboard
-```
+# Clone the repository
+git clone https://github.com/KamathAnjali/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents.git
+cd Intelligible-Blackboard-Architecture-with-Counterfactual-Agents
 
-### Set up Python
+# Set up virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-```bash
-python -m venv .venv
-
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-If the project uses `pyproject.toml` instead of `requirements.txt`, follow the install command documented there.
-
-### Configure environment variables
-
+### Pull Local LLM Model (Ollama)
 ```bash
-cp .env.example .env
+ollama pull qwen3:4b-instruct-2507-q4_K_M
+# or
+ollama pull mistral:7b-instruct
 ```
 
-On Windows, copy `.env.example` to `.env` using your file manager or PowerShell.
+---
 
-Fill in local paths, ports, and model settings as required. **Never commit `.env` or secrets.** Keep `.env.example` updated with placeholder values only.
+## 4. Running Demos & Test Suite
 
-Example settings to document in `.env.example`:
-
-```dotenv
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=<team-agreed-model-tag>
-```
-
-### Run the system
-
-Commands below assume the repository uses the paths shown in the structure above. Adjust them if the implementation differs.
-
-```bash
-# Backend
-uvicorn ui.server.main:app --reload
-```
-
-In another terminal:
-
-```bash
-# Frontend
-cd ui/frontend
-npm install
-npm run dev
-```
-
-Run the core sanity-check demo, if present:
-
+### 1. Run Complete Offline Integration Demo (No LLM Required)
 ```bash
 python demo.py
 ```
+Demonstrates:
+- 3-agent convergence reaching `ULTRA_STRONG` consensus.
+- Deadlock detection with negative tag streak.
+- Isolated counterfactual sandbox forking and delta score evaluation.
 
----
-
-## 5. Git and Pull Request Guidelines
-
-### Branching
-
-- Keep `main` runnable at all times.
-- Create a branch for each feature or fix.
-- Do not push directly to `main`.
-- Open a pull request (PR) and get at least **one teammate review** before merging.
-
-Suggested branch names:
-
-```text
-infra/scheduler
-agents/rollback-sandbox
-ui/graph-view
+### 2. Run Local LLM Multi-Agent Conversation (Live Ollama)
+```bash
+python -m agents.conversation --turns 6 --retries 2
 ```
 
-### Commits
+### 3. Run Disagreement Resolution Scenario
+```bash
+python -m agents.conversation --scenario disagreement --turns 6
+```
 
-- Make small, focused, frequent commits.
-- Use clear commit messages that describe the change.
-- Avoid one large end-of-week dump.
-
-### Pull requests
-
-Every PR should:
-
-- Explain what changed and why.
-- Link the relevant milestone or sprint task.
-- Mention how the change was tested.
-- Call out any interface, environment, or dependency changes.
-- Tag both other teammates if `blackboard/models.py` changes.
+### 4. Run Full Test Suite
+```bash
+pytest -v
+```
 
 ---
 
-## 6. Team Coordination
+## 5. Repository Structure
 
-- **Daily async check-in:** Post what you completed, what you plan next, and any blockers in the team's Slack/Discord thread.
-- **Schema freeze:** Hold a short team sync around Week 1, Days 3–4 to agree on `blackboard/models.py`.
-- **Data-contract review:** Schedule the Day 10 retrospection/data-contract review on the shared calendar.
-- **Weekly demo:** Demo progress every Friday, even if the implementation is still rough.
-- **Cross-boundary changes:** Discuss changes that affect another teammate's interface before merging them.
-
----
-
-## 7. Week 1 Setup Checklist
-
-- [ ] Agree on Python and Node.js versions.
-- [ ] Select and pin the shared Ollama model/tag and quantization.
-- [ ] Create the monorepo and confirm ownership boundaries.
-- [ ] Add `.env.example` and ensure `.env` is gitignored.
-- [ ] Confirm every teammate can install dependencies and run the core demo.
-- [ ] Agree on branch naming, PR review, and commit conventions.
-- [ ] Freeze `blackboard/models.py` and document the contract.
-- [ ] Schedule the Day 10 review and Friday demos.
-
----
-
-*PXP Blackboard — Team working guide*
-
+```text
+pxp_blackboard/
+├── blackboard/              # Student 1 & 2 — Data model, store, core, scheduler
+│   ├── models.py            # PXP message schema, BoardEvent, BoardEntry
+│   ├── store.py             # In-memory dict store with disk snapshotting
+│   ├── core.py              # Thread-safe Blackboard core & event emitters
+│   └── scheduler.py         # Round-robin turn management & enforcement
+├── agents/                  # Student 3 — Local LLM agents, prompts, PXP parser
+│   ├── llm_client.py        # Ollama HTTP API client & token accounting
+│   ├── conversation.py      # Multi-agent session driver & report checkpointing
+│   ├── pxp.py               # PXP response validation contracts
+│   ├── pex.py               # PEX schema models
+│   └── prompts/             # Persona prompts & task templates
+├── architecture/            # Architecture decision records
+│   ├── ADR-001-Storage-Architecture.md
+│   └── backing-store.md
+├── docs/                    # Documentation & Milestone Tracking
+│   ├── Schema_Draft.md      # BlackboardState & BoardEntry draft
+│   ├── API_USAGE.md         # Public API guide for teammates
+│   ├── rollback-contract.md # Retrospective rollback data contract
+│   ├── INTEGRATION_REPORT.md# Complete 3-workstream integration report
+│   ├── PROGRESS_REPORT.md   # Current project progress report
+│   └── PROJECT_MILESTONES.md# Weekly milestone breakdown
+├── tests/                   # Automated unit & integration tests
+│   ├── test_agent_contract.py
+│   ├── test_blackboard.py
+│   ├── test_classification.py
+│   ├── test_concurrency.py
+│   ├── test_conversation.py
+│   ├── test_emitter.py
+│   ├── test_entry_mapping.py
+│   ├── test_integration.py
+│   ├── test_llm_client.py
+│   ├── test_models.py
+│   ├── test_parser.py
+│   ├── test_rollback.py
+│   ├── test_scheduler.py
+│   └── test_store.py
+├── demo.py                  # Integration demonstration runner
+├── requirements.txt
+└── README.md
+```

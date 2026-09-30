@@ -1,3 +1,5 @@
+"""Manual scheduler check: run python -m tests.lopez_testing from the repo root."""
+
 from blackboard.scheduler import Scheduler
 from blackboard.core import Blackboard
 from blackboard.models import AgentRecord, BoardEntry, PXPTag

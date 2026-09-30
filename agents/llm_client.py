@@ -1,0 +1,369 @@
+"""Local inference harness: raw text, validated PEX, and PXP-to-BoardEntry mapping.
+
+Run from the repository root: python -m agents.llm_client --help
+"""
+
+import argparse
+import json
+import platform
+import statistics
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+from pydantic import ValidationError
+
+from agents.pex import ExplanationCheck, PEXGenerationError, PEXResponse
+from agents.pxp import InitialPXPResponse, PXPGenerationError, PXPResponse
+from blackboard.models import AgentRecord, BlackboardState, BoardEntry
+
+MODEL = "qwen3:4b-instruct-2507-q4_K_M"
+BASE_URL = "http://127.0.0.1:11434"
+OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 256}
+ROOT = Path(__file__).resolve().parents[1]
+PERSONAS = ("cautious_verifier", "aggressive_proposer",
+            "evidence_auditor", "counterexample_challenger")
+
+
+class GenerationTransportError(RuntimeError):
+    """A request failed; retain earlier attempts for the conversation log."""
+
+    def __init__(self, message, attempts):
+        super().__init__(message)
+        self.attempts = attempts
+
+
+class OllamaClient:
+    def __init__(self, model=MODEL, base_url=BASE_URL):
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+
+    def request(self, path, payload=None):
+        data = None if payload is None else json.dumps(payload).encode("utf-8")
+        request = Request(self.base_url + path, data=data,
+                          headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(request, timeout=300) as response:
+                result = json.load(response)
+        except HTTPError as exc:
+            raise RuntimeError(f"Ollama HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}") from exc
+        except (URLError, TimeoutError) as exc:
+            raise RuntimeError(f"Cannot complete request to {self.base_url}. Open Ollama and check the model is installed: {exc}") from exc
+        if "error" in result:
+            raise RuntimeError(result["error"])
+        return result
+
+    def generate(self, prompt, system="", schema=None):
+        """Return raw model text and timing metadata; no JSON repair or retries."""
+        started = time.perf_counter()
+        payload = {
+            "model": self.model, "prompt": prompt, "system": system,
+            "stream": False, "keep_alive": "10m", "options": OPTIONS,
+        }
+        if schema is not None:
+            payload["format"] = schema
+        result = self.request("/api/generate", payload)
+        result["wall_seconds"] = time.perf_counter() - started
+        return result
+
+    def generate_pex(self, prompt, persona=None, max_retries=2):
+        """Return validated, self-checked PEX and every generation/review attempt."""
+        return self._generate_structured(
+            prompt, persona, max_retries, "pex_template.txt", PEXResponse, PEXGenerationError,
+        )
+
+    def generate_entry(self, task, state: BlackboardState, agent_id: str,
+                       target_entry_id=None, max_retries=2, is_counterfactual_sim=False):
+        """Build one BoardEntry from a snapshot without posting or mutating it.
+
+        The application selects the target (latest entry by default). The model
+        selects the tag, prediction and explanation; metadata is supplied here.
+        Posting later must still pass Blackboard's registration/reference checks.
+        """
+        if not isinstance(task, str) or not task.strip():
+            raise ValueError("task must be a nonempty string")
+        if type(is_counterfactual_sim) is not bool:
+            raise ValueError("is_counterfactual_sim must be a bool")
+        snapshot = state.model_copy(deep=True)
+        agent = snapshot.agents.get(agent_id)
+        if agent is None or not agent.active or agent.agent_id != agent_id:
+            raise ValueError("agent_id must identify a registered, active agent")
+        if agent.model_name not in ("unspecified", self.model):
+            raise ValueError("Registered agent model_name does not match this client's model")
+        if target_entry_id is None and snapshot.entries:
+            target_entry_id = snapshot.entries[-1].entry_id
+        if target_entry_id is not None and not any(
+            entry.entry_id == target_entry_id for entry in snapshot.entries
+        ):
+            raise ValueError("target_entry_id must exist in the supplied board snapshot")
+        prompt = json.dumps({
+            "task": task, "task_id": snapshot.task_id, "acting_agent_id": agent_id,
+            "target_entry_id": target_entry_id,
+            "history": [entry.model_dump(mode="json") for entry in snapshot.entries],
+        }, ensure_ascii=False)
+        schema = PXPResponse if snapshot.entries else InitialPXPResponse
+        result = self._generate_structured(
+            prompt, agent.persona, max_retries, "pxp_template.txt", schema, PXPGenerationError,
+            task=task,
+        )
+        # Explicitly copy model-owned fields; never unpack arbitrary model metadata.
+        parsed = result["parsed"]
+        result["entry"] = BoardEntry(
+            agent_id=agent_id, tag=parsed["tag"], prediction=parsed["prediction"],
+            explanation=parsed["explanation"], target_entry_id=target_entry_id,
+            is_counterfactual_sim=is_counterfactual_sim,
+        )
+        return result
+
+    def check_explanation(self, task, answer):
+        """Review task support separately from the actor's board history."""
+        prompt = json.dumps({"task": task, "prediction": answer["prediction"],
+                             "explanation": answer["explanation"]}, ensure_ascii=False)
+        system = (ROOT / "agents/prompts/explanation_check.txt").read_text(encoding="utf-8")
+        raw = self.generate(prompt, system=system, schema=ExplanationCheck.model_json_schema())
+        try:
+            parsed = parse_response(raw, ExplanationCheck).model_dump(mode="json")
+            return {"raw": raw, "parsed": parsed, "error": None}
+        except ValueError as exc:
+            return {"raw": raw, "error": str(exc)}
+
+    def _generate_structured(self, prompt, persona, max_retries, template_name,
+                             response_model, error_class, task=None):
+        """Validate and review each candidate within the existing retry budget.
+
+        A valid candidate gets one model self-check before it can be returned.
+        Rejected or malformed reviews trigger regeneration; transport failures
+        preserve the attempts and stop. Independent evaluation is still needed.
+        """
+        if type(max_retries) is not int or not 0 <= max_retries <= 5:
+            raise ValueError("max_retries must be an integer between 0 and 5")
+        if persona is not None and persona not in PERSONAS:
+            raise ValueError(f"Unknown persona: {persona}")
+        prompts = ROOT / "agents/prompts"
+        system = (prompts / template_name).read_text(encoding="utf-8")
+        if persona:
+            system = (prompts / f"{persona}.txt").read_text(encoding="utf-8") + "\n\n" + system
+        attempts = []
+        feedback = ""
+        for _ in range(max_retries + 1):
+            try:
+                raw = self.generate(prompt, system=system + feedback, schema=response_model.model_json_schema())
+            except (RuntimeError, OSError) as exc:
+                attempts.append({"raw": None, "error": str(exc)})
+                raise GenerationTransportError(str(exc), attempts) from exc
+            attempt = {"raw": raw, "error": None}
+            attempts.append(attempt)
+            parsed = None
+            try:
+                parsed = parse_response(raw, response_model).model_dump(mode="json")
+            except ValueError as exc:
+                attempt["error"] = str(exc)
+            if parsed is not None:
+                try:
+                    check = self.check_explanation(task if task is not None else prompt, parsed)
+                except (RuntimeError, OSError) as exc:
+                    attempt["self_check"] = {"raw": None, "error": str(exc)}
+                    attempt["error"] = f"Explanation self-check transport error: {exc}"
+                    raise GenerationTransportError(str(exc), attempts) from exc
+                attempt["self_check"] = check
+                if check["error"]:
+                    attempt["error"] = f"Explanation self-check output invalid: {check['error']}"
+                elif not check["parsed"]["supported"]:
+                    attempt["error"] = f"Unsupported explanation: {check['parsed']['reason']}"
+            if attempt["error"] is None:
+                return {"parsed": parsed, "raw": raw, "attempts": attempts,
+                        "usage": inference_usage(attempts)}
+            previous = f"Previous answer: {json.dumps(parsed, ensure_ascii=False)}\n" if parsed else ""
+            feedback = (
+                f"\n\nAttempt {len(attempts)} failed output validation or explanation review: {attempt['error']}\n"
+                f"{previous}"
+                "Answer the original task again. Return only JSON matching the supplied schema."
+            )
+        raise error_class(attempts)
+
+
+def parse_response(raw, response_model):
+    """Apply the same completion and strict-schema rules to answers and reviews."""
+    if raw.get("done") is not True or raw.get("done_reason") == "length":
+        raise ValueError("Response incomplete or truncated; use a shorter complete JSON answer.")
+    if not isinstance(raw.get("response"), str):
+        raise ValueError("Response text is missing or is not a string.")
+    try:
+        return response_model.model_validate_json(raw["response"])
+    except ValidationError as exc:
+        message = "; ".join(
+            f"{'.'.join(map(str, issue['loc'])) or 'JSON'}: {issue['msg']}"
+            for issue in exc.errors(include_input=False, include_url=False)
+        )
+        raise ValueError(message) from exc
+
+
+def inference_usage(attempts):
+    """Include candidate generation, self-checks, and retries in the call cost."""
+    calls = [attempt.get("raw") for attempt in attempts]
+    calls.extend(attempt["self_check"].get("raw") for attempt in attempts if "self_check" in attempt)
+    completed = [raw for raw in calls if raw is not None]
+    return {
+        "calls": len(calls),
+        "prompt_tokens": sum(raw.get("prompt_eval_count", 0) for raw in completed),
+        "output_tokens": sum(raw.get("eval_count", 0) for raw in completed),
+        "wall_seconds": round(sum(raw.get("wall_seconds", 0) for raw in completed), 3),
+    }
+
+
+def timings(result):
+    generation_seconds = result.get("eval_duration", 0) / 1e9
+    return {
+        "wall_seconds": round(result["wall_seconds"], 3),
+        "server_seconds": round(result.get("total_duration", 0) / 1e9, 3),
+        "load_seconds": round(result.get("load_duration", 0) / 1e9, 3),
+        "prompt_seconds": round(result.get("prompt_eval_duration", 0) / 1e9, 3),
+        "output_tokens": result.get("eval_count", 0),
+        "tokens_per_second": round(result.get("eval_count", 0) / generation_seconds, 2) if generation_seconds else None,
+        "done_reason": result.get("done_reason"),
+    }
+
+
+def save_report(kind, client, records):
+    directory = ROOT / "results" / "ollama"
+    directory.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc)
+    path = directory / f"{kind}-{stamp.strftime('%Y%m%dT%H%M%S%fZ')}.json"
+    report = {
+        "created_at": stamp.isoformat(), "model": client.model,
+        "base_url": client.base_url, "platform": platform.platform(),
+        "options": OPTIONS, "records": records,
+    }
+    for key, endpoint in (("ollama", "/api/version"), ("loaded_models", "/api/ps")):
+        try:
+            report[key] = client.request(endpoint)
+        except (RuntimeError, OSError, ValueError) as exc:
+            report[key] = {"unavailable": str(exc)}
+    path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Report: {path}")
+    return path
+
+
+def benchmark(client, runs):
+    # An explicit unload separates model loading from warm inference. OS file
+    # caches may still be warm; this is not a disk-cold or first-token benchmark.
+    client.request("/api/generate", {"model": client.model, "keep_alive": 0})
+    prompt = "In about 80 words, explain how a shared blackboard helps several software agents solve a problem."
+    records = []
+    for index in range(runs + 1):
+        phase = "first_after_unload" if index == 0 else f"warm_{index}"
+        print(f"Running {phase}...", flush=True)
+        result = client.generate(prompt)
+        metrics = timings(result)
+        records.append({"phase": phase, "prompt": prompt, "metrics": metrics, "raw": result})
+        print(json.dumps(metrics), flush=True)
+    warm = [row["metrics"]["wall_seconds"] for row in records[1:]]
+    print(f"Warm wall latency: median={statistics.median(warm):.3f}s, min={min(warm):.3f}s, max={max(warm):.3f}s")
+    print("Repeated prompts may use prompt caching. Compare identical settings on the same laptop.")
+    save_report("latency", client, records)
+
+
+def pex_failures(text, done_reason, expected):
+    """Offline sample checks; not production validation or automatic retry."""
+    failures = []
+    if done_reason == "length":
+        failures.append("output_truncated")
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return failures + ["invalid_json"], None
+    if not isinstance(parsed, dict):
+        return failures + ["not_a_json_object"], parsed
+    if set(parsed) != {"prediction", "explanation"}:
+        failures.append("missing_or_extra_fields")
+    for field in ("prediction", "explanation"):
+        if not isinstance(parsed.get(field), str) or not parsed[field].strip():
+            failures.append(f"invalid_{field}")
+    if parsed.get("prediction") != expected:
+        failures.append("incorrect_prediction")
+    return failures, parsed
+
+
+def samples(client):
+    cases = json.loads((ROOT / "agents/prompts/sample_tasks.json").read_text(encoding="utf-8"))
+    records = []
+    for case in cases:
+        print(f"Running {case['id']}...", flush=True)
+        record = {**case, "explanation_review": "pending"}
+        records.append(record)
+        try:
+            result = client.generate_pex(case["task"], max_retries=0)
+            failures, _ = pex_failures(result["raw"]["response"], result["raw"].get("done_reason"), case["expected"])
+            record.update(result, failures=failures, metrics=timings(result["raw"]))
+            print(result["raw"]["response"], flush=True)
+            print(f"Checks: {', '.join(failures) if failures else 'passed'}; human review remains pending.", flush=True)
+        except (PEXGenerationError, GenerationTransportError) as exc:
+            record.update(attempts=exc.attempts, error=str(exc),
+                          usage=inference_usage(exc.attempts), failures=["generation_or_self_check_failed"])
+            print(f"Checks: {exc}", flush=True)
+    save_report("pex-samples", client, records)
+    print("Inspect every raw response for unsupported claims, faulty reasoning, and irrelevant explanation.")
+    return int(any(row["failures"] for row in records))
+
+
+def main():
+    # Model output may contain Unicode unsupported by Windows legacy code pages.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=["query", "latency", "samples", "pex", "entry"])
+    parser.add_argument("--persona", choices=PERSONAS, default="cautious_verifier")
+    parser.add_argument("--retries", type=int, choices=range(6), default=2)
+    parser.add_argument("--prompt")
+    parser.add_argument("--model", default=MODEL)
+    parser.add_argument("--base-url", default=BASE_URL)
+    parser.add_argument("--runs", type=int, default=3, help="Number of warm requests for latency")
+    args = parser.parse_args()
+    if args.prompt is None:
+        args.prompt = (
+            "All tulips are plants. This item is a tulip. Is it a plant? Use yes or no as prediction."
+            if args.command in ("pex", "entry") else "Explain a blackboard architecture in three sentences."
+        )
+    if args.runs < 1:
+        parser.error("--runs must be at least 1")
+    client = OllamaClient(args.model, args.base_url)
+    try:
+        if args.command == "query":
+            result = client.generate(args.prompt)
+            print(result["response"])
+            print(json.dumps(timings(result), indent=2))
+        elif args.command == "latency":
+            benchmark(client, args.runs)
+        elif args.command in ("pex", "entry"):
+            record = {"prompt": args.prompt, "persona": args.persona, "max_retries": args.retries}
+            try:
+                if args.command == "entry":
+                    agent = AgentRecord(agent_id="dhruva-preview", persona=args.persona, model_name=client.model)
+                    state = BlackboardState(task_id="day5-preview", agents={agent.agent_id: agent})
+                    result = client.generate_entry(args.prompt, state, agent.agent_id, max_retries=args.retries)
+                    result["entry"] = result["entry"].model_dump(mode="json")
+                else:
+                    result = client.generate_pex(args.prompt, args.persona, args.retries)
+            except (PEXGenerationError, GenerationTransportError) as exc:
+                record.update({"attempts": exc.attempts, "error": str(exc),
+                               "usage": inference_usage(exc.attempts)})
+                save_report(args.command, client, [record])
+                raise
+            record.update(result)
+            print(json.dumps(result.get("entry", result["parsed"]), ensure_ascii=False, indent=2))
+            print(f"Validated and self-checked after {len(result['attempts'])} attempt(s).")
+            print(f"Self-check: {result['attempts'][-1]['self_check']['parsed']['reason']}")
+            print(f"Total usage: {json.dumps(result['usage'])}")
+            save_report(args.command, client, [record])
+        else:
+            return samples(client)
+    except (RuntimeError, OSError, ValueError) as exc:
+        parser.exit(1, f"Error: {exc}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
