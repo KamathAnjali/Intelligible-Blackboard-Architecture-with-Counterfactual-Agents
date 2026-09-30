@@ -2,7 +2,7 @@
 
 This project studies whether agents that can revisit earlier decisions help a group reach correct, explainable answers. Agents share a blackboard and post a prediction, explanation, and PXP tag: `RATIFY`, `REVISE`, `REFUTE`, or `REJECT`. The planned counterfactual component will test an alternative earlier contribution in an isolated replay before any change reaches the live session.
 
-The `3-Dhruva` branch provides four local Ollama personas and a scheduled two-agent blackboard demo. Structured answers receive a separate explanation self-check before they can be returned or posted. Counterfactual replay, a connected UI, and benchmark evaluation remain future integration work. See the [progress report](docs/PROGRESS_REPORT.md) and [project milestones](docs/PROJECT_MILESTONES.md).
+The `3-Dhruva` branch provides four local Ollama personas, a two-agent demo, and a seeded three-agent disagreement run. Structured answers receive a separate explanation self-check before they can be returned or posted. Counterfactual replay, a connected UI, and benchmark evaluation remain future integration work. See the [progress report](docs/PROGRESS_REPORT.md) and [project milestones](docs/PROJECT_MILESTONES.md).
 
 ## Run from WSL
 
@@ -36,10 +36,11 @@ sleep 5
 make demo
 ```
 
-The demo expects proposer `REVISE`, verifier `RATIFY`, then proposer `RATIFY`, all with matching predictions and no retries. It exits with an error if the live run does not meet those checks. A normal session uses the default tulip task:
+The demo expects proposer `REVISE`, verifier `RATIFY`, then proposer `RATIFY`, all with matching predictions and no retries. It exits with an error if the live run does not meet those checks. A normal session uses the built-in default task:
 
 ```sh
 make conversation TURNS=6 RETRIES=2
+make disagreement TURNS=6 RETRIES=2
 ```
 
 ### Make recipes
@@ -60,6 +61,7 @@ Run `make help` to print the available recipes. All recipes and supported variab
 | `make entry` | Generate a complete BoardEntry without posting it. |
 | `make entry PERSONA=cautious_verifier RETRIES=2` | Choose a persona and retry limit for the entry. |
 | `make conversation TURNS=6 RETRIES=2` | Run a bounded two-agent conversation. Turns may be 1-12 and retries 0-5. |
+| `make disagreement TURNS=6 RETRIES=2` | Run three agents against a marked incorrect starting claim; require correction and agreement. Turns must be 5-12. |
 | `make demo RETRIES=2` | Run and check the three-turn demo. |
 | `make personas` | Check all four personas on three tasks each, including explanation review. |
 | `make test` | Run the existing offline test suite. |

@@ -12,6 +12,9 @@ Choose one tag, not the pipe-separated list:
 - REFUTE: you reject the position and cannot self-correct; explain the roadblock.
 - REJECT: you conflict with both the target's prediction and explanation.
 For the first contribution on an empty board, use REVISE as the initial proposal.
+If you can give a corrected answer, use REVISE even when the correction is
+"insufficient information". Reserve REFUTE for a roadblock with no corrected
+answer to offer.
 
 Prediction and explanation must be nonempty strings. Follow any answer vocabulary
 requested by the original task. Do not invent facts when evidence is insufficient.

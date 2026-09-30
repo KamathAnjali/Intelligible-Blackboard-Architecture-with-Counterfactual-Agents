@@ -1,6 +1,6 @@
 # Progress report
 
-Updated 29 September 2026 for `3-Dhruva`. This branch contains four personas, an explanation self-check, and a runnable two-agent local inference path. The counterfactual mechanism and full product integration are still pending.
+Updated 30 September 2026 for `3-Dhruva`. This branch contains four personas, an explanation self-check, and runnable two- and three-agent local inference paths. The counterfactual mechanism and full product integration are still pending.
 
 ## Implemented
 
@@ -13,7 +13,7 @@ Updated 29 September 2026 for `3-Dhruva`. This branch contains four personas, an
 | Structured output | PEX requires `prediction` and `explanation`; PXP adds a tag. Strict validation rejects malformed, missing, extra, or blank fields. Up to five retries can be configured, with two by default. The same budget covers rejected explanation reviews. |
 | Personas and mapping | Aggressive proposer, cautious verifier, evidence auditor, and counterexample challenger have distinct prompts and share the PEX/PXP contracts. Application code supplies agent ID, target ID, entry ID, timestamp, and simulation flag when it builds a BoardEntry. |
 | Explanation self-check | A separate call reviews the prediction and explanation against the original task. Unsupported explanations or malformed reviews trigger bounded regeneration before an entry is created. Every review, failure, and generation attempt is retained; usage includes both generation and review calls. |
-| Live sessions | The runner registers both agents, gives each the original task and latest board history, posts validated entries through the scheduler, and saves a transcript and board snapshot. Errors preserve the partial run. |
+| Live sessions | The runner supports two agents or a seeded three-agent disagreement case. Each model agent receives the task and current board history. Validated entries pass through the scheduler; transcripts and snapshots preserve partial runs. |
 | Demo | `make demo` checks a live three-turn `REVISE`, `RATIFY`, `RATIFY` sequence, matching predictions, one valid attempt per turn, and no recorded failures. |
 
 The storage design uses an append-only entry list for chronological replay and a simple in-memory JSON store for short local sessions. No database service is required.
@@ -24,6 +24,7 @@ The storage design uses an append-only entry list for chronological replay and a
 - All four personas passed 12 live checks covering deduction, insufficient evidence, and contradiction. Every candidate and explanation review passed on its first attempt, with the expected prediction. The prompts distinguish existential from universal claims and reserve RATIFY for supported predictions and reasoning.
 - The self-check rejected both an unsupported universal claim and an irrelevant explanation attached to a correct prediction. Controlled checks verified correction feedback, bounded rejection, malformed-review handling, and preservation of the board and failure records.
 - On 29 September 2026, the new challenger generated a self-checked BoardEntry through WSL, and `make demo RETRIES=0` completed `REVISE`, `RATIFY`, `RATIFY` with `yes`. The demo used six model calls: one generation and one review per turn. Its local record is `results/conversations/conversation-20260929T075505206911Z/transcript.json`.
+- On 30 September 2026, a seeded false claim about ticket stamps produced three-agent disagreement. The first run reached the correct answer in five turns but the auditor mislabeled its correction `REFUTE`. After clarifying the `REVISE` rule, the repeated run followed `REVISE`, `REVISE`, `RATIFY`, `RATIFY`, `RATIFY` and ended at `C: insufficient information`. All four model turns passed their explanation checks on the first attempt, with no recorded failures. The local log is under `results/conversations/`.
 - On the RX 6800S, a prior Windows Vulkan check reported the model fully on GPU and about 54 output tokens per second on a fixed prompt; the earlier CPU baseline was about 16. Placement and latency vary by machine and session.
 
 Generated transcripts and inference reports are excluded from Git. They contain raw responses, explanation reviews, attempts, total call/token usage, timing, prompt settings, entries, and the final board state.
@@ -35,4 +36,4 @@ Generated transcripts and inference reports are excluded from Git. They contain 
 - The current branch has no connected UI, benchmark execution pipeline, or counterfactual replay. Counterfactual fields in the data model are placeholders for planned behavior.
 - The two-agent demonstration covers a simple deductive task. It does not establish recovery from disagreement, benchmark accuracy, or the proposed counterfactual benefit.
 
-The next integration steps are to connect the real board history to the UI, define enforceable turn and consensus rules, add a third agent, and implement isolated counterfactual replay before running the planned evaluations. The [milestones](PROJECT_MILESTONES.md) describe those checkpoints.
+The next integration steps are additional three-agent sessions, enforceable turn and consensus rules, and isolated counterfactual replay before the planned evaluations. The [milestones](PROJECT_MILESTONES.md) describe those checkpoints.

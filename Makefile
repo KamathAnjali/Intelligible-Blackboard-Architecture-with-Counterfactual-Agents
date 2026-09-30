@@ -15,7 +15,7 @@ RETRIES ?= 2
 TURNS ?= 6
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
-.PHONY: help start chat query gpu latency samples pex entry conversation demo personas test stop
+.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas test stop
 
 help:
 	@echo make start                 Start Ollama if needed
@@ -28,6 +28,7 @@ help:
 	@echo make personas              Check all four personas on three tasks each
 	@echo make entry                 Preview one complete BoardEntry without posting
 	@echo make conversation TURNS=6  Run a live two-agent blackboard session
+	@echo make disagreement TURNS=6  Run a seeded three-agent disagreement scenario
 	@echo make demo                  Require a clean three-turn RATIFY demonstration
 	@echo make test                  Run offline tests without requiring Ollama
 	@echo make stop                  Unload the model
@@ -46,6 +47,9 @@ entry:
 
 conversation:
 	@$(RUNNER) conversation -Turns "$(TURNS)" -Retries "$(RETRIES)"
+
+disagreement:
+	@$(RUNNER) disagreement -Turns "$(TURNS)" -Retries "$(RETRIES)"
 
 demo:
 	@$(RUNNER) demo -Retries "$(RETRIES)"
