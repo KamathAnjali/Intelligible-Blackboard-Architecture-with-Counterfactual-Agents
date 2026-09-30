@@ -106,8 +106,12 @@ def test_terminal_state_stops_scheduler(terminal_case):
     board.register_agent(AgentRecord(agent_id="b", persona="p"))
 
     if terminal_case == "consensus":
-        board.post_entry(BoardEntry(
+        e1 = BoardEntry(
             agent_id="a", tag=PXPTag.RATIFY, prediction="42", explanation="Agreed."
+        )
+        board.post_entry(e1)
+        board.post_entry(BoardEntry(
+            agent_id="b", tag=PXPTag.RATIFY, prediction="42", explanation="Agreed too.", target_entry_id=e1.entry_id
         ))
     else:
         for index in range(4):
