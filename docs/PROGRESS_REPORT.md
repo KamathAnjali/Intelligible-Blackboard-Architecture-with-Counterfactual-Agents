@@ -1,132 +1,127 @@
-# Project Progress and Week 1 Integration Report
+# Project Progress Report
 
-**Updated:** 22 September 2026
-**Basis:** latest visible local and `origin/*` branch state
+**Updated:** September 2026  
+**Workstream Focus:** Student 1 - Data Model & Storage (`1-Anjali`)  
+**Basis:** Latest integrated branch state (`1-Anjali`)
 
-## Executive summary
+---
 
-The project now has a working foundation: shared blackboard models, validation, persistence, consensus/deadlock handling, a scheduler, and validated PXP-to-board mapping. Student 2's scheduler is merged into `origin/main`, and Student 3's latest branch can convert validated model output into a real `BoardEntry`.
+## 1. Executive summary
 
-The remaining Week 1 gap is end-to-end evidence: one repeatable two-agent conversation where the scheduler selects turns, agents generate entries, the board records them, a terminal outcome is reached, and the session is saved/reloaded. No Student 4 UI/benchmarking branch is visible yet.
+The Data Model and Storage layer (`1-Anjali`) has completed its **Week 1 foundation** and **Week 2 core deliverables**. The repository now features thread-safe Blackboard state management with reentrant locking, strict PXP grammatical validation, event emitter hooks for real-time WebSocket consumption, refined unanimous intelligibility classification (differentiating Strong vs Ultra-Strong and preventing single-agent impersonation), enhanced snapshot persistence with replay trace export, and an isolated sandbox forking mechanism supporting Student 3's counterfactual rollback contract.
 
-## Branch status
+The automated test suite contains **34 passing tests** (`.venv/bin/pytest`) verifying schema validation, multi-agent consensus, deadlock detection, event dispatch, thread-safe high-concurrency writes, and sandbox isolation.
 
-| Student | Branch | Latest work | Status |
-|---|---|---|---|
-| Student 1 — Anjali | `1-Anjali` | Blackboard foundation and storage | Week 1 foundation complete |
-| Student 2 — Lopez | `2-Lopez` | Round-robin scheduler and terminal handling | Merged into `origin/main` at `0384777` |
-| Student 3 — Dhruva | `3-Dhruva` | Ollama/PXP validation and `BoardEntry` mapping | Integration-ready; full runner required |
-| Student 4 — UI/Benchmarking | No visible branch | No committed implementation found | Must be assigned and started |
+---
 
-The checked-out local `main` is at `2bc84c6`, while `origin/main` is at `0384777`. Refresh local main before integration testing, while preserving uncommitted work.
+## 2. Team contribution map
 
-## How the branches connect
+| Branch | Owner | Main responsibility | Implemented | Status |
+|---|---|---|---|---|
+| `1-Anjali` | Anjali | Blackboard models, core, storage, events, rollback contract | Models, validation, snapshots, event emitter hooks, refined consensus, rollback sandbox, tests | Week 1 & Week 2 complete (34 tests passing) |
+| `2-Lopez` | Lopez | Protocol and scheduler | Round-robin turn selection, turn enforcement, registration synchronization, terminal status handling | Integrated with Blackboard |
+| `3-Dhruva` | Dhruva | Agents, prompts, local Ollama, PXP mapping | Strict PEX/PXP validation, retries, `BoardEntry` mapping, counterfactual persona prompts | Ready for counterfactual sandbox integration |
+| `4-Tanisha` | Tanisha | UI, WebSocket, ingestion, metrics | UI server, WebSocket scaffolding, React/D3 graph, token counter, KramaBench parser | Connected via BoardEvent emitter hooks |
 
-```text
-Task -> scheduler selects agent -> agent reads board history
-     -> Ollama produces PXP -> output maps to BoardEntry
-     -> scheduler submits -> blackboard validates/stores
-     -> consensus/deadlock status -> session saved/replayed in UI
-```
+---
 
-Student 1 provides the shared contract and state. Student 2 controls turns and terminal status. Student 3 supplies validated agent output. Student 4 will display the resulting history and benchmark/session information.
+## 3. Student 1 Deliverables Summary
 
-## Student 1 — Data model and storage
+### Week 1 Deliverables (Verified)
 
-**Work completed**
+- **BlackboardState Schema Draft & Justification**: Defined in `docs/Schema_Draft.md` and `blackboard/models.py`, listing every field (`task_id`, `entries`, `agents`, `intelligibility`, `deadlocks`, `counterfactual_events`) with types. Includes the 3-sentence justification for the append-only chronological list structure.
+- **Backing-Store ADR**: Documented in `architecture/backing-store.md` and `architecture/ADR-001-Storage-Architecture.md` (in-memory dict with JSON snapshots chosen; Redis deferred).
+- **Python Package Skeleton**: Scaffolded in `blackboard/` (`__init__.py`, `models.py`, `store.py`, `core.py`, `scheduler.py`).
+- **BoardEntry Pydantic Contract & Sample Payloads**: `BoardEntry` pydantic model with validation for non-empty fields, valid tags, and target IDs; 3 hand-written example payloads documented in `docs/Schema_Draft.md`.
+- **PXP Grammatical Parser & Unit Tests**: Verified via `test_parser.py` and `test_models.py` (malformed input, missing fields, invalid types, and whitespace rejection).
+- **Store Persistence & Snapshot Tests**: Verified in `test_store.py` (empty board, populated board round-trip, corrupted JSON error handling).
+- **Public API Documentation**: Documented in `docs/API_USAGE.md` and docstrings in `blackboard/core.py`.
+- **Multi-Agent RATIFY Integration Test**: Verified in `test_integration.py` driving agents through full consensus.
 
-- `blackboard/models.py`: `PXPTag`, `AgentRecord`, `BoardEntry`, `BlackboardState`, deadlock/counterfactual records, and intelligibility levels.
-- `blackboard/core.py`: thread-safe registration, entry validation, append-only history, consensus classification, and deadlock detection.
-- `blackboard/store.py`: in-memory state and JSON snapshot save/load.
-- Tests for malformed entries, unknown agents, invalid targets, consensus, deadlock, snapshots, and corrupted files.
+### Week 2 Deliverables (Implemented & Verified)
 
-**Connections**
+- **Board Event Emitter Hooks (`blackboard/core.py`)**:
+  - Implemented `subscribe()`, `unsubscribe()`, and `_emit()` on `Blackboard`.
+  - Emits real-time `BoardEvent` objects (`AGENT_REGISTERED`, `ENTRY_POSTED`, `DEADLOCK_DETECTED`, `INTELLIGIBILITY_CHANGED`, `SNAPSHOT_SAVED`, `ROLLBACK_FORKED`) for the WebSocket layer.
+  - Listener exceptions are isolated so UI listeners cannot abort core state mutations.
+  - Verified in `test_emitter.py`.
+- **Refined Intelligibility Classification (`blackboard/core.py`)**:
+  - Requires unanimous consensus across all registered active agents (minimum 2 agents).
+  - Anti-impersonation: prevents repeated agreement posts from a single agent from faking consensus.
+  - Enforces matching prediction values.
+  - Tiers: `ULTRA_STRONG` (unanimous consensus reached through productive `REVISE` loops in history) vs `STRONG` (direct unanimous ratification).
+  - Verified in `test_classification.py`.
+- **Board-Snapshot Persistence & Replay (`blackboard/store.py`)**:
+  - Tagged snapshot persistence to disk via `snapshot_to_disk(task_id, tag)`.
+  - Added `list_snapshots()` and `export_replay_trace()` for UI history scrubbing.
+- **Retrospective Rollback Data Contract (`docs/rollback-contract.md`)**:
+  - Defined 5-pillar data contract in sync with Student 3.
+  - Implemented `get_history_slice()` and `fork_simulation_blackboard()` in `Blackboard`.
+  - Guarantees complete isolation between counterfactual simulation branches and the immutable live board history.
+  - Verified in `test_rollback.py`.
+- **High-Concurrency Thread Safety (`test_concurrency.py`)**:
+  - Verified `threading.RLock` synchronization using 8 concurrent worker threads with barriers performing 160 simultaneous writes with zero lost entries.
 
-Student 2 uses the board types and terminal status. Student 3 uses the same schema to validate tags, agent IDs, target IDs, and generated entries. Student 4 will read history/snapshots for the graph and replay view.
+---
 
-**Changes/improvements**
+## 4. How the System Works
 
-- Freeze `models.py` as the Week 1 shared contract and review later changes with all students.
-- Define one source of truth for agent registration.
-- Document the event-publication contract for the Week 2 dashboard.
-- Keep simulated entries isolated from live history for Week 3.
-
-## Student 2 — Protocol and scheduler
-
-**Work completed**
-
-`blackboard/scheduler.py` provides round-robin selection, no-agent and terminal checks, submission, deadlock transition, and stopping after `STRONG` or `ULTRA_STRONG` consensus.
-
-**Connections**
-
-The scheduler depends on Student 1's `Blackboard`, `AgentRecord`, `BoardEntry`, and intelligibility definitions. Student 3 hands generated entries to `Scheduler.submit_entry()`. Student 4 will display active agent, turn order, and terminal state.
-
-**Changes/improvements**
-
-- Make registration update both scheduler and board, or document the single owner.
-- Track the result of `next_agent()` and reject submissions from the wrong agent.
-- Add a multi-turn integration test covering consensus, deadlock, and stop.
-- Define a maximum-turn/time-limit outcome.
-
-## Student 3 — Agents and PXP mapping
-
-**Work completed**
-
-- Local Ollama client, model configuration, persona prompts, sample tasks, and latency reporting.
-- Strict PEX/PXP validation in `agents/pex.py` and `agents/pxp.py`.
-- `OllamaClient.generate_entry(...)` validates context, sends task/history to the model, retries invalid output, and maps it to `BoardEntry`.
-- Application-owned fields (`agent_id`, target, entry ID/timestamp, simulation flag) stay outside model output.
-- Offline and opt-in live tests cover valid output, bad tags, extra metadata, unknown agents/targets, retries, and scheduler submission.
-
-**Connections**
-
-Student 3 depends on Students 1 and 2. The adapter does not mutate the board; the caller submits its result during the scheduler-selected turn. Student 4 consumes the resulting entries and metadata.
-
-**Changes/improvements**
-
-- Build the complete loop: select agent -> generate -> submit -> repeat until terminal.
-- Record retries, latency, token usage, and failure reasons.
-- Verify turn ownership and termination using the real scheduler.
-- Add a deterministic mock demo for CI and a separate opt-in live Ollama demo.
-- Add context-budget handling; the current adapter sends full history and is intended for short Week 1 sessions.
-
-## Student 4 — UI and benchmarking
-
-**Current status:** no branch or committed implementation is visible.
-
-**Required work:** branch from integrated main; create a minimal graph/replay view using actual board history; display agents, targets, tags, turns, and terminal status; add a documented benchmark sample/parser; and add a labelled token-counter stub.
-
-**Connections:** the UI reads Student 1's snapshots/history, Student 2's scheduler state, and Student 3's generated entries. History inspection must be read-only and replayed sessions must be labelled as replay.
-
-## Changes required before the Week 1 release
-
-1. Refresh local main from the current integrated remote main.
-2. Agree on registration, turn ownership, opening-tag, and terminal-state rules.
-3. Add the mocked two-agent end-to-end runner.
-4. Run one live Ollama session if the agreed model is available; save its log and JSON snapshot.
-5. Add the minimal graph/replay view, or document replay output if UI work is not ready.
-6. Run the full suite, record known issues, and tag the integrated Week 1 baseline.
-
-## Expected end-of-Week-1 state
-
-The repository should demonstrate:
-
-- two registered local LLM agents with scheduler-controlled round-robin turns;
-- validated PXP predictions/explanations stored as linked board entries;
-- one consensus example and one controlled deadlock example;
-- JSON snapshot save/reload;
-- a graph or replay of the actual recorded interaction;
-- a documented benchmark sample/parser result;
-- test results, setup instructions, known issues, and a Week 1 release tag.
+### Architectural Flow
 
 ```text
-schema/storage -> scheduler -> two agents -> PXP validation
-              -> shared history -> consensus/deadlock outcome
-              -> JSON snapshot + graph/replay evidence
+Task Ingestion -> Scheduler selects agent turn (next_agent)
+               -> Agent reads Blackboard history slice
+               -> Local LLM generates structured PXP output
+               -> Scheduler validates turn ownership & submits (submit_entry)
+               -> Blackboard validates schema, agent registry, target links
+               -> Blackboard updates state under RLock protection
+               -> Intelligibility / Deadlock status recomputed
+               -> BoardEvent deltas emitted to WebSocket listeners
+               -> Snapshots persisted to disk for UI replay & debugging
 ```
 
-Live streaming, accurate token accounting, three-agent execution, and counterfactual replay are Week 2/3 improvements, not Week 1 prerequisites.
+### Component Interaction Details
 
-## Next milestones
+1. **Turn Management & Submission**:
+   The `Scheduler` queries active agents from `Blackboard.get_agents(active_only=True)` and enforces strict round-robin sequencing. Out-of-turn submissions are rejected with `ValueError`.
+2. **Event Publication**:
+   WebSocket listeners subscribe via `board.subscribe(callback)`. Any state mutation immediately emits a structured `BoardEvent` payload containing the task ID, timestamp, and JSON delta.
+3. **Consensus & Intelligibility**:
+   The classifier evaluates the latest entry from every active agent. If all active agents have submitted `RATIFY` with matching predictions, consensus is established. If `REVISE` was used earlier in the trace, the session is classified as `ULTRA_STRONG`; otherwise `STRONG`. A streak of 4 negative tags (`REFUTE`/`REJECT`) triggers a `DeadlockEvent` and sets status to `DEADLOCKED`.
+4. **Counterfactual Forking**:
+   When a deadlock occurs, Student 3 can call `board.fork_simulation_blackboard(cutoff_entry_id)`. This creates an isolated sandbox board populated with history up to the cutoff point, allowing replay without mutating live history.
 
-Week 2 should add board events, a live dashboard, three-agent sessions, real token totals, concurrency checks, history inspection, and benchmark execution. Week 3 should use Student 1 snapshots, Student 2 deadlock/scheduling controls, and Student 3 regeneration to implement isolated counterfactual replay.
+---
+
+## 5. Testing status
+
+All 34 automated tests pass cleanly:
+
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
+rootdir: pxp_blackboard
+plugins: anyio-4.15.1
+collected 34 items
+
+test_blackboard.py .....                                                 [ 14%]
+test_classification.py ...                                               [ 23%]
+test_concurrency.py .                                                    [ 26%]
+test_emitter.py ...                                                      [ 35%]
+test_integration.py .                                                    [ 38%]
+test_models.py .....                                                     [ 52%]
+test_parser.py ....                                                      [ 64%]
+test_rollback.py .                                                       [ 67%]
+test_scheduler.py ........                                               [ 91%]
+test_store.py ...                                                        [100%]
+
+============================== 34 passed in 0.15s ==============================
+```
+
+---
+
+## 6. Next Steps for Week 3
+
+1. **Counterfactual Engine Integration**: Pair with Student 3 to run live LLM replays in the forked simulation blackboard.
+2. **Deadlock Injection Harness**: Pair with Student 2 to automate deadlock injection and test counterfactual recovery rates.
+3. **Ablation & Trial Results Logging**: Implement automated trial result exporters (CSV/JSON) for the 20-30 task pilot evaluation.

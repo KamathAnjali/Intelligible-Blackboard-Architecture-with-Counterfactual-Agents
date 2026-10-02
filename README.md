@@ -97,11 +97,18 @@ pxp-blackboard/
 │   └── metrics/
 ├── tests/
 ├── docs/
-│   └── pxp-message-contract.md
+│   ├── Schema_Draft.md
+│   ├── API_USAGE.md
+│   ├── rollback-contract.md
+│   ├── PROGRESS_REPORT.md
+│   ├── progress_report_week2.md
+│   └── PROJECT_MILESTONES.md
+├── architecture/
+│   ├── ADR-001-Storage-Architecture.md
+│   └── backing-store.md
 ├── .env.example
 ├── .gitignore
-├── requirements.txt     # or pyproject.toml
-├── docker-compose.yml   # optional
+├── requirements.txt
 └── README.md
 ```
 
