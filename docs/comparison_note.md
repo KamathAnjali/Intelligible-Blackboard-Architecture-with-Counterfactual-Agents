@@ -30,8 +30,7 @@
   - `REVISE`: Indigo Blue (`#6366f1`)
   - `REFUTE`: Amber/Orange (`#f59e0b`)
   - `REJECT`: Rose Red (`#ef4444`)
-  - `PROPOSE`: Purple (`#8b5cf6`)
-  SVG filters allow drop-shadow glows, pulsing status rings, and crisp zoom scaling at any DPI.
+SVG filters allow drop-shadow glows, pulsing status rings, and crisp zoom scaling at any DPI.
 - **Vis.js:** Rendered inside an HTML5 `<canvas>`. Custom badge shapes, multi-line typography, and glow effects require overriding Canvas 2D context drawing methods (`ctx.arc`, `ctx.fillStyle`), which is more verbose and harder to style cleanly.
 
 ### 3. Bundle Size & Overhead

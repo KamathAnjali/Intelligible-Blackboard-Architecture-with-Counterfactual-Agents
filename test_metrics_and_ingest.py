@@ -55,7 +55,7 @@ def test_llm_adapter():
 
 def test_token_tally_tracker():
     tracker = TokenTallyTracker()
-    tracker.record_turn("e1", "Agent_Alpha", "PROPOSE", "x = 12", "Initial hypothesis")
+    tracker.record_turn("e1", "Agent_Alpha", "REVISE", "x = 12", "Initial hypothesis")
     tracker.record_turn("e2", "Agent_Beta", "RATIFY", "x = 12", "Confirmed")
 
     report = tracker.export_tally_report()
@@ -64,7 +64,7 @@ def test_token_tally_tracker():
     assert "Agent_Alpha" in report["agents"]
     assert "Agent_Beta" in report["agents"]
     assert report["agents"]["Agent_Alpha"]["turn_count"] == 1
-    assert report["agents"]["Agent_Alpha"]["tags_used"]["PROPOSE"] == 1
+    assert report["agents"]["Agent_Alpha"]["tags_used"]["REVISE"] == 1
 
 
 def test_krama_parser_and_live_feed():

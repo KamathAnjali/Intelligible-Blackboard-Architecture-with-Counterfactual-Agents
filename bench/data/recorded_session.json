@@ -5,7 +5,7 @@
     {
       "entry_id": "56b1f9c36cde",
       "agent_id": "Agent_Alpha (Proposer)",
-      "tag": "PROPOSE",
+      "tag": "REVISE",
       "prediction": "x = 12",
       "explanation": "Solving x^2 = 144, positive root.",
       "target_entry_id": null,
@@ -67,28 +67,28 @@
     "Agent_Alpha (Proposer)": {
       "agent_id": "Agent_Alpha (Proposer)",
       "persona": "aggressive_proposer",
-      "model_name": "mistral-7b-instruct",
+      "model_name": "synthetic-fixture",
       "active": true,
       "counterfactual_capable": false
     },
     "Agent_Beta (Verifier)": {
       "agent_id": "Agent_Beta (Verifier)",
       "persona": "cautious_verifier",
-      "model_name": "mistral-7b-instruct",
+      "model_name": "synthetic-fixture",
       "active": true,
       "counterfactual_capable": false
     },
     "Agent_Gamma (Critic)": {
       "agent_id": "Agent_Gamma (Critic)",
       "persona": "critic",
-      "model_name": "mistral-7b-instruct",
+      "model_name": "synthetic-fixture",
       "active": true,
       "counterfactual_capable": false
     },
     "Agent_Delta (CF Sandbox)": {
       "agent_id": "Agent_Delta (CF Sandbox)",
       "persona": "counterfactual",
-      "model_name": "mistral-7b-instruct",
+      "model_name": "synthetic-fixture",
       "active": true,
       "counterfactual_capable": true
     }

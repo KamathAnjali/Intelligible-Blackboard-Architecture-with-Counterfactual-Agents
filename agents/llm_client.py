@@ -22,7 +22,7 @@ from blackboard.models import AgentRecord, BlackboardState, BoardEntry
 
 MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 BASE_URL = "http://127.0.0.1:11434"
-OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 256}
+OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 768}
 ROOT = Path(__file__).resolve().parents[1]
 PERSONAS = ("cautious_verifier", "aggressive_proposer",
             "evidence_auditor", "counterexample_challenger")

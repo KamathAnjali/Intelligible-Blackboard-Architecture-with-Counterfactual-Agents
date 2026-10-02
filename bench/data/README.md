@@ -8,13 +8,13 @@
 ## Benchmark Sources & Setup Instructions
 
 ### 1. KramaBench (Used from Week 1 onward)
-- **Repository**: [https://github.com/Unsupervisedcom/KramaBench](https://github.com/Unsupervisedcom/KramaBench)
+- **Repository**: [https://github.com/mitdbg/KramaBench](https://github.com/mitdbg/KramaBench)
 - **Clone command**:
   ```bash
-  git clone https://github.com/Unsupervisedcom/KramaBench.git bench/data/krama_raw
+  git clone https://github.com/mitdbg/KramaBench.git bench/data/krama_raw
   cd bench/data/krama_raw && pip install -e .
   ```
-- **Structure**: Tasks live as JSON in the `workload/` folder. Ingested via `bench/ingest/krama_parser.py`.
+- **Structure**: Task records are JSON in `workload/`. The upstream record shape includes `id`, `query`, `answer`, `answer_type`, `data_sources`, and `subtasks`. See [`docs/data_format_notes.md`](../../docs/data_format_notes.md) for the adapter mapping. The upstream repository also contains a large data directory; only clone it when the task requires those source files.
 
 ---
 

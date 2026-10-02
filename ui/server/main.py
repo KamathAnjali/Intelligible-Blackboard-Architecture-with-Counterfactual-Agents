@@ -7,22 +7,33 @@ FastAPI app providing REST health checks and WebSocket board event streaming.
 WebSocket endpoints:
   /ws        Live board event stream (mode controlled by BOARD_MODE env var)
   /ws/mock   Always-mock explicit endpoint (legacy / testing)
+  POST /api/conversation/start  Start the local agent runner in LIVE_TAP mode
 
 Run:
   uvicorn ui.server.main:app --reload --port 8000
 
   # Set mode before starting:
-  BOARD_MODE=LIVE_TAP    uvicorn ui.server.main:app --reload   # default
-  BOARD_MODE=LOG_REPLAY  uvicorn ui.server.main:app --reload   # replay recorded session
+  BOARD_MODE=LOG_REPLAY  uvicorn ui.server.main:app --reload   # default; replay recorded session
+  BOARD_MODE=LIVE_TAP    uvicorn ui.server.main:app --reload   # stream an in-process conversation
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-from ui.server.board_tap import BOARD_MODE, start_board_tap
+from agents.conversation import run_conversation
+from agents.llm_client import OllamaClient
+from ui.server.board_tap import (
+    BOARD_MODE,
+    attach_live_board,
+    detach_live_board,
+    start_board_tap,
+    stop_board_tap,
+)
 from ui.server.event_bus import bus
 from ui.server.mock_stream import mock_event_stream_generator
 
@@ -31,6 +42,16 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
 )
 logger = logging.getLogger("ui-server")
+_conversation_task: asyncio.Task | None = None
+
+
+class ConversationStartRequest(BaseModel):
+    """Settings for a local agent conversation streamed over /ws."""
+
+    prompt: str | None = None
+    turns: int = Field(default=6, ge=1, le=12)
+    retries: int = Field(default=2, ge=0, le=5)
+    scenario: str = "default"
 
 
 # ── Lifespan: start the board tap once at server startup ─────────────────────
@@ -40,6 +61,9 @@ async def lifespan(app: FastAPI):
     logger.info("=== Intelligible Blackboard UI Server starting (mode=%s) ===", BOARD_MODE)
     await start_board_tap()
     yield
+    if _conversation_task is not None and not _conversation_task.done():
+        _conversation_task.cancel()
+    await stop_board_tap()
     logger.info("=== UI Server shutting down ===")
 
 
@@ -71,12 +95,63 @@ async def root():
             "/ws": f"Live board event stream (mode={BOARD_MODE})",
             "/ws/mock": "Explicit mock replay endpoint with configurable delay (?delay=s)",
         },
+        "conversation_start_endpoint": "/api/conversation/start (POST; LIVE_TAP mode only)",
     }
 
 
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "ui-server", "mode": BOARD_MODE}
+
+
+@app.post("/api/conversation/start", status_code=202)
+async def start_live_conversation(request: ConversationStartRequest):
+    """Run the actual local conversation runner and stream its board entries."""
+    global _conversation_task
+    if BOARD_MODE != "LIVE_TAP":
+        raise HTTPException(status_code=409, detail="Start the server with BOARD_MODE=LIVE_TAP")
+    if request.scenario not in {"default", "disagreement"}:
+        raise HTTPException(status_code=422, detail="scenario must be default or disagreement")
+    if _conversation_task is not None and not _conversation_task.done():
+        raise HTTPException(status_code=409, detail="A conversation is already running")
+
+    bus.reset_history()
+    await bus.publish({"type": "session_started", "source": "LIVE_TAP"})
+
+    async def run_and_publish_result() -> None:
+        try:
+            report, transcript_path = await asyncio.to_thread(
+                run_conversation,
+                OllamaClient(),
+                request.prompt,
+                request.turns,
+                request.retries,
+                scenario=request.scenario,
+                on_board_created=attach_live_board,
+            )
+            await bus.publish({
+                "type": "session_summary",
+                "source": "LIVE_TAP",
+                "summary": {
+                    "outcome": report.get("outcome", "unknown"),
+                    "scheduler_status": report.get("scheduler_status"),
+                    "failures": report.get("failures", []),
+                },
+                "transcript_path": str(transcript_path),
+            })
+        except Exception as exc:
+            logger.exception("Live agent conversation failed")
+            await bus.publish({
+                "type": "session_error",
+                "source": "LIVE_TAP",
+                "error": str(exc),
+            })
+        finally:
+            detach_live_board()
+            await bus.publish({"type": "stream_complete", "source": "LIVE_TAP"})
+
+    _conversation_task = asyncio.create_task(run_and_publish_result(), name="live-agent-conversation")
+    return {"status": "started", "source": "LIVE_TAP"}
 
 
 # ── Primary WebSocket: live event bus ─────────────────────────────────────────

@@ -4,10 +4,10 @@ bench/metrics/trial_runner.py
 
 W3 Implementation with Strict Mode Enforcement:
 Mandatory --mode flag with allowed values:
-  - "example": Synthetic placeholder rows to validate schema without real pipeline execution.
-  - "dry_run": Small pre-flight validation batch against the pipeline (3-5 tasks/config).
-  - "pilot": Real Week 3 evaluation batch (20-30 tasks/config on KramaBench).
-  - "full_study": Full post-Week-3 study evaluation across benchmarks.
+  - "example": Synthetic placeholder rows to validate the CSV schema.
+  - "dry_run": Deterministic blackboard simulation for smoke-checking CSV and plotting code.
+  - "pilot" and "full_study": Disabled until a real agent runner and official benchmark
+    evaluator are connected. The current simulator must not be presented as empirical data.
 
 Naming Convention Enforced:
   {mode}_run_<YYYY-MM-DD>_config-<pct>pct.csv
@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime
+import hashlib
 import logging
 import os
 import sys
@@ -46,6 +47,15 @@ logger = logging.getLogger("trial-runner")
 
 TrialMode = Literal["example", "dry_run", "pilot", "full_study"]
 VALID_MODES: list[TrialMode] = ["example", "dry_run", "pilot", "full_study"]
+SIMULATION_MODES = {"example", "dry_run"}
+
+
+def _require_supported_mode(mode: TrialMode) -> None:
+    if mode not in SIMULATION_MODES:
+        raise NotImplementedError(
+            f"{mode!r} is disabled: this runner does not invoke the agent conversation or the official "
+            "KramaBench evaluator. Use --mode dry_run only for a clearly labelled simulation."
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +69,8 @@ def run_single_task_trial(
     benchmark_source: str = "kramabench",
     max_iterations: int = 10,
 ) -> Dict[str, Any]:
-    """Execute one benchmark task trial with mode tagging."""
+    """Run one schema fixture or deterministic simulator trace; never an empirical trial."""
+    _require_supported_mode(mode)
     start_time = time.perf_counter()
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
     tracker = TokenTallyTracker()
@@ -76,10 +87,18 @@ def run_single_task_trial(
             "deadlock_count": 0 if config_pct > 0 else 1,
             "intelligibility_classification": "ULTRA_STRONG" if config_pct >= 66 else ("STRONG" if config_pct > 0 else "UNRESOLVED"),
             "total_tokens": 75 if config_pct > 0 else 30,
+            "mainline_tokens": 75 if config_pct > 0 else 30,
+            "simulation_tokens": 0,
             "elapsed_time_s": 0.001,
             "dry_run": False,
             "timestamp": now_iso,
             "notes": "SYNTHETIC_EXAMPLE_FIXTURE",
+            "result_kind": "synthetic_fixture",
+            "official_metric": "",
+            "official_score": "",
+            "token_source": "fixed_placeholder",
+            "timing_scope": "fixed_placeholder",
+            "ground_truth_used": False,
         }
 
     board = Blackboard(task_id=task.task_id)
@@ -126,13 +145,13 @@ def run_single_task_trial(
         # 33% (density 1): can solve complexity 1 and ~60% of complexity 2
         # 66% (density 2): can solve complexity 1, 2, and ~80% of complexity 3
         # 100% (density 3): can solve all complexities
-        task_hash = hash(task.task_id) % 100
+        task_bucket = int.from_bytes(hashlib.sha256(task.task_id.encode("utf-8")).digest()[:4], "big") % 100
         if config_pct == 0:
-            can_recover = (complexity_level == 1 and task_hash < 75)
+            can_recover = (complexity_level == 1 and task_bucket < 75)
         elif config_pct == 33:
-            can_recover = (complexity_level == 1) or (complexity_level == 2 and task_hash < 75) or (complexity_level == 3 and task_hash < 40)
+            can_recover = (complexity_level == 1) or (complexity_level == 2 and task_bucket < 75) or (complexity_level == 3 and task_bucket < 40)
         elif config_pct == 66:
-            can_recover = (complexity_level <= 2) or (complexity_level == 3 and task_hash < 80)
+            can_recover = (complexity_level <= 2) or (complexity_level == 3 and task_bucket < 80)
         else: # 100%
             can_recover = True
 
@@ -183,7 +202,14 @@ def run_single_task_trial(
                                 is_counterfactual_sim=True,
                             )
                             board.post_entry(cf_sim_entry)
-                            tracker.record_turn(cf_sim_entry.entry_id, cf_sim_entry.agent_id, cf_sim_entry.tag.value, cf_sim_entry.prediction, cf_sim_entry.explanation)
+                            tracker.record_turn(
+                                cf_sim_entry.entry_id,
+                                cf_sim_entry.agent_id,
+                                cf_sim_entry.tag.value,
+                                cf_sim_entry.prediction,
+                                cf_sim_entry.explanation,
+                                is_counterfactual_sim=True,
+                            )
                             prev_id = cf_sim_entry.entry_id
 
                         # Verifier ratifies after successful simulation
@@ -285,6 +311,7 @@ def run_single_task_trial(
     else:
         intelligibility_str = "UNRESOLVED"
 
+    token_summary = tracker.export_tally_report()
     return {
         "mode": mode,
         "task_id": task.task_id,
@@ -294,11 +321,19 @@ def run_single_task_trial(
         "iterations": len(state.entries),
         "deadlock_count": deadlock_events,
         "intelligibility_classification": intelligibility_str,
-        "total_tokens": tracker.get_total_tokens(),
+        "total_tokens": token_summary["total_tokens"],
+        "mainline_tokens": token_summary["mainline_tokens"],
+        "simulation_tokens": token_summary["simulation_tokens"],
         "elapsed_time_s": elapsed_s,
         "dry_run": (mode == "dry_run"),
         "timestamp": now_iso,
         "notes": notes,
+        "result_kind": "synthetic_simulation",
+        "official_metric": "",
+        "official_score": "",
+        "token_source": "heuristic_estimate_over_simulated_board_text",
+        "timing_scope": "local_python_simulation_only",
+        "ground_truth_used": True,
     }
 
 
@@ -310,7 +345,8 @@ def run_batch_trials(
     phase: str = "week3_pilot",
     results_base_dir: str | Path = "bench/results",
 ) -> Path:
-    """Run a batch of tasks and write mode-prefixed CSV."""
+    """Write explicitly synthetic fixture/simulation rows to a mode-prefixed CSV."""
+    _require_supported_mode(mode)
     today_str = datetime.date.today().isoformat()
     out_dir = Path(results_base_dir) / phase
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -329,10 +365,18 @@ def run_batch_trials(
         "deadlock_count",
         "intelligibility_classification",
         "total_tokens",
+        "mainline_tokens",
+        "simulation_tokens",
         "elapsed_time_s",
         "dry_run",
         "timestamp",
         "notes",
+        "result_kind",
+        "official_metric",
+        "official_score",
+        "token_source",
+        "timing_scope",
+        "ground_truth_used",
     ]
 
     rows = []
@@ -362,7 +406,8 @@ def run_full_ablation_matrix(
     phase: str = "week3_pilot",
     results_base_dir: str | Path = "bench/results",
 ) -> List[Path]:
-    """Execute ablation matrix with strict mode tagging."""
+    """Run a synthetic ablation smoke-check; empirical modes are disabled."""
+    _require_supported_mode(mode)
     if configs is None:
         configs = [0, 33, 66, 100]
 
@@ -401,7 +446,7 @@ def _generate_synthetic_pilot_tasks(n: int) -> List[TaskFormat]:
                 domain="algebra",
                 difficulty="hard",
                 reference_steps=[
-                    f"Agent A PROPOSE: x = {i}",
+                    f"Agent A REVISE: x = {i}",
                     f"Agent B RATIFY: verified positive root {i}",
                     f"Agent C REFUTE: negative root -{i} omitted",
                     f"Agent Delta REJECT: hypothetical zero root invalidated",
@@ -417,7 +462,7 @@ def _generate_synthetic_pilot_tasks(n: int) -> List[TaskFormat]:
                 domain="logic",
                 difficulty="medium",
                 reference_steps=[
-                    f"Agent A PROPOSE: Theorem_{i} holds unconditionally",
+                    f"Agent A REVISE: Theorem_{i} holds unconditionally",
                     f"Agent C REFUTE: counter-model found in frame S5",
                     f"Agent A REVISE: Theorem_{i} restricted to reflexive frames",
                     f"Agent B RATIFY: verified restricted theorem",
@@ -431,7 +476,7 @@ def _generate_synthetic_pilot_tasks(n: int) -> List[TaskFormat]:
                 domain="planning",
                 difficulty="easy",
                 reference_steps=[
-                    f"Agent A PROPOSE: Bound = {i*2.5:.1f}s",
+                    f"Agent A REVISE: Bound = {i*2.5:.1f}s",
                     f"Agent B RATIFY: verified constraints",
                 ],
             ))
@@ -452,18 +497,28 @@ def _run_cli(argv: list[str] | None = None) -> None:
     parser.add_argument("--phase", default="week3_pilot", help="Results subfolder (default: week3_pilot).")
     args = parser.parse_args(argv)
 
+    try:
+        _require_supported_mode(args.mode)
+    except NotImplementedError as exc:
+        parser.error(str(exc))
+
     config_list = [int(c.strip()) for c in args.configs.split(",") if c.strip()]
     task_count = args.n if args.n is not None else (4 if args.mode in ["example", "dry_run"] else 25)
 
     if args.file:
         tasks = load_krama_dataset(args.file, n=task_count)
+        if not tasks:
+            parser.error(f"No valid benchmark tasks were loaded from {args.file!r}.")
+        source = "kramabench"
     else:
         tasks = _generate_synthetic_pilot_tasks(task_count)
+        source = "synthetic"
 
     csv_paths = run_full_ablation_matrix(
         tasks=tasks,
         mode=args.mode,
         configs=config_list,
+        benchmark_source=source,
         phase=args.phase,
     )
 

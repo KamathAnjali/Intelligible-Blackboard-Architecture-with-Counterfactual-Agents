@@ -50,6 +50,11 @@ function entryToNode(entry: BoardEntryEvent): GraphNode {
   };
 }
 
+function estimateEntryTextTokens(text: string): number {
+  if (!text) return 0;
+  return Math.max(1, Math.floor(text.split(/\s+/).length * 1.3));
+}
+
 function nodeToLink(node: GraphNode): GraphLink | null {
   if (!node.targetEntryId) return null;
   return { source: node.id, target: node.targetEntryId, relation: node.tag };
@@ -141,12 +146,8 @@ export const App: React.FC = () => {
         const agentMap = { ...prev.agents };
 
         newNodesToAdd.forEach((n) => {
-          const predTok =
-            n.tokenCount?.prediction_tokens ??
-            Math.max(1, Math.round(n.prediction.split(/\s+/).length * 1.3));
-          const explTok =
-            n.tokenCount?.explanation_tokens ??
-            Math.max(1, Math.round(n.explanation.split(/\s+/).length * 1.3));
+          const predTok = n.tokenCount?.prediction_tokens ?? estimateEntryTextTokens(n.prediction);
+          const explTok = n.tokenCount?.explanation_tokens ?? estimateEntryTextTokens(n.explanation);
           const totalTok = predTok + explTok;
           addedTotal += totalTok;
 

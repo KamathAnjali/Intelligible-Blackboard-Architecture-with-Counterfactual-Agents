@@ -32,11 +32,17 @@ logger = logging.getLogger("event-bus")
 class BoardEventBus:
     """Process-global asyncio pub-sub hub for board events."""
 
-    def __init__(self) -> None:
+    def __init__(self, history_limit: int = 256) -> None:
         self._subscribers: list[asyncio.Queue[dict]] = []
+        self._history_limit = history_limit
+        self._history: list[dict] = []
 
     def subscribe(self, maxsize: int = 256) -> asyncio.Queue[dict]:
         q: asyncio.Queue[dict] = asyncio.Queue(maxsize=maxsize)
+        # A new UI client needs the session events published before it connected.
+        history = self._history[-maxsize:] if maxsize > 0 else self._history
+        for event in history:
+            q.put_nowait(event)
         self._subscribers.append(q)
         logger.debug("EventBus: subscriber added  (total=%d)", len(self._subscribers))
         return q
@@ -49,12 +55,19 @@ class BoardEventBus:
         logger.debug("EventBus: subscriber removed (total=%d)", len(self._subscribers))
 
     async def publish(self, event: dict) -> None:
-        """Fan out an event to all current subscribers (non-blocking; drops if full)."""
+        """Retain and fan out an event (non-blocking; drops for full client queues)."""
+        self._history.append(event)
+        if len(self._history) > self._history_limit:
+            del self._history[:-self._history_limit]
         for q in list(self._subscribers):
             try:
                 q.put_nowait(event)
             except asyncio.QueueFull:
                 logger.warning("EventBus: queue full for a subscriber — event dropped.")
+
+    def reset_history(self) -> None:
+        """Start a new replay/session without carrying earlier events forward."""
+        self._history.clear()
 
     async def stream(self, q: asyncio.Queue[dict]) -> AsyncGenerator[dict, None]:
         """Async generator that yields events from a subscriber queue indefinitely."""

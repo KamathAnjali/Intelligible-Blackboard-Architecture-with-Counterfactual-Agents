@@ -752,7 +752,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             )}
             {selectedNode.tokenCount && (
               <div className="drawer-field">
-                <span className="field-label">Turn Token Cost</span>
+                <span className="field-label">Turn Entry-Text Estimate</span>
                 <div className="drawer-token-chips">
                   <span className="token-chip-mini">
                     Pred: <strong>{selectedNode.tokenCount.prediction_tokens}</strong>

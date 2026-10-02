@@ -16,6 +16,8 @@ export interface AgentTokenStats {
 
 export interface TokenTallyReport {
   total_tokens: number;
+  total_tokens_kind?: string;
+  token_count_note?: string;
   turn_count: number;
   mainline_tokens?: number;
   simulation_tokens?: number;
@@ -42,15 +44,15 @@ export const TokenTally: React.FC<TokenTallyProps> = ({ tally }) => {
         id="btn-token-tally"
         className={`token-tally-pill ${isOpen ? 'active' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
-        title="View live token consumption tally"
+        title="Estimated token count for board-entry text; prompts are excluded"
       >
         <span className="token-icon">⚡</span>
         <span className="token-pill-text">
-          <strong>{tally.total_tokens.toLocaleString()}</strong> tokens
+          <strong>{tally.total_tokens.toLocaleString()}</strong> entry-text tokens (est.)
         </span>
         {simTokens > 0 && (
-          <span className="sim-token-badge" title="Simulation / Rollback Tokens">
-            🧪 {simTokens.toLocaleString()}t sim
+            <span className="sim-token-badge" title="Counterfactual sandbox entry-text estimate">
+            🧪 {simTokens.toLocaleString()}t est. sim
           </span>
         )}
         <span className="token-pill-badge">{tally.turn_count} turns</span>
@@ -64,9 +66,9 @@ export const TokenTally: React.FC<TokenTallyProps> = ({ tally }) => {
             <div className="token-header-title">
               <span className="token-icon-lg">⚡</span>
               <div>
-                <h4>Token Cost Analysis View</h4>
+                <h4>Entry-Text Token Estimate</h4>
                 <p className="token-header-subtitle">
-                  Per-agent & session totals (including counterfactual sandbox simulations)
+                  Prediction and explanation text only. Prompt/system tokens are excluded; this is not a benchmark score.
                 </p>
               </div>
             </div>
@@ -81,17 +83,17 @@ export const TokenTally: React.FC<TokenTallyProps> = ({ tally }) => {
 
           <div className="token-summary-row">
             <div className="token-stat-box">
-              <span className="stat-label">Total Tokens</span>
+              <span className="stat-label">Total Entry-Text Estimate</span>
               <span className="stat-val highlight">
                 {tally.total_tokens.toLocaleString()}
               </span>
             </div>
             <div className="token-stat-box">
-              <span className="stat-label">Mainline Board</span>
+              <span className="stat-label">Mainline Entry-Text Estimate</span>
               <span className="stat-val">{mainTokens.toLocaleString()}</span>
             </div>
             <div className="token-stat-box sim-box">
-              <span className="stat-label">CF Sandbox</span>
+              <span className="stat-label">CF Sandbox Entry-Text Estimate</span>
               <span className="stat-val sim-highlight">
                 {simTokens.toLocaleString()}
               </span>
@@ -166,7 +168,7 @@ export const TokenTally: React.FC<TokenTallyProps> = ({ tally }) => {
                             )}
                           </span>
                           <span className="agent-total-tokens">
-                            <strong>{agent.total_tokens.toLocaleString()}</strong> t
+                            <strong>{agent.total_tokens.toLocaleString()}</strong> est.
                           </span>
                         </div>
                       </div>

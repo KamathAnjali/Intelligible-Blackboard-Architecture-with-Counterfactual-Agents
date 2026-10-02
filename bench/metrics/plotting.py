@@ -4,8 +4,8 @@ bench/metrics/plotting.py
 
 W3 Day 3 / Day 5 Implementation:
 - Ingests single or multi-configuration benchmark result CSVs.
-- Generates publication-ready evaluation charts:
-  1. Accuracy (Agreement / Convergence Rate) vs Counterfactual Density (0%, 33%, 66%, 100%)
+- Generates evaluation charts, separating evaluator scores from internal diagnostics:
+  1. Official benchmark score vs counterfactual density
   2. Intelligibility Classification Depth vs Counterfactual Density
   3. Token Cost & Overhead vs Counterfactual Density
 - Generates an interactive standalone HTML dashboard (`ablation_summary_report.html`).
@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+import math
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -34,7 +35,7 @@ logger = logging.getLogger("bench-plotting")
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_results_csv(csv_path: str | Path) -> List[Dict[str, Any]]:
-    """Load and type-cast a benchmark results CSV."""
+    """Load only results explicitly produced by an official benchmark evaluator."""
     path = Path(csv_path)
     if not path.exists():
         raise FileNotFoundError(f"Result CSV not found: {path}")
@@ -42,7 +43,23 @@ def load_results_csv(csv_path: str | Path) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     with open(path, encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
-        for r in reader:
+        required = {"result_kind", "official_metric", "official_score", "token_source", "timing_scope", "ground_truth_used"}
+        missing = required - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"{path} has no evaluation provenance ({', '.join(sorted(missing))}); refusing legacy/simulation CSV")
+        for line_number, r in enumerate(reader, start=2):
+            if r.get("result_kind") != "official_evaluation" or not r.get("official_metric") or r.get("official_score") in (None, ""):
+                raise ValueError(f"{path}:{line_number} is not an official evaluator result; refusing to plot it")
+            if r.get("ground_truth_used", "").strip().lower() != "false":
+                raise ValueError(f"{path}:{line_number} does not confirm that reference answers were kept out of agent input")
+            if not r.get("token_source", "").strip() or not r.get("timing_scope", "").strip():
+                raise ValueError(f"{path}:{line_number} is missing token or timing provenance")
+            try:
+                official_score = float(r["official_score"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{path}:{line_number} has a nonnumeric official_score") from exc
+            if not math.isfinite(official_score):
+                raise ValueError(f"{path}:{line_number} has a non-finite official_score")
             rows.append({
                 "mode": r.get("mode", "unknown"),
                 "task_id": r["task_id"],
@@ -53,10 +70,18 @@ def load_results_csv(csv_path: str | Path) -> List[Dict[str, Any]]:
                 "deadlock_count": int(r["deadlock_count"]),
                 "intelligibility_classification": r["intelligibility_classification"],
                 "total_tokens": int(r["total_tokens"]),
+                "mainline_tokens": int(r.get("mainline_tokens") or 0),
+                "simulation_tokens": int(r.get("simulation_tokens") or 0),
                 "elapsed_time_s": float(r["elapsed_time_s"]),
                 "dry_run": r.get("dry_run", "").lower() == "true",
                 "timestamp": r["timestamp"],
                 "notes": r.get("notes", ""),
+                "result_kind": r["result_kind"],
+                "official_metric": r["official_metric"],
+                "official_score": official_score,
+                "token_source": r["token_source"],
+                "timing_scope": r["timing_scope"],
+                "ground_truth_used": r["ground_truth_used"].lower() == "true",
             })
     return rows
 
@@ -70,14 +95,18 @@ def load_all_phase_csvs(phase_dir: str | Path) -> Dict[int, List[Dict[str, Any]]
     example_csvs = sorted(p_dir.glob("example_run_*_config-*pct.csv"))
     all_other_csvs = sorted(p_dir.glob("*run_*_config-*pct.csv"))
 
-    target_csvs = pilot_csvs if pilot_csvs else (dryrun_csvs if dryrun_csvs else (example_csvs if example_csvs else all_other_csvs))
+    target_csvs = sorted(set(pilot_csvs + dryrun_csvs + example_csvs + all_other_csvs))
 
     by_config: Dict[int, List[Dict[str, Any]]] = {}
     for f in target_csvs:
-        rows = load_results_csv(f)
+        try:
+            rows = load_results_csv(f)
+        except ValueError as exc:
+            logger.warning("Skipping unverified results file: %s", exc)
+            continue
         if rows:
             cfg = rows[0]["config_pct"]
-            by_config[cfg] = rows
+            by_config.setdefault(cfg, []).extend(rows)
 
     return by_config
 
@@ -103,24 +132,28 @@ def generate_ablation_charts(
         if not sorted_configs:
             return []
 
-        # 1. Accuracy / Agreement Rate vs Density
-        p1 = charts_dir / "accuracy_vs_density.png"
-        acc_rates = []
+        metric_names = {r["official_metric"] for rows in by_config.values() for r in rows}
+        if len(metric_names) != 1:
+            raise ValueError(f"Cannot compare different official metrics in one chart: {sorted(metric_names)}")
+        metric_name = next(iter(metric_names))
+
+        # 1. Arithmetic mean of evaluator-provided row scores. This is not an
+        # official workload aggregate; KramaBench weighting is handled upstream.
+        p1 = charts_dir / "mean_evaluator_score_vs_density.png"
+        scores = []
         for c in sorted_configs:
             rows = by_config[c]
-            agreed = sum(1 for r in rows if r["outcome"] == "agreement")
-            acc_rates.append((agreed / len(rows)) * 100 if rows else 0)
+            scores.append(sum(r["official_score"] for r in rows) / len(rows) if rows else 0)
 
         plt.figure(figsize=(6.5, 4.2), dpi=160)
-        plt.plot(sorted_configs, acc_rates, marker="o", linewidth=2.5, color="#10b981", markersize=8)
-        plt.title("Convergence / Agreement Rate vs. Counterfactual Density", fontsize=12, fontweight="bold", pad=12)
+        plt.plot(sorted_configs, scores, marker="o", linewidth=2.5, color="#10b981", markersize=8)
+        plt.title(f"Mean Per-Row {metric_name} vs. Counterfactual Density", fontsize=12, fontweight="bold", pad=12)
         plt.xlabel("Counterfactual Participation Density (%)", fontsize=10)
-        plt.ylabel("Agreement Rate (%)", fontsize=10)
+        plt.ylabel(f"Mean {metric_name}", fontsize=10)
         plt.xticks(sorted_configs, [f"{c}%" for c in sorted_configs])
-        plt.ylim(0, 105)
         plt.grid(True, linestyle="--", alpha=0.5)
-        for x, y in zip(sorted_configs, acc_rates):
-            plt.text(x, y + 3, f"{y:.1f}%", ha="center", fontsize=9, fontweight="bold", color="#065f46")
+        for x, y in zip(sorted_configs, scores):
+            plt.text(x, y, f"{y:.3g}", ha="center", va="bottom", fontsize=9, fontweight="bold", color="#065f46")
         plt.tight_layout()
         plt.savefig(p1)
         plt.close()
@@ -146,7 +179,7 @@ def generate_ablation_charts(
         bottom_unres = [u + s for u, s in zip(ultra_strong, strong)]
         plt.bar(x_indices, unresolved, width=bar_width, bottom=bottom_unres, label="UNRESOLVED", color="#ef4444", edgecolor="none")
 
-        plt.title("Intelligibility Classification vs. Counterfactual Density", fontsize=12, fontweight="bold", pad=12)
+        plt.title("Internal Blackboard Classification vs. Counterfactual Density", fontsize=12, fontweight="bold", pad=12)
         plt.xlabel("Counterfactual Participation Density", fontsize=10)
         plt.ylabel("Proportion of Tasks (%)", fontsize=10)
         plt.xticks(x_indices, [f"{c}%" for c in sorted_configs])
@@ -167,9 +200,9 @@ def generate_ablation_charts(
 
         plt.figure(figsize=(6.5, 4.2), dpi=160)
         plt.plot(sorted_configs, avg_tokens, marker="s", linewidth=2.5, color="#6366f1", markersize=8)
-        plt.title("Mean Token Consumption vs. Counterfactual Density", fontsize=12, fontweight="bold", pad=12)
+        plt.title("Board-Entry Text Token Estimate vs. Counterfactual Density", fontsize=12, fontweight="bold", pad=12)
         plt.xlabel("Counterfactual Participation Density (%)", fontsize=10)
-        plt.ylabel("Mean Total Tokens / Task", fontsize=10)
+        plt.ylabel("Mean Entry-Text Tokens / Task (see CSV provenance)", fontsize=10)
         plt.xticks(sorted_configs, [f"{c}%" for c in sorted_configs])
         plt.grid(True, linestyle="--", alpha=0.5)
         for x, y in zip(sorted_configs, avg_tokens):
@@ -200,7 +233,6 @@ def generate_interactive_html_report(
     for c in sorted_configs:
         rows = by_config[c]
         total_tasks = len(rows)
-        agreed = sum(1 for r in rows if r["outcome"] == "agreement")
         deadlocked = sum(1 for r in rows if r["outcome"] == "deadlock")
         ultra = sum(1 for r in rows if r["intelligibility_classification"] == "ULTRA_STRONG")
         avg_tok = sum(r["total_tokens"] for r in rows) / max(1, total_tasks)
@@ -209,7 +241,7 @@ def generate_interactive_html_report(
         summary_rows.append({
             "config": f"{c}%",
             "total_tasks": total_tasks,
-            "accuracy": f"{(agreed / total_tasks) * 100:.1f}%",
+            "official_score": f"{sum(r['official_score'] for r in rows) / total_tasks:.4g}",
             "deadlock_rate": f"{(deadlocked / total_tasks) * 100:.1f}%",
             "ultra_strong_rate": f"{(ultra / total_tasks) * 100:.1f}%",
             "avg_tokens": f"{avg_tok:.0f}",
@@ -220,7 +252,7 @@ def generate_interactive_html_report(
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Week 3 Pilot Ablation Study — Intelligible Blackboard</title>
+  <title>Official Benchmark Results — Intelligible Blackboard</title>
   <style>
     body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f19; color: #f8fafc; padding: 32px; }}
     h1 {{ font-size: 24px; color: #f1f5f9; margin-bottom: 8px; }}
@@ -236,8 +268,8 @@ def generate_interactive_html_report(
   </style>
 </head>
 <body>
-  <h1>📊 Week 3 Pilot Study — Counterfactual Participation Ablation</h1>
-  <p class="subtitle">Evaluated on KramaBench symbolic reasoning tasks across 0%, 33%, 66%, and 100% density configurations.</p>
+  <h1>Official Benchmark Results — Counterfactual Participation Ablation</h1>
+  <p class="subtitle">The first column is the arithmetic mean of evaluator-provided row scores, not KramaBench's workload aggregate. Deadlock and intelligibility are internal diagnostics. Token counts cover board-entry text only; check token and timing provenance.</p>
   
   <div class="card" style="margin-bottom: 24px;">
     <h3>Ablation Summary Table</h3>
@@ -246,31 +278,31 @@ def generate_interactive_html_report(
         <tr>
           <th>CF Density</th>
           <th>Sample N</th>
-          <th>Agreement / Accuracy</th>
+          <th>Mean Per-Row Evaluator Score</th>
           <th>Deadlock Rate</th>
-          <th>ULTRA_STRONG Intelligibility</th>
-          <th>Mean Tokens / Task</th>
-          <th>Avg Latency</th>
+          <th>Internal ULTRA_STRONG Classification</th>
+          <th>Mean Entry-Text Tokens (see provenance)</th>
+          <th>Elapsed Time (see scope)</th>
         </tr>
       </thead>
       <tbody>
-        {"".join(f"<tr><td><strong>{r['config']}</strong></td><td>{r['total_tasks']}</td><td><span class='tag-pill tag-green'>{r['accuracy']}</span></td><td>{r['deadlock_rate']}</td><td>{r['ultra_strong_rate']}</td><td>{r['avg_tokens']}t</td><td>{r['avg_time']}</td></tr>" for r in summary_rows)}
+        {"".join(f"<tr><td><strong>{r['config']}</strong></td><td>{r['total_tasks']}</td><td><span class='tag-pill tag-green'>{r['official_score']}</span></td><td>{r['deadlock_rate']}</td><td>{r['ultra_strong_rate']}</td><td>{r['avg_tokens']}t</td><td>{r['avg_time']}</td></tr>" for r in summary_rows)}
       </tbody>
     </table>
   </div>
 
   <div class="grid">
     <div class="card">
-      <h3>Accuracy vs. Density</h3>
-      <img src="accuracy_vs_density.png" alt="Accuracy vs Density">
+      <h3>Mean Per-Row Evaluator Score</h3>
+      <img src="mean_evaluator_score_vs_density.png" alt="Mean evaluator-provided row score vs Density">
     </div>
     <div class="card">
-      <h3>Intelligibility Classification</h3>
+      <h3>Internal Blackboard Classification</h3>
       <img src="intelligibility_vs_density.png" alt="Intelligibility vs Density">
     </div>
     <div class="card">
-      <h3>Token Consumption Overhead</h3>
-      <img src="tokens_vs_density.png" alt="Tokens vs Density">
+      <h3>Board-Entry Text Token Estimate</h3>
+      <img src="tokens_vs_density.png" alt="Estimated board-entry text tokens vs Density">
     </div>
   </div>
 </body>
@@ -296,12 +328,17 @@ def _run_cli(argv: list[str] | None = None) -> None:
     charts_dir = Path(args.out_dir) if args.out_dir else (phase_dir / "charts")
 
     if args.csv:
-        rows = load_results_csv(args.csv)
+        try:
+            rows = load_results_csv(args.csv)
+        except ValueError as exc:
+            parser.error(str(exc))
         cfg = rows[0]["config_pct"] if rows else 100
         by_config = {cfg: rows}
     else:
         by_config = load_all_phase_csvs(phase_dir)
 
+    if not by_config:
+        parser.error(f"No verified official evaluation CSVs found in {phase_dir}; simulation/legacy results are not plotted.")
     charts = generate_ablation_charts(by_config, charts_dir)
     html_report = generate_interactive_html_report(by_config, charts_dir / "ablation_summary_report.html")
 

@@ -108,23 +108,29 @@ def parse_krama_record(raw: Dict[str, Any]) -> TaskFormat:
     domain = str(raw.get("domain") or (raw_id.split("-")[0] if "-" in raw_id else "general"))
     difficulty = str(raw.get("difficulty") or ("hard" if "hard" in raw_id else ("easy" if "easy" in raw_id else "medium")))
 
-    # Parse reference steps from either ground_truth_reasoning_steps or subtasks
-    reference_steps = list(raw.get("ground_truth_reasoning_steps") or [])
-    if not reference_steps and "subtasks" in raw and isinstance(raw["subtasks"], list):
+    # Preserve reference steps as descriptive text. Do not infer PXP tags from
+    # subtask order; KramaBench subtasks describe a data pipeline, not PXP turns.
+    raw_steps = raw.get("ground_truth_reasoning_steps") or []
+    if isinstance(raw_steps, str):
+        raw_steps = [raw_steps]
+    reference_steps = [str(step) for step in raw_steps if str(step).strip()] if isinstance(raw_steps, list) else []
+    if not reference_steps and isinstance(raw.get("subtasks"), list):
         for idx, sub in enumerate(raw["subtasks"], start=1):
             if isinstance(sub, dict):
-                step_desc = sub.get("step") or sub.get("query") or ""
-                sub_ans = sub.get("answer", "")
-                sub_query = sub.get("query", "")
-                if step_desc:
-                    if idx % 2 == 1:
-                        reference_steps.append(f"REVISE: Subtask step '{step_desc}' -> Candidate: {sub_ans}")
-                    else:
-                        reference_steps.append(f"RATIFY: Verified step '{sub_query or step_desc}' matches constraints.")
-                elif sub_query:
-                    reference_steps.append(f"RATIFY: Verified query '{sub_query}' -> Expected: {sub_ans}")
-    
-    metadata = dict(raw.get("metadata") or {})
+                description = sub.get("step") or sub.get("query") or sub.get("description") or ""
+                answer = sub.get("answer")
+                if description:
+                    text = f"Subtask {idx}: {description}"
+                    if answer not in (None, ""):
+                        text += f" Expected result: {answer}"
+                    reference_steps.append(text)
+            elif isinstance(sub, str) and sub.strip():
+                reference_steps.append(f"Subtask {idx}: {sub.strip()}")
+
+    raw_metadata = raw.get("metadata")
+    metadata = dict(raw_metadata) if isinstance(raw_metadata, dict) else {}
+    if "answer_type" in raw:
+        metadata["answer_type"] = raw["answer_type"]
     if "data_sources" in raw:
         metadata["data_sources"] = raw["data_sources"]
     if "deepresearch_subset" in raw:
@@ -142,6 +148,17 @@ def parse_krama_record(raw: Dict[str, Any]) -> TaskFormat:
         reference_steps=reference_steps,
         metadata=metadata,
     )
+
+
+def parse_krama_json(raw_json: str) -> TaskFormat:
+    """Parse one KramaBench task encoded as a JSON object string."""
+    try:
+        record = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid KramaBench JSON: {exc}") from exc
+    if not isinstance(record, dict):
+        raise ValueError("A single KramaBench JSON task must be an object.")
+    return parse_krama_record(record)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -229,7 +246,7 @@ async def async_feed_tasks_to_live_board(
     For each task:
       1. Initializes/resets a Blackboard instance.
       2. Registers standard agent roster (Proposer, Verifier, Critic, CF Sandbox).
-      3. Posts root PROPOSE entry derived from the task statement.
+      3. Posts a root REVISE entry derived from the task statement (the current initial-hypothesis tag).
       4. Progressively executes reasoning steps (RATIFY, REFUTE, REVISE, REJECT),
          publishing each event to ui.server.event_bus so the frontend renders in real-time.
     """
@@ -254,10 +271,10 @@ async def async_feed_tasks_to_live_board(
         active_board = board or Blackboard(task_id=task.task_id)
 
         # Register standard agent personas
-        active_board.register_agent(AgentRecord(agent_id="Agent_Alpha (Proposer)", persona="aggressive_proposer", model_name="mistral-7b-instruct"))
-        active_board.register_agent(AgentRecord(agent_id="Agent_Beta (Verifier)", persona="cautious_verifier", model_name="mistral-7b-instruct"))
-        active_board.register_agent(AgentRecord(agent_id="Agent_Gamma (Critic)", persona="critic", model_name="mistral-7b-instruct"))
-        active_board.register_agent(AgentRecord(agent_id="Agent_Delta (CF Sandbox)", persona="counterfactual", model_name="mistral-7b-instruct", counterfactual_capable=True))
+        active_board.register_agent(AgentRecord(agent_id="Agent_Alpha (Proposer)", persona="aggressive_proposer", model_name="synthetic-fixture"))
+        active_board.register_agent(AgentRecord(agent_id="Agent_Beta (Verifier)", persona="cautious_verifier", model_name="synthetic-fixture"))
+        active_board.register_agent(AgentRecord(agent_id="Agent_Gamma (Critic)", persona="critic", model_name="synthetic-fixture"))
+        active_board.register_agent(AgentRecord(agent_id="Agent_Delta (CF Sandbox)", persona="counterfactual", model_name="synthetic-fixture", counterfactual_capable=True))
 
         # Helper to post and emit
         async def _post_and_emit(entry: BoardEntry) -> None:
@@ -268,7 +285,7 @@ async def async_feed_tasks_to_live_board(
                 await bus_instance.publish(event)
             await asyncio.sleep(interval_s)
 
-        # 1. Root Proposal (uses REVISE as initial hypothesis post per blackboard schema)
+        # 1. Root hypothesis (uses REVISE per the shared blackboard schema)
         root_entry = BoardEntry(
             agent_id="Agent_Alpha (Proposer)",
             tag=PXPTag.REVISE,
@@ -403,7 +420,7 @@ def _run_cli(argv: list[str] | None = None) -> None:
                 "domain": "multi-agent-coordination",
                 "difficulty": "hard",
                 "ground_truth_reasoning_steps": [
-                    "Agent A PROPOSE: x = 12",
+                    "Agent A REVISE: x = 12",
                     "Agent B RATIFY: agrees with x = 12",
                     "Agent C REFUTE: x = -12 also satisfies x^2 = 144",
                     "Agent A REVISE: x ∈ {-12, 12}",

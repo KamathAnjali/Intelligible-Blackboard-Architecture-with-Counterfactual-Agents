@@ -11,21 +11,23 @@ Integration Point (Student 3 — Week 2/3):
   When Student 3's LLM client (e.g. `agents.llm_client.call_llm` or `OllamaClient.generate`)
   is invoked, call `record_llm_turn(...)` or wrap the response using `llm_token_count_adapter(...)`.
   If raw usage metadata (prompt_tokens, completion_tokens) is returned by the LLM, it is used
-  directly; otherwise it falls back to tokenizer encoding or whitespace BPE approximation.
+  directly when supplied; board-entry counts otherwise use a registered tokenizer
+  or a whitespace heuristic.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from agents.llm_client import MODEL
+
 logger = logging.getLogger("token-counter")
 
-# Team-agreed default model (from .env or fallback)
-_DEFAULT_MODEL: str = os.getenv("OLLAMA_MODEL", "mistral-7b-instruct")
+# Keep token accounting metadata aligned with the project agent default.
+_DEFAULT_MODEL: str = MODEL
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -34,7 +36,7 @@ _DEFAULT_MODEL: str = os.getenv("OLLAMA_MODEL", "mistral-7b-instruct")
 
 @dataclass
 class TurnTokenMetrics:
-    """Token metrics for a single agent turn / board entry."""
+    """Text counts for one board entry plus optional model usage fields."""
     entry_id: str
     agent_id: str
     tag: str
@@ -56,6 +58,8 @@ class AgentTokenSummary:
     total_prompt_tokens: int = 0
     total_completion_tokens: int = 0
     total_tokens: int = 0
+    mainline_tokens: int = 0
+    simulation_tokens: int = 0
     tags_used: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
 
@@ -82,8 +86,10 @@ def count_tokens(
     Count or estimate the number of tokens in `text` for a given agent turn.
 
     1. Uses custom registered tokenizer for `model_name` if available.
-    2. Tries tiktoken / transformers if installed.
-    3. Falls back to whitespace BPE heuristic (~1.3 tokens / word).
+    2. Falls back to a rough whitespace heuristic (~1.3 tokens / word).
+
+    Unless a tokenizer is explicitly registered for the selected model, the
+    result is only an estimate. This counts supplied text, not a full LLM call.
     """
     if not text:
         return 0
@@ -187,8 +193,10 @@ def llm_token_count_adapter(
 
 class TokenTallyTracker:
     """
-    Maintains cumulative token metrics per agent and total across a session.
-    Thread-safe and async-safe.
+    Maintains cumulative board-entry text counts per agent and session.
+
+    The displayed total is not full prompt/completion usage. Calls should be
+    serialized if the same tracker is shared across threads.
     """
 
     def __init__(self) -> None:
@@ -197,6 +205,8 @@ class TokenTallyTracker:
             lambda: AgentTokenSummary(agent_id="")
         )
         self._total_tokens: int = 0
+        self._mainline_tokens: int = 0
+        self._simulation_tokens: int = 0
 
     def record_turn(
         self,
@@ -208,8 +218,14 @@ class TokenTallyTracker:
         prompt_text: str = "",
         model_name: Optional[str] = None,
         llm_response_obj: Any = None,
+        is_counterfactual_sim: bool = False,
     ) -> TurnTokenMetrics:
-        """Record a turn and update cumulative tallies."""
+        """Record board-entry text counts, optionally separating sandbox entries.
+
+        The total counts only prediction and explanation text. It is not full
+        prompt/completion usage unless those are recorded separately from
+        provider metadata.
+        """
         # Entry token breakdown
         entry_counts = count_tokens_for_entry(prediction, explanation, agent_id=agent_id, model_name=model_name)
         
@@ -246,6 +262,12 @@ class TokenTallyTracker:
         summary.total_prompt_tokens += metrics.prompt_tokens
         summary.total_completion_tokens += metrics.completion_tokens
         summary.total_tokens += metrics.total_tokens
+        if is_counterfactual_sim:
+            summary.simulation_tokens += metrics.total_tokens
+            self._simulation_tokens += metrics.total_tokens
+        else:
+            summary.mainline_tokens += metrics.total_tokens
+            self._mainline_tokens += metrics.total_tokens
         summary.tags_used[tag] += 1
 
         logger.debug(
@@ -273,6 +295,8 @@ class TokenTallyTracker:
                 "total_prompt_tokens": s.total_prompt_tokens,
                 "total_completion_tokens": s.total_completion_tokens,
                 "total_tokens": s.total_tokens,
+                "mainline_tokens": s.mainline_tokens,
+                "simulation_tokens": s.simulation_tokens,
                 "tags_used": dict(s.tags_used),
             }
             for agent_id, s in self._by_agent.items()
@@ -282,6 +306,13 @@ class TokenTallyTracker:
         """Export comprehensive token tally report."""
         return {
             "total_tokens": self._total_tokens,
+            "mainline_tokens": self._mainline_tokens,
+            "simulation_tokens": self._simulation_tokens,
+            "total_tokens_kind": "estimated_board_entry_text_only",
+            "token_count_note": (
+                "Counts prediction and explanation text only; uses a registered tokenizer when available, "
+                "otherwise a whitespace heuristic. Does not include system/user prompts or represent a benchmark score."
+            ),
             "turn_count": len(self._history),
             "agents": self.get_all_summaries(),
         }
@@ -291,6 +322,8 @@ class TokenTallyTracker:
         self._history.clear()
         self._by_agent.clear()
         self._total_tokens = 0
+        self._mainline_tokens = 0
+        self._simulation_tokens = 0
 
 
 # Process-global tracker singleton
@@ -306,7 +339,7 @@ if __name__ == "__main__":
     t1 = tracker.record_turn(
         entry_id="e1",
         agent_id="Agent_Alpha",
-        tag="PROPOSE",
+        tag="REVISE",
         prediction="x = 12",
         explanation="Solving x^2 = 144.",
     )

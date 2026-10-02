@@ -1,5 +1,7 @@
 # Week 3 Final Rehearsal & Integration Notes
 
+> **Historical draft warning:** This rehearsal note contains benchmark claims from the earlier synthetic simulator. The claimed accuracy gain and token overhead are withdrawn. No official KramaBench pilot has been run; do not present the old local charts or CSVs as findings. See [`bench/results/README.md`](../bench/results/README.md).
+
 **Author:** Student 4 (UI & Benchmarking)  
 **Date:** Week 3 Day 7 Checkpoint  
 **Scope:** Two full end-to-end integration rehearsal runs with all 4 teammates, timing breakdowns, identified rough edges, and tightened run-of-show.
@@ -17,8 +19,8 @@
 | 1. System Intro & Radial Layout | 1:00 min | 0:55 min | Kept layout toggle brief; emphasized root centering. |
 | 2. Deadlock & Bottleneck Flashing | 1:15 min | 1:10 min | Highlighted red pulsing nodes immediately when banner appears. |
 | 3. Split-Panel Counterfactual Sandbox | 1:30 min | 1:25 min | Pointed directly to `[SIMULATED]` tags on the right panel. |
-| 4. History Scrub & Token Telemetry | 1:15 min | 1:10 min | Demonstrated jumping from Step 2 to Step 5 non-destructively. |
-| 5. Pilot Ablation Charts & Findings | 1:30 min | 1:30 min | Emphasized $+36\%$ accuracy gain ($64\% \to 100\%$) at $+13.3\%$ token cost. |
+| 4. History Scrub & Token Estimate | 1:15 min | 1:10 min | Demonstrated replay navigation; displayed counts are entry-text estimates, not full model usage. |
+| 5. Benchmark status | 1:30 min | 1:30 min | Explain that official evaluation is planned and the current runner only supports labelled simulations. |
 
 ---
 
@@ -30,9 +32,8 @@
 2. **Scrubber Slider Width on Small Laptops**:
    - *Observation*: On narrower viewports ($<1200\text{px}$), the scrubber slider bar crowded the right-hand footer HUD.
    - *Fix Applied*: Added responsive `max-width: calc(100vw - 32px)` and shifted the footer HUD slightly.
-3. **Strict Citation Discipline**:
-   - *Observation*: Need to ensure teammates know only `pilot_run_*.csv` and `full_study_*.csv` can be cited in written sections.
-   - *Action*: Documented and highlighted in [`bench/results/README.md`](file:///Users/tanishasinghal/Downloads/Reasoning_Agents_AI_Project/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents/bench/results/README.md).
+3. **Benchmark provenance**:
+   - The earlier pilot-named files came from a simulator, not actual agent runs or the KramaBench evaluator. They are not citable as benchmark results. The result loader now rejects files without official evaluator provenance.
 
 ---
 
@@ -40,6 +41,6 @@
 - [x] Backend WebSocket server starts on port `8000` with CORS enabled.
 - [x] Frontend builds with zero TypeScript errors (`npm run build`).
 - [x] All 10 unit tests pass (`pytest`).
-- [x] Mode enforcement active (`example`, `dry_run`, `pilot`, `full_study`).
-- [x] All 4 pilot CSVs and 3 publication charts generated and committed.
+- [x] Simulation modes are labelled; `pilot` and `full_study` are disabled until agent execution and official evaluation are integrated.
+- [ ] Run an official KramaBench pilot after connecting the real agent runner and evaluator.
 - [x] Rehearsal completed twice with 6:10 pace. Ready for final presentation!

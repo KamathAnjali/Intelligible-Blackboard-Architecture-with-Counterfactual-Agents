@@ -1,8 +1,8 @@
 """
 Mock Event Stream Fixture & Generator — Student 4 (UI & Benchmarking)
 
-Provides a canned sequence of board entry events depicting PXP tag transitions
-(PROPOSE -> RATIFY / REVISE / REFUTE / REJECT) across multiple agents.
+Provides a canned sequence of board entry events using the frozen PXPTag enum
+(REVISE, RATIFY, REFUTE, REJECT) across multiple agents.
 Includes an async generator to stream events with a controllable delay parameter.
 """
 
@@ -20,7 +20,7 @@ CANNED_EVENT_STREAM: List[Dict[str, Any]] = [
     "entry": {
       "entry_id": "entry-101",
       "agent_id": "Agent_Alpha (Proposer)",
-      "tag": "PROPOSE",
+      "tag": "REVISE",
       "prediction": "x = 12",
       "explanation": "Posing initial hypothesis solving equation x^2 = 144.",
       "target_entry_id": None,
@@ -96,7 +96,7 @@ CANNED_EVENT_STREAM: List[Dict[str, Any]] = [
   {
     "type": "session_summary",
     "summary": {
-      "task_id": "kb_demo_101",
+      "task_id": "mock-quadratic-session",
       "intelligibility": "ULTRA_STRONG",
       "total_entries": 6,
       "consensus_reached": True

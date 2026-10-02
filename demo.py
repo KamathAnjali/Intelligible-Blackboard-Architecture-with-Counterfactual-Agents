@@ -1,6 +1,9 @@
 """
 Unified 3-Workstream Integration Demonstration.
 
+This is a scripted software demonstration using fixed board entries. It does
+not run the LLM agents or a benchmark evaluator.
+
 Run with:
     python demo.py
 
@@ -43,9 +46,9 @@ def demo_three_agent_consensus():
     board.subscribe(lambda evt: events_log.append(evt))
 
     # 1. Register 3 personas (Student 3 personas registered via Student 1 registry)
-    proposer = AgentRecord(agent_id="proposer", persona="aggressive_proposer", model_name="qwen3:4b")
-    verifier = AgentRecord(agent_id="verifier", persona="cautious_verifier", model_name="qwen3:4b")
-    challenger = AgentRecord(agent_id="challenger", persona="counterexample_challenger", model_name="qwen3:4b")
+    proposer = AgentRecord(agent_id="proposer", persona="aggressive_proposer", model_name="qwen3:4b-instruct-2507-q4_K_M")
+    verifier = AgentRecord(agent_id="verifier", persona="cautious_verifier", model_name="qwen3:4b-instruct-2507-q4_K_M")
+    challenger = AgentRecord(agent_id="challenger", persona="counterexample_challenger", model_name="qwen3:4b-instruct-2507-q4_K_M")
 
     board.register_agent(proposer)
     board.register_agent(verifier)
@@ -162,7 +165,7 @@ def demo_deadlock_and_counterfactual_rollback():
     print("\n--- Retrospective Rollback Simulation (Student 3 Sandbox) ---")
     print(f"[*] Slicing live history back to cutoff entry: {e1.entry_id[:8]}...")
     history_slice = board.get_history_slice(cutoff_entry_id=e1.entry_id)
-    print(f"[*] Isolated history slice size: {len(history_slice)} entry")
+    print(f"[*] Isolated history slice count: {len(history_slice)}")
 
     # Fork sandbox blackboard
     sim_board = board.fork_simulation_blackboard(cutoff_entry_id=e1.entry_id)
@@ -180,9 +183,9 @@ def demo_deadlock_and_counterfactual_rollback():
     sim_board.post_entry(sim_entry)
     print(f"[*] Simulated alternative posted in sandbox: {sim_entry.prediction}")
 
-    # Evaluate delta score
-    delta_score = 0.88  # High convergence potential
-    print(f"[*] Counterfactual delta score: +{delta_score}")
+    # No counterfactual evaluator is connected, so the demo records no score.
+    delta_score = None
+    print("[*] Counterfactual delta score: not evaluated (no scorer connected)")
 
     # Record counterfactual result without corrupting live history
     cf_result = CounterfactualResult(
@@ -194,8 +197,8 @@ def demo_deadlock_and_counterfactual_rollback():
     )
     board.record_counterfactual_result(cf_result)
 
-    print(f"[*] Live board history length: {len(board.get_history())} (Strictly preserved)")
-    print(f"[*] Sandbox board history length: {len(sim_board.get_history())} (Isolated branch)")
+    print(f"[*] Live board history count: {len(board.get_history())} (preserved)")
+    print(f"[*] Sandbox board history count: {len(sim_board.get_history())} (isolated branch)")
     print(f"[*] Live counterfactual audit events: {len(board.get_state().counterfactual_events)}")
 
 

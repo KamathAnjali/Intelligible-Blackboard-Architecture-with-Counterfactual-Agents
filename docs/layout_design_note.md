@@ -9,7 +9,7 @@
 ## 1. Problem Context
 
 In our PXP Blackboard architecture, agents post structured entries:
-- Initial problem hypotheses (`REVISE` / `PROPOSE`) serve as root anchors.
+- Initial problem hypotheses use `REVISE` under the shared `PXPTag` contract and serve as root anchors.
 - Iterative arguments (`RATIFY`, `REVISE`, `REFUTE`, `REJECT`) create directed reference edges pointing back to parent entries.
 - Counterfactual simulations branch off refutations and either converge back or terminate upon rejection.
 

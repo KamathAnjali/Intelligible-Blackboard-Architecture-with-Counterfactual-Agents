@@ -74,7 +74,7 @@ class AgentRecord(BaseModel):
     agent_id: str
     persona: str                       # e.g. "cautious_verifier", "aggressive_proposer"
     counterfactual_capable: bool = False
-    model_name: str = "unspecified"    # e.g. "mistral-7b-instruct"
+    model_name: str = "unspecified"    # e.g. "qwen3:4b-instruct-2507-q4_K_M"
     active: bool = True
 
 
@@ -123,7 +123,7 @@ class CounterfactualResult(BaseModel):
     agent_id: str
     original_entry_id: str            # the historical entry that was rewritten
     simulated_entry: BoardEntry       # the alternate version that was tried
-    delta_score: float                # positive = simulation looked more likely to reach consensus
+    delta_score: Optional[float] = None  # None when no evaluator calculated a score
     applied_to_live: bool             # whether the agent actually adopted this on the live board
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
