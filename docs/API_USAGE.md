@@ -21,16 +21,26 @@ board.register_agent(AgentRecord(agent_id="agent_beta", persona="verifier", mode
 # 3. Attach scheduler (Student 2)
 scheduler = Scheduler(board)
 
-# 4. Agent generates entry and submits via scheduler turn
-agent = scheduler.next_agent()
-entry = BoardEntry(
-    agent_id=agent.agent_id,
-    tag=PXPTag.REVISE,
-    prediction="Acute Bronchitis",
-    explanation="3-day cough presentation without underlying chronic issues.",
-)
-deadlock_event = scheduler.submit_entry(entry)
+# 4. The runner waits for a board notification, invokes the selected agent,
+#    then submits that agent's entry. The scheduler does not run the agent.
+try:
+    while scheduler.is_running():
+        agent = scheduler.wait_for_next_agent(timeout=30)
+
+        # Replace this with the agent/LLM call. It should return a BoardEntry
+        # whose agent_id matches the selected agent.
+        entry = run_agent(agent, board)
+        deadlock_event = scheduler.submit_entry(entry)
+finally:
+    # Unsubscribe when the runner exits; this also wakes a blocked waiter.
+    scheduler.close()
 ```
+
+The scheduler subscribes to Blackboard events and queues relevant notifications.
+The first notification prompts a check for agents registered before scheduler
+creation. Later agent registrations or posted entries wake the runner. The
+runner still controls the loop and agent execution; notifications only wake
+`wait_for_next_agent()` so it can select the next round-robin turn.
 
 ---
 
@@ -42,6 +52,10 @@ deadlock_event = scheduler.submit_entry(entry)
 - **`board.get_agents(active_only: bool = False) -> dict[str, AgentRecord]`**: Returns registered agents.
 - **`board.current_intelligibility -> IntelligibilityLevel`**: Returns current status (`UNRESOLVED`, `STRONG`, `ULTRA_STRONG`, `DEADLOCKED`) without performing deep copies.
 - **`board.post_entry(entry: BoardEntry) -> DeadlockEvent | None`**: Validates schema, checks agent/target registration, appends to history, recomputes intelligibility, and returns a `DeadlockEvent` if a negative loop is detected.
+- **`scheduler.wait_for_next_agent(timeout: float | None = None) -> AgentRecord`**: Waits for `AGENT_REGISTERED`, `ENTRY_POSTED`, `INTELLIGIBILITY_CHANGED`, or `DEADLOCK_DETECTED`, then returns the next active agent in round-robin order. It also checks agents registered before scheduler creation. With no active agents it waits for registration; `timeout=None` waits indefinitely, while a finite timeout raises `TimeoutError`. A terminal board or closed scheduler raises `RuntimeError`.
+- **`scheduler.next_agent() -> AgentRecord`**: Selects a turn immediately for synchronous callers that do not need to wait for board activity.
+- **`scheduler.submit_entry(entry: BoardEntry) -> DeadlockEvent | None`**: Validates the scheduled agent's turn and submits the entry. The resulting `ENTRY_POSTED` board event wakes the runner for its next scheduling decision. This method does not call or run the next agent.
+- **`scheduler.close() -> None`**: Unsubscribes from board events and wakes a blocked waiter so it can exit.
 
 ### B. For Student 3 (Agents & Counterfactual)
 
