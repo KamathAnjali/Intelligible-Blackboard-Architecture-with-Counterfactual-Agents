@@ -1,0 +1,81 @@
+{
+  "task_id": "conversation-20260930T114505922609Z",
+  "entries": [
+    {
+      "entry_id": "1b222a822e5e438285363e283e4b0bf3",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "A: yes",
+      "explanation": "Mira's ticket is valid, so it receives a priority stamp.",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-30T11:45:05.935603Z"
+    },
+    {
+      "entry_id": "1d889bf524b44f50bbb4874c995d6594",
+      "agent_id": "auditor",
+      "tag": "REFUTE",
+      "prediction": "C: insufficient information",
+      "explanation": "Validity of tickets does not imply priority stamps; the connection is not established.",
+      "target_entry_id": "1b222a822e5e438285363e283e4b0bf3",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-30T11:45:39.788212Z"
+    },
+    {
+      "entry_id": "844c71e277f54b82afb7e9200a85c2dc",
+      "agent_id": "challenger",
+      "tag": "RATIFY",
+      "prediction": "C: insufficient information",
+      "explanation": "Validity does not imply priority stamps; the connection is not established in the premises.",
+      "target_entry_id": "1d889bf524b44f50bbb4874c995d6594",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-30T11:46:01.828080Z"
+    },
+    {
+      "entry_id": "c57eab5276134483a6bc2786e0f88193",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "C: insufficient information",
+      "explanation": "Validity does not imply priority stamps; the connection is not established in the premises.",
+      "target_entry_id": "844c71e277f54b82afb7e9200a85c2dc",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-30T11:46:26.410015Z"
+    },
+    {
+      "entry_id": "cf0575c06d5f4bef9a104bd6f4d954dc",
+      "agent_id": "auditor",
+      "tag": "RATIFY",
+      "prediction": "C: insufficient information",
+      "explanation": "Validity does not imply priority stamps; the premises do not establish a connection.",
+      "target_entry_id": "c57eab5276134483a6bc2786e0f88193",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-09-30T11:46:45.585783Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "auditor": {
+      "agent_id": "auditor",
+      "persona": "evidence_auditor",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "challenger": {
+      "agent_id": "challenger",
+      "persona": "counterexample_challenger",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}
