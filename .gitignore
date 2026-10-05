@@ -31,8 +31,11 @@ ollama_models/
 *.log
 logs/
 outputs/
-# Includes generated Ollama responses, latency reports, and retry logs.
-results/
+# Generated results stay local; published conversation archives are tracked.
+/results/*
+!/results/transcripts/
+!/results/snapshots/
+/bench/results/
 # Default directory used by InMemoryJSONStore.snapshot_to_disk.
 /snapshots/
 data/processed/
