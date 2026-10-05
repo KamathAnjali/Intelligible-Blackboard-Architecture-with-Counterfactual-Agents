@@ -1,49 +1,45 @@
-# Project progress report
+# Progress report
 
-**Updated:** 2 October 2026
+Updated 5 October 2026 for `integration-main`.
 
-The repository now combines the shared blackboard and scheduler, local agent workflows, and Student 4's UI and benchmarking components. The Python suite currently passes in the local environment, and the frontend production build completes.
+## Integrated sources
 
-## Implemented
+All four source branch tips are included through Git merge history. Existing source files, documentation, and data are retained.
 
-| Area | Current behavior |
+| Branch | Included tip | Contribution |
+| --- | --- | --- |
+| `1-Anjali` | `fb79a7b` | Data contracts, board/storage, events, classification, and sandbox foundations. |
+| `2-Lopez` | `9554aae` | Event-driven scheduling, turn enforcement, and scheduler lifecycle. |
+| `3-Dhruva` | `6d7b9d8` | Day 9 agent workflows and the conversation archive. |
+| `4-Tanisha` | `bc777ba` | UI/backend, ingestion, metrics, and benchmark infrastructure. |
+
+## Implemented behavior
+
+| Area | Current implementation |
 | --- | --- |
-| Blackboard and scheduler | Pydantic board contracts, thread-safe state, snapshots, replay traces, round-robin scheduling, and turn validation. |
-| Agents | Ollama client, four agent personas, strict PEX/PXP validation, bounded retries, explanation review, and conversation runners. |
-| UI | FastAPI health endpoints and WebSocket event streaming; Vite/React graph uses D3 with radial and force layouts, history scrubbing, and token tally display. |
-| UI event sources | `LOG_REPLAY` replays the checked-in session by default; `/ws/mock` exposes the canned stream. In `LIVE_TAP`, `POST /api/conversation/start` launches the actual local conversation runner in-process and forwards its Blackboard `ENTRY_POSTED` events to `/ws`. |
-| KramaBench ingest | JSON and JSONL loaders map task IDs, query text, answers, and subtasks into `TaskFormat`. The parser supports the upstream `id`/`query`/`answer`/`subtasks` shape as well as the project's earlier normalized field names. |
-| Token accounting | The UI counts prediction and explanation text only. It uses a rough whitespace heuristic unless a model tokenizer is registered; the current UI path does not pass model usage metadata. These are entry-text estimates, not full prompt/completion tokens. |
+| Board and storage | Pydantic contracts, synchronized mutations, JSON snapshots, replay export, and event subscriptions. Consensus requires matching RATIFY predictions from every active agent; a four-entry negative streak flags deadlock. |
+| Scheduler | Uses the board registry, reserves round-robin turns, rejects submissions from the wrong agent, and stops on terminal board status. Board events can wake the orchestration loop through `wait_for_next_agent()`; the current conversation runner still uses `next_agent()`. |
+| Local inference | Shared `qwen3:4b-instruct-2507-q4_K_M` model, context 4096, temperature 0, seed 42, and a 768-token generation cap. |
+| Structured agents | Four personas share strict PEX/PXP schemas. A separate model call checks explanation support; malformed or rejected outputs trigger bounded retries before entry creation. |
+| Conversations | Two-agent sessions and the three-agent seeded disagreement case submit entries through the scheduler. Reports contain prompts, raw responses, reviews, failures, usage, outcomes, and board checkpoints. |
+| UI/backend | FastAPI health and conversation-start endpoints, WebSocket board streaming, React/D3 graph layouts, node inspection, history scrubbing, and estimated entry-text token totals. LIVE_TAP attaches to the backend's in-process conversation board; replay and mock sources remain available. |
+| Ingestion and metrics | JSON/JSONL parsing supports the upstream KramaBench record shape. Synthetic trial modes produce CSVs; plotting requires official evaluator provenance. |
+| Sandbox foundations | History slices and isolated board forks are implemented. Counterfactual audit records can carry a null score when no evaluator ran. Automated altered-history reasoning, scoring, and live adoption are pending. |
 
-## Student 4 workflow status
+## Published conversation records
 
-- FastAPI and Vite/React scaffolds, D3 selection note, static/live graph UI, WebSocket mock stream, recorded replay, parser, and token tracker are present.
-- The shared `PXPTag` enum is `RATIFY`, `REVISE`, `REFUTE`, and `REJECT`. The UI fixtures now use that same enum; `PROPOSE` is not a board tag. Initial hypotheses use `REVISE` under the current contract.
-- `bench/data/recorded_session.json` is a project replay fixture, not an upstream KramaBench workload sample. The parser's built-in self-check uses synthetic tasks. A local, Git-ignored upstream clone at `bench/data/krama_raw/` was parsed successfully; its source data is not checked into Git.
-- The project model is `qwen3:4b-instruct-2507-q4_K_M`; it is installed in the tested environment. `agents/llm_client.py` and `run.ps1` use that same default. No `.env` model file is used; setup instructions are in the root README.
-- `LIVE_TAP` attaches to the in-process conversation runner's Blackboard. One real turn passed at the prior 256-token cap. Three additional varied real turns passed with the permanent 768-token cap; all six generation/self-check calls ended with `done_reason=stop` (39–42 generated tokens per turn generation) and no truncation.
-- The earlier 8B `qwen3:latest` attempt truncated at 256 tokens. That result did not reproduce with the standardized 4B Instruct model.
+Five transcripts and five usable snapshots are tracked under `results/transcripts/` and `results/snapshots/`. Three runs completed with a recorded scheduler-consensus outcome; two contain partial checkpoints and retain their original `running` outcome. Consensus labels do not independently establish answer correctness.
 
-## Benchmark result validity
+Snapshots for `conversation-20260929T144759406083Z` and `conversation-20260929T144943919595Z` were recovered from the board state embedded in their transcripts. The original zero-byte snapshot files are retained in `results/snapshots/originals/`. All other published records are unchanged copies of their local originals.
 
-- No official KramaBench performance results have been produced by this repository. The current runner does not execute the agent conversation or invoke the official evaluator.
-- `example` and `dry_run` generate synthetic fixture/simulation records. The runner now disables `pilot` and `full_study`, and the plot loader rejects legacy or simulated CSVs without official evaluator provenance.
-- Older local files named `pilot_run_*.csv` and their charts are simulator outputs; their agreement rates, token counts, and timings are not benchmark findings. The former 64%–100% accuracy and +13.3% token overhead claims are withdrawn. Those git-ignored files are left in place but cannot be loaded by the current plotter.
-- The upstream [KramaBench repository](https://github.com/mitdbg/KramaBench) defines answer-type-dependent evaluation. Internal blackboard agreement is not the benchmark score. A real agent execution and evaluator adapter are still required.
-- The official evaluator reports per-task metrics and aggregates supported metrics at workload level. The current project has no adapter to that output; its legacy simulator's arithmetic summaries are not equivalent to KramaBench aggregation.
+The Day 9 records show an initial auditor correction labeled REFUTE, followed by prompt tuning and a repeated five-turn sequence ending at `C: insufficient information`. The two completed disagreement runs retain their original generation and explanation-review evidence.
 
-## Verification
+New conversation checkpoints, Ollama reports, benchmark outputs, and raw dataset clones remain ignored; publication is a separate archive operation.
 
-- `pytest -q`: 104 passed, 17 skipped. The skipped cases include opt-in live inference tests.
-- Opt-in real-agent WebSocket smoke test: 3 passed using `qwen3:4b-instruct-2507-q4_K_M` and the production 768-token cap; a separate first run also passed at 256.
-- `npm run build` in `ui/frontend`: TypeScript and Vite production build passed.
-- `python -m bench.ingest.krama_parser`: built-in parser self-check loaded two synthetic tasks.
+## Integration verification and remaining work
 
-## Remaining work
+The merges completed without Git conflicts. Integration checks cover source ancestry, archive integrity, and absence of unresolved conflict markers. No additional runtime changes or runtime tests were performed for this merge.
 
-- Run a model-generated conversation through `/api/conversation/start` with Ollama available, then confirm its actual entries arrive in the browser WebSocket.
-- Run a full browser-to-server WebSocket walkthrough in the target local environment before presenting the UI.
-- Complete the multi-agent benchmark pipeline, counterfactual evaluation, and planned benchmark study described in [Project milestones](PROJECT_MILESTONES.md).
-- Implement and validate a real KramaBench agent/evaluator path before enabling pilot/full-study result generation.
-- The KramaBench adapter's owner is not assigned in the current planning docs. The official repository interface to implement is described below in [benchmark_scoping_note.md](benchmark_scoping_note.md).
-- `tests/test_live_websocket.py` verifies board/scheduler transport with a fixed entry. `tests/test_live_llm_websocket.py` is the separate opt-in check that calls the standard Ollama model through the real conversation runner and verifies its generated entry reaches `/ws`.
+The UI's token totals are estimates over prediction/explanation text, while transcript usage includes model generation and review calls. The checked-in replay fixture is synthetic. No official KramaBench performance results have been produced: the current trial runner uses synthetic data and keeps empirical modes disabled.
+
+Remaining work includes runtime integration verification, counterfactual replay/scoring/adoption, and a real benchmark agent/evaluator adapter. The [README](../README.md) contains setup and run commands; the [milestones](PROJECT_MILESTONES.md) retain the planned work.

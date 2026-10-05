@@ -1,194 +1,92 @@
-# Intelligible Blackboard Architecture with Counterfactual Agents
+# Intelligible Blackboard with Counterfactual Agents
 
-This project investigates whether multi-agent reasoning over a shared blackboard architecture—augmented with PXP (Prediction-Explanation Protocol) and retrospective counterfactual rollback—enables autonomous agents to resolve deadlocks, avoid hallucinated consensus, and achieve verifiable, intelligible outcomes.
+This project studies whether agents sharing predictions and explanations can reach correct, intelligible answers. Contributions use four PXP tags: `RATIFY`, `REVISE`, `REFUTE`, and `REJECT`. The planned counterfactual mechanism will explore altered earlier contributions in an isolated replay before updating a live session.
 
----
+`integration-main` contains all four workstreams:
 
-## 1. Workstream Overview & Team Ownership
+| Source branch | Integrated contribution |
+| --- | --- |
+| `1-Anjali` | Board contracts, synchronized state, events, consensus classification, snapshots, history slicing, and isolated board forks. |
+| `2-Lopez` | Event-driven round-robin scheduling, turn ownership checks, and terminal-state handling. |
+| `3-Dhruva` | Local Ollama inference, four personas, structured output validation, retries, explanation self-checks, conversations, and published run records. |
+| `4-Tanisha` | FastAPI/WebSocket backend, React/D3 interface, replay, task ingestion, token estimates, and benchmark infrastructure. |
 
-The project integrates four core workstreams into a unified execution pipeline:
+See the [progress report](docs/PROGRESS_REPORT.md) for implemented behavior and the [milestones](docs/PROJECT_MILESTONES.md) for planned work. Counterfactual scoring, live adoption, and official benchmark evaluation remain pending.
 
-- **Student 1 (Data Model & Storage - `1-Anjali`)**:
-  - Central `Blackboard` state engine with thread-safe `RLock` synchronization.
-  - PXP message schema contracts (`BoardEntry`, `AgentRecord`, `BlackboardState`, `PXPTag`, `BoardEvent`).
-  - In-memory storage with JSON disk snapshotting and replay trace export (`InMemoryJSONStore`).
-  - Real-time Board Event Emitter hooks for WebSocket streaming.
-  - Refined unanimous Intelligibility Classification (`STRONG` vs `ULTRA_STRONG`) with anti-impersonation logic.
-  - Retrospective rollback history slicing and isolated simulation sandbox forking.
+## Setup from WSL
 
-- **Student 2 (Protocol & Scheduler - `2-Lopez`)**:
-  - Deterministic round-robin turn management (`Scheduler.next_agent()`).
-  - Strict turn ownership enforcement and out-of-turn submission rejection (`Scheduler.submit_entry()`).
-  - Terminal state transitions (`UNRESOLVED`, `STRONG`, `ULTRA_STRONG`, `DEADLOCKED`).
-  - Live session stop criteria and registration synchronization.
+Use one checkout of `integration-main`. For a new checkout:
 
-- **Student 3 (Agents & Counterfactual Reasoning - `3-Dhruva`)**:
-  - Local LLM inference integration using the project-wide Ollama model `qwen3:4b-instruct-2507-q4_K_M`.
-  - Library of 4 distinct reasoning personas: `aggressive_proposer`, `cautious_verifier`, `evidence_auditor`, `counterexample_challenger`.
-  - Strict PEX/PXP grammatical parsing, schema validation, and automatic retries with model self-checks.
-  - Multi-agent conversation loop driving consensus and structured disagreement resolution.
-
-- **Student 4 (UI & Benchmarking - `4-Tanisha`)**:
-  - FastAPI WebSocket event stream and React/D3 graph interface.
-  - KramaBench JSON/JSONL task parser and per-turn token estimates.
-  - Recorded-session replay and an in-process LIVE_TAP path that streams the actual conversation runner's Blackboard through the WebSocket.
-  - Benchmark results: no official KramaBench scores have been produced yet. `example` and `dry_run` are simulations, and `pilot`/`full_study` stay disabled until real agent execution and the official evaluator are connected. See [`bench/results/README.md`](bench/results/README.md).
-
----
-
-## 2. Integrated Architecture Flow
-
-```text
-  [Task Input]
-       │
-       ▼
- ┌────────────────────────────────────────────────────────┐
- │                 Scheduler (Student 2)                  │
- │   - Round-robin turn selection (next_agent())          │
- │   - Turn ownership enforcement (submit_entry())        │
- └───────────────────────────┬────────────────────────────┘
-                             │ Selected Agent Turn
-                             ▼
- ┌────────────────────────────────────────────────────────┐
- │               Local LLM Agents (Student 3)             │
- │   - Ollama / local model prompt generation             │
- │   - Personas: Proposer, Verifier, Auditor, Challenger  │
- │   - Strict PXP validation & retry with self-check      │
- └───────────────────────────┬────────────────────────────┘
-                             │ Submits BoardEntry
-                             ▼
- ┌────────────────────────────────────────────────────────┐
- │             Blackboard Core (Student 1)                │
- │   - Thread-safe RLock mutation                         │
- │   - PXP schema & target entry verification             │
- │   - Unanimous consensus & deadlock streak classifier   │
- └─────┬─────────────────────┬──────────────────────┬─────┘
-       │                     │                      │
-       │ Emits state deltas  │ Slices/forks sandbox │ Saves state
-       ▼                     ▼                      ▼
-┌───────────────────┐ ┌──────────────────────┐ ┌──────────────────────┐
-│ Event Emitter Bus │ │ Counterfactual Fork  │ │  InMemoryJSONStore   │
-│ (WebSocket / UI)  │ │  (Student 3 Sandbox) │ │ (Snapshots & Replay) │
-│ - Real-time stream│ │  - Isolated timeline │ │ - snapshot_to_disk   │
-│ - Node & edge sync│ │ - isolated CF fork  │ │ - export_replay      │
-└───────────────────┘ └──────────────────────┘ └──────────────────────┘
-```
-
----
-
-## 3. Getting Started & Installation
-
-### Prerequisites
-- Python 3.10+ (macOS, Linux, or Windows/WSL)
-- [Ollama](https://ollama.com) (for local LLM agent execution)
-
-### Environment Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/KamathAnjali/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents.git
+```sh
+git clone --branch integration-main https://github.com/KamathAnjali/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents.git
 cd Intelligible-Blackboard-Architecture-with-Counterfactual-Agents
-
-# Set up virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
 ```
 
-### Pull Local LLM Model (Ollama)
-```bash
-ollama pull qwen3:4b-instruct-2507-q4_K_M
+The existing Make recipes run Windows PowerShell, Windows Python, and Windows Ollama from WSL. Install GNU Make in WSL and Python 3.10+, Ollama, and Node.js/npm on Windows. Run from the repository root:
+
+```sh
+sudo apt install -y make
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'py -3 -m venv .venv'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '& .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r ui/server/requirements.txt httpx'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'npm.cmd --prefix ui/frontend ci'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '& "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe" pull qwen3:4b-instruct-2507-q4_K_M'
 ```
 
-This is the model used by the Python conversation runner and the Windows helper script. There is no `.env` model override; install this exact Ollama tag before running a live conversation.
-The agent generation cap is `768` tokens (`agents/llm_client.py`); repeated live WebSocket smoke calls completed with valid PXP JSON below that cap.
+The Ollama command uses its default Windows installation path. The frontend's supported Node versions are specified in its lockfile. Native macOS/Linux environments can install the same dependencies and invoke the Python modules and npm directly.
 
----
+## Local agent commands
 
-## 4. Running Demos & Test Suite
-
-### 1. Run Complete Offline Integration Demo (No LLM Required)
-```bash
-python demo.py
-```
-This is a scripted software demonstration, not a live model or benchmark run. It demonstrates:
-- Blackboard consensus classification on fixed example entries.
-- Deadlock detection with a fixed negative-tag sequence.
-- Isolated counterfactual sandbox forking. No counterfactual score evaluator is connected; the demo records a null score.
-
-### 2. Run Local LLM Multi-Agent Conversation (Live Ollama)
-```bash
-python -m agents.conversation --turns 6 --retries 2
+```sh
+make start
+make conversation TURNS=6 RETRIES=2
+make disagreement TURNS=6 RETRIES=2
 ```
 
-### 3. Run Disagreement Resolution Scenario
-```bash
-python -m agents.conversation --scenario disagreement --turns 6
+`conversation` runs two agents on the default task. `disagreement` registers a proposer, evidence auditor, and counterexample challenger against a marked synthetic incorrect claim; subsequent responses come from the model. Its check requires correction to the expected answer and agreement by all three agents.
+
+| Recipe | Purpose |
+| --- | --- |
+| `make help` | List commands. |
+| `make start` / `make stop` | Start Ollama / unload the model. |
+| `make chat` / `make query` | Interactive chat / one prompt. |
+| `make gpu` | Display model placement and device logs. |
+| `make latency RUNS=5` | Measure load and warm-request latency. |
+| `make samples` | Run five structured PEX examples. |
+| `make pex PERSONA=evidence_auditor RETRIES=2` | Generate a validated prediction and explanation. |
+| `make entry PERSONA=counterexample_challenger` | Generate a BoardEntry without posting it. |
+| `make conversation TURNS=6 RETRIES=2` | Run a bounded two-agent session. |
+| `make disagreement TURNS=6 RETRIES=2` | Run the three-agent scenario; turns must be 5-12. |
+| `make demo` | Check the existing three-turn live sequence. |
+| `make personas` / `make test` | Run existing live persona checks / offline checks. |
+
+`PERSONA` also accepts `aggressive_proposer` and `cautious_verifier`. General conversations allow 1-12 turns; retries allow 0-5. A valid candidate receives a separate explanation review using the same model. Generation and review usage are retained in the transcript.
+
+## UI and backend
+
+Start the backend from WSL in one terminal:
+
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '$env:BOARD_MODE="LIVE_TAP"; & .\.venv\Scripts\python.exe -m uvicorn ui.server.main:app --port 8000'
 ```
 
-### 4. Run Full Test Suite
-```bash
-pytest -v
+Start the frontend in another terminal and open `http://localhost:5173`:
+
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'npm.cmd --prefix ui/frontend run dev'
 ```
 
-### 5. Run the UI replay
-Start the backend from the repository root (recorded replay is the default):
-```bash
-uvicorn ui.server.main:app --reload --port 8000
-```
-In another terminal, start the frontend:
-```bash
-cd ui/frontend
-npm install
-npm run dev
-```
-Open `http://localhost:5173`. The backend reads `bench/data/recorded_session.json`; the current `PXPTag` enum is `RATIFY`, `REVISE`, `REFUTE`, and `REJECT`.
+To start a conversation owned by this backend, use a third terminal:
 
----
-
-## 5. Repository Structure
-
-```text
-pxp_blackboard/
-├── blackboard/              # Student 1 & 2 — Data model, store, core, scheduler
-│   ├── models.py            # PXP message schema, BoardEvent, BoardEntry
-│   ├── store.py             # In-memory dict store with disk snapshotting
-│   ├── core.py              # Thread-safe Blackboard core & event emitters
-│   └── scheduler.py         # Round-robin turn management & enforcement
-├── agents/                  # Student 3 — Local LLM agents, prompts, PXP parser
-│   ├── llm_client.py        # Ollama HTTP API client & token accounting
-│   ├── conversation.py      # Multi-agent session driver & report checkpointing
-│   ├── pxp.py               # PXP response validation contracts
-│   ├── pex.py               # PEX schema models
-│   └── prompts/             # Persona prompts & task templates
-├── architecture/            # Architecture decision records
-│   ├── ADR-001-Storage-Architecture.md
-│   └── backing-store.md
-├── docs/                    # Documentation & Milestone Tracking
-│   ├── Schema_Draft.md      # BlackboardState & BoardEntry draft
-│   ├── API_USAGE.md         # Public API guide for teammates
-│   ├── rollback-contract.md # Retrospective rollback data contract
-│   ├── INTEGRATION_REPORT.md# Complete 3-workstream integration report
-│   ├── PROGRESS_REPORT.md   # Current project progress report
-│   └── PROJECT_MILESTONES.md# Weekly milestone breakdown
-├── tests/                   # Automated unit & integration tests
-│   ├── test_agent_contract.py
-│   ├── test_blackboard.py
-│   ├── test_classification.py
-│   ├── test_concurrency.py
-│   ├── test_conversation.py
-│   ├── test_emitter.py
-│   ├── test_entry_mapping.py
-│   ├── test_integration.py
-│   ├── test_llm_client.py
-│   ├── test_models.py
-│   ├── test_parser.py
-│   ├── test_rollback.py
-│   ├── test_scheduler.py
-│   └── test_store.py
-├── demo.py                  # Integration demonstration runner
-├── requirements.txt
-└── README.md
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/conversation/start -ContentType "application/json" -Body (@{scenario="disagreement"; turns=6; retries=2} | ConvertTo-Json)'
 ```
+
+The standalone Make conversation runs in a separate process. The backend endpoint runs the conversation whose actual board events are sent to the UI. Omitting `BOARD_MODE` starts recorded replay using `bench/data/recorded_session.json`, which is a synthetic fixture. The UI's token panel estimates board-entry text; full inference usage is recorded separately in transcripts.
+
+## Saved records and benchmarks
+
+Published records are tracked in `results/transcripts/<conversation-id>.json` and `results/snapshots/<conversation-id>.json`. Two partial runs have recovered snapshots; their original empty files are retained in `results/snapshots/originals/`. Raw records preserve the observed model responses and do not establish answer correctness.
+
+New runs still write to `results/conversations/`; inference reports use `results/ollama/`. These generated directories, benchmark results, and local raw datasets remain ignored. Existing files are preserved when records are copied into the published archive.
+
+`bench/ingest/` loads task records; `bench/metrics/` provides token accounting, synthetic CSV exports, and evaluator-gated plotting. `example` and `dry_run` are synthetic modes. `pilot` and `full_study` remain disabled until real benchmark execution and the official evaluator are connected.
