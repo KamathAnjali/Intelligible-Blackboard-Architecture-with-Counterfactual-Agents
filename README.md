@@ -6,7 +6,7 @@ This project investigates whether multi-agent reasoning over a shared blackboard
 
 ## 1. Workstream Overview & Team Ownership
 
-The project integrates three core workstreams into a unified execution pipeline:
+The project integrates four core workstreams into a unified execution pipeline:
 
 - **Student 1 (Data Model & Storage - `1-Anjali`)**:
   - Central `Blackboard` state engine with thread-safe `RLock` synchronization.
@@ -23,10 +23,16 @@ The project integrates three core workstreams into a unified execution pipeline:
   - Live session stop criteria and registration synchronization.
 
 - **Student 3 (Agents & Counterfactual Reasoning - `3-Dhruva`)**:
-  - Local LLM inference integration (Ollama / `qwen3:4b-instruct-2507-q4_K_M` / `mistral:7b-instruct`).
+  - Local LLM inference integration using the project-wide Ollama model `qwen3:4b-instruct-2507-q4_K_M`.
   - Library of 4 distinct reasoning personas: `aggressive_proposer`, `cautious_verifier`, `evidence_auditor`, `counterexample_challenger`.
   - Strict PEX/PXP grammatical parsing, schema validation, and automatic retries with model self-checks.
   - Multi-agent conversation loop driving consensus and structured disagreement resolution.
+
+- **Student 4 (UI & Benchmarking - `4-Tanisha`)**:
+  - FastAPI WebSocket event stream and React/D3 graph interface.
+  - KramaBench JSON/JSONL task parser and per-turn token estimates.
+  - Recorded-session replay and an in-process LIVE_TAP path that streams the actual conversation runner's Blackboard through the WebSocket.
+  - Benchmark results: no official KramaBench scores have been produced yet. `example` and `dry_run` are simulations, and `pilot`/`full_study` stay disabled until real agent execution and the official evaluator are connected. See [`bench/results/README.md`](bench/results/README.md).
 
 ---
 
@@ -64,7 +70,7 @@ The project integrates three core workstreams into a unified execution pipeline:
 │ Event Emitter Bus │ │ Counterfactual Fork  │ │  InMemoryJSONStore   │
 │ (WebSocket / UI)  │ │  (Student 3 Sandbox) │ │ (Snapshots & Replay) │
 │ - Real-time stream│ │  - Isolated timeline │ │ - snapshot_to_disk   │
-│ - Node & edge sync│ │  - delta_score eval  │ │ - export_replay      │
+│ - Node & edge sync│ │ - isolated CF fork  │ │ - export_replay      │
 └───────────────────┘ └──────────────────────┘ └──────────────────────┘
 ```
 
@@ -94,9 +100,10 @@ pip install -r requirements.txt
 ### Pull Local LLM Model (Ollama)
 ```bash
 ollama pull qwen3:4b-instruct-2507-q4_K_M
-# or
-ollama pull mistral:7b-instruct
 ```
+
+This is the model used by the Python conversation runner and the Windows helper script. There is no `.env` model override; install this exact Ollama tag before running a live conversation.
+The agent generation cap is `768` tokens (`agents/llm_client.py`); repeated live WebSocket smoke calls completed with valid PXP JSON below that cap.
 
 ---
 
@@ -106,10 +113,10 @@ ollama pull mistral:7b-instruct
 ```bash
 python demo.py
 ```
-Demonstrates:
-- 3-agent convergence reaching `ULTRA_STRONG` consensus.
-- Deadlock detection with negative tag streak.
-- Isolated counterfactual sandbox forking and delta score evaluation.
+This is a scripted software demonstration, not a live model or benchmark run. It demonstrates:
+- Blackboard consensus classification on fixed example entries.
+- Deadlock detection with a fixed negative-tag sequence.
+- Isolated counterfactual sandbox forking. No counterfactual score evaluator is connected; the demo records a null score.
 
 ### 2. Run Local LLM Multi-Agent Conversation (Live Ollama)
 ```bash
@@ -125,6 +132,19 @@ python -m agents.conversation --scenario disagreement --turns 6
 ```bash
 pytest -v
 ```
+
+### 5. Run the UI replay
+Start the backend from the repository root (recorded replay is the default):
+```bash
+uvicorn ui.server.main:app --reload --port 8000
+```
+In another terminal, start the frontend:
+```bash
+cd ui/frontend
+npm install
+npm run dev
+```
+Open `http://localhost:5173`. The backend reads `bench/data/recorded_session.json`; the current `PXPTag` enum is `RATIFY`, `REVISE`, `REFUTE`, and `REJECT`.
 
 ---
 

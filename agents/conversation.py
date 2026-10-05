@@ -5,6 +5,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 from pydantic import ValidationError
 
@@ -69,7 +70,7 @@ def attempt_failures(attempt, initial=False):
 
 
 def run_conversation(client, task=None, max_turns=6, max_retries=2,
-                     output_dir=None, scenario="default"):
+                     output_dir=None, scenario="default", on_board_created: Callable | None = None):
     """Run a bounded session and checkpoint the transcript after each turn.
 
     No fabricated fallback entries are posted if generation fails. Reports can
@@ -102,6 +103,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         agent = AgentRecord(agent_id=agent_id, persona=persona, model_name=client.model)
         board.register_agent(agent)
         scheduler.register_agent(agent)
+    if on_board_created is not None:
+        on_board_created(board)
     report = {
         "created_at": stamp.isoformat(), "task": task, "task_id": task_id,
         "scenario": scenario,

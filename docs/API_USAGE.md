@@ -15,8 +15,8 @@ store = InMemoryJSONStore(snapshot_dir="./snapshots")
 board = Blackboard(task_id="task_med_001", store=store)
 
 # 2. Register participating agents
-board.register_agent(AgentRecord(agent_id="agent_alpha", persona="proposer", model_name="mistral:7b"))
-board.register_agent(AgentRecord(agent_id="agent_beta", persona="verifier", model_name="mistral:7b"))
+board.register_agent(AgentRecord(agent_id="agent_alpha", persona="proposer", model_name="qwen3:4b-instruct-2507-q4_K_M"))
+board.register_agent(AgentRecord(agent_id="agent_beta", persona="verifier", model_name="qwen3:4b-instruct-2507-q4_K_M"))
 
 # 3. Attach scheduler (Student 2)
 scheduler = Scheduler(board)

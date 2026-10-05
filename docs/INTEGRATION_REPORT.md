@@ -77,14 +77,14 @@ All **103 automated offline tests pass** (with 14 opt-in live tests ready for ac
 ### Step 5: Retrospective Rollback Sandbox Simulation
 1. When a deadlock occurs, a counterfactual-capable agent queries an immutable historical slice up to a selected cutoff entry: `board.get_history_slice(cutoff_entry_id)`.
 2. The agent forks an isolated simulation blackboard: `sim_board = board.fork_simulation_blackboard(cutoff_entry_id)`.
-3. The agent tests an alternative thesis in `sim_board` (`is_counterfactual_sim=True`) and calculates a `delta_score`.
+3. The demo posts a fixed alternative thesis in `sim_board` (`is_counterfactual_sim=True`). No counterfactual evaluator is connected, so the result has no numeric `delta_score`.
 4. The simulation result is audited via `board.record_counterfactual_result(...)` while the live session history remains strictly unaltered.
 
 ---
 
 ## 4. How the Demo Works
 
-The demonstration script ([`demo.py`](file:///Users/anjalikamath/documents_/placement%20prep/sem%207/AI/AI_Project/pxp_blackboard/demo.py)) provides a runnable, zero-dependency integration showcase:
+The demonstration script ([`demo.py`](file:///Users/anjalikamath/documents_/placement%20prep/sem%207/AI/AI_Project/pxp_blackboard/demo.py)) is a runnable, zero-dependency software fixture with fixed entries. It does not execute the LLM agents, benchmark workload, or counterfactual evaluator:
 
 ```bash
 python demo.py
@@ -131,7 +131,7 @@ python demo.py
 [*] Isolated history slice size: 1 entry
 [*] Spawned sandbox blackboard: task_deadlock_demo_sim_60db0e22
 [*] Simulated alternative posted in sandbox: Option Z (Compromise)
-[*] Counterfactual delta score: +0.88
+[*] Counterfactual delta score: not evaluated (no scorer connected)
 [*] Live board history length: 5 (Strictly preserved)
 [*] Sandbox board history length: 2 (Isolated branch)
 [*] Live counterfactual audit events: 1
