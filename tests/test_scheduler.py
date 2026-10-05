@@ -1,6 +1,8 @@
+import threading
+
 import pytest
 
-from blackboard import AgentRecord, Blackboard, BoardEntry, PXPTag
+from blackboard import AgentRecord, Blackboard, BoardEntry, BoardEvent, BoardEventType, PXPTag
 from blackboard.models import IntelligibilityLevel
 from blackboard.scheduler import Scheduler
 
@@ -126,4 +128,138 @@ def test_terminal_state_stops_scheduler(terminal_case):
     assert not scheduler.is_running()
     with pytest.raises(RuntimeError):
         scheduler.next_agent()
+
+
+def test_wait_for_next_agent_notices_pre_registered_agents():
+    board = Blackboard(task_id="pre-registered-wakeup")
+    board.register_agent(AgentRecord(agent_id="a", persona="p"))
+    scheduler = Scheduler(board)
+
+    assert scheduler.wait_for_next_agent(timeout=0.1).agent_id == "a"
+    scheduler.close()
+
+
+def test_agent_registration_wakes_waiting_scheduler(monkeypatch):
+    board = Blackboard(task_id="registration-wakeup")
+    scheduler = Scheduler(board)
+    result = []
+    errors = []
+    waiting_on_empty_queue = threading.Event()
+    original_get = scheduler._notifications.get
+
+    def observed_get(*args, **kwargs):
+        if scheduler._notifications.empty():
+            waiting_on_empty_queue.set()
+        return original_get(*args, **kwargs)
+
+    monkeypatch.setattr(scheduler._notifications, "get", observed_get)
+
+    def wait_for_agent():
+        try:
+            result.append(scheduler.wait_for_next_agent(timeout=2))
+        except Exception as error:  # surfaced in the main test thread
+            errors.append(error)
+
+    waiter = threading.Thread(target=wait_for_agent, daemon=True)
+    waiter.start()
+    assert waiting_on_empty_queue.wait(timeout=1)
+    board.register_agent(AgentRecord(agent_id="new-agent", persona="p"))
+    waiter.join(timeout=1)
+
+    assert not waiter.is_alive(), "registration did not wake the waiting scheduler"
+    assert errors == []
+    assert [agent.agent_id for agent in result] == ["new-agent"]
+    scheduler.close()
+
+
+def test_entry_posted_event_wakes_scheduler_for_next_round_robin_turn():
+    board = Blackboard(task_id="entry-wakeup")
+    board.register_agent(AgentRecord(agent_id="a", persona="p"))
+    board.register_agent(AgentRecord(agent_id="b", persona="p"))
+    scheduler = Scheduler(board)
+
+    assert scheduler.wait_for_next_agent(timeout=0.1).agent_id == "a"
+    scheduler.submit_entry(entry("a"))
+    assert scheduler.wait_for_next_agent(timeout=0.1).agent_id == "b"
+    scheduler.close()
+
+
+def test_wait_for_next_agent_raises_when_board_is_terminal():
+    board = Blackboard(task_id="terminal-wakeup")
+    board.register_agent(AgentRecord(agent_id="a", persona="p"))
+    board.register_agent(AgentRecord(agent_id="b", persona="p"))
+    scheduler = Scheduler(board)
+    first = BoardEntry(
+        agent_id="a", tag=PXPTag.RATIFY, prediction="42", explanation="Agreed."
+    )
+    board.post_entry(first)
+    board.post_entry(BoardEntry(
+        agent_id="b",
+        tag=PXPTag.RATIFY,
+        prediction="42",
+        explanation="Agreed too.",
+        target_entry_id=first.entry_id,
+    ))
+
+    with pytest.raises(RuntimeError, match="STRONG"):
+        scheduler.wait_for_next_agent(timeout=0.1)
+    scheduler.close()
+
+
+def test_wait_for_next_agent_times_out_without_active_agents():
+    board = Blackboard(task_id="wait-timeout")
+    scheduler = Scheduler(board)
+
+    with pytest.raises(TimeoutError, match="Timed out"):
+        scheduler.wait_for_next_agent(timeout=0.01)
+    scheduler.close()
+
+
+def test_duplicate_and_stale_notifications_are_coalesced():
+    board = Blackboard(task_id="duplicate-notifications")
+    board.register_agent(AgentRecord(agent_id="a", persona="p"))
+    board.register_agent(AgentRecord(agent_id="b", persona="p"))
+    scheduler = Scheduler(board)
+
+    # Simulate an already-queued duplicate registration notification.
+    scheduler._on_board_event(BoardEvent(
+        event_type=BoardEventType.AGENT_REGISTERED,
+        task_id=board.task_id,
+    ))
+    assert scheduler.wait_for_next_agent(timeout=0.1).agent_id == "a"
+
+    scheduler.submit_entry(entry("a"))
+    # This duplicate is stale by the time the queued ENTRY_POSTED wake is read.
+    scheduler._on_board_event(BoardEvent(
+        event_type=BoardEventType.ENTRY_POSTED,
+        task_id=board.task_id,
+    ))
+    assert scheduler.wait_for_next_agent(timeout=0.1).agent_id == "b"
+    assert scheduler._notifications.empty()
+    scheduler.close()
+
+
+def test_submit_entry_callback_does_not_deadlock_on_scheduler_lock():
+    board = Blackboard(task_id="callback-no-deadlock")
+    board.register_agent(AgentRecord(agent_id="a", persona="p"))
+    scheduler = Scheduler(board)
+    scheduler.next_agent()
+    completed = threading.Event()
+    errors = []
+
+    def submit():
+        try:
+            scheduler.submit_entry(entry("a"))
+        except Exception as error:  # surfaced in the main test thread
+            errors.append(error)
+        finally:
+            completed.set()
+
+    poster = threading.Thread(target=submit, daemon=True)
+    poster.start()
+    assert completed.wait(timeout=1), "board callback deadlocked during submit_entry()"
+    poster.join(timeout=1)
+    assert not poster.is_alive()
+    assert errors == []
+    scheduler.close()
 
