@@ -241,7 +241,11 @@ async def async_feed_tasks_to_live_board(
     emit_to_bus: bool = True,
 ) -> List[Any]:
     """
-    Asynchronously feed N parsed tasks into the live Blackboard and EventBus.
+    Synthetic visualization fixture only; never use for evaluation or agent input.
+
+    The fixture intentionally seeds board entries from TaskFormat's expected
+    answer/reference steps. It asynchronously feeds those gold-bearing examples
+    into the live Blackboard and EventBus for UI demonstrations.
 
     For each task:
       1. Initializes/resets a Blackboard instance.

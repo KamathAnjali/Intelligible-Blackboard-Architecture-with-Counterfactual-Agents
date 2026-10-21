@@ -9,7 +9,11 @@ from typing import Callable
 
 from pydantic import ValidationError
 
-from agents.llm_client import BASE_URL, MODEL, OPTIONS, ROOT, OllamaClient, inference_usage, timings
+from bench.evidence import termination_candidate
+from agents.llm_client import (
+    BASE_URL, MODEL, OPTIONS, ROOT, OllamaClient, inference_usage,
+    sanitized_base_url, timings,
+)
 from agents.pxp import InitialPXPResponse, PXPResponse
 from blackboard.core import Blackboard
 from blackboard.models import AgentRecord, BoardEntry, IntelligibilityLevel, PXPTag
@@ -32,6 +36,7 @@ DISAGREEMENT_SEED = {
     "prediction": "A: yes",
     "explanation": "Mira's ticket is valid, so it receives a priority stamp.",
 }
+MAX_TERMINATION_GUARD_RETRIES = 2
 
 
 def attempt_failures(attempt, initial=False):
@@ -70,7 +75,11 @@ def attempt_failures(attempt, initial=False):
 
 
 def run_conversation(client, task=None, max_turns=6, max_retries=2,
-                     output_dir=None, scenario="default", on_board_created: Callable | None = None):
+                     output_dir=None, scenario="default", on_board_created: Callable | None = None,
+                     task_id=None, initial_facts: list[str] | None = None,
+                     termination_trace: list[dict] | None = None,
+                     termination_guard: Callable[[list[dict], str], bool] | None = None,
+                     termination_guard_reason: Callable[[list[dict], str], str | None] | None = None):
     """Run a bounded session and checkpoint the transcript after each turn.
 
     No fabricated fallback entries are posted if generation fails. Reports can
@@ -91,8 +100,20 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         raise ValueError("the disagreement scenario needs at least five turns")
     if type(max_retries) is not int or not 0 <= max_retries <= 5:
         raise ValueError("max_retries must be an integer between 0 and 5")
+    if initial_facts is not None and (
+        not isinstance(initial_facts, list)
+        or not all(isinstance(item, str) and item.strip() for item in initial_facts)
+    ):
+        raise ValueError("initial_facts must be a list of nonempty strings")
+    if termination_guard is not None and not callable(termination_guard):
+        raise ValueError("termination_guard must be callable")
     stamp = datetime.now(timezone.utc)
-    task_id = f"conversation-{stamp.strftime('%Y%m%dT%H%M%S%fZ')}"
+    if task_id is None:
+        task_id = f"conversation-{stamp.strftime('%Y%m%dT%H%M%S%fZ')}"
+    elif (not isinstance(task_id, str) or not task_id.strip()
+          or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-" for char in task_id)
+          or ".." in task_id):
+        raise ValueError("task_id must be a nonempty path-safe identifier")
     directory = Path(output_dir) if output_dir is not None else ROOT / "results" / "conversations"
     directory = directory / task_id
     store = InMemoryJSONStore(directory)
@@ -105,12 +126,43 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         scheduler.register_agent(agent)
     if on_board_created is not None:
         on_board_created(board)
+    initial_facts = list(initial_facts or [])
+    evidence_agent_id = None
+    if initial_facts:
+        evidence_agent_id = "__data_evidence__"
+        suffix = 1
+        registered = board.get_agents()
+        while evidence_agent_id in registered:
+            suffix += 1
+            evidence_agent_id = f"__data_evidence_{suffix}__"
+        evidence_agent = AgentRecord(
+            agent_id=evidence_agent_id,
+            persona="verified_data_evidence",
+            model_name="application",
+            active=False,
+        )
+        board.register_agent(evidence_agent)
+        scheduler.register_agent(evidence_agent)
+        for message in initial_facts:
+            board.post_entry(BoardEntry(
+                agent_id=evidence_agent_id,
+                tag=PXPTag.FACT,
+                prediction=message,
+                explanation="Application-posted structured data evidence; no reference answer supplied.",
+            ))
     report = {
         "created_at": stamp.isoformat(), "task": task, "task_id": task_id,
         "scenario": scenario,
-        "model": client.model, "base_url": client.base_url, "options": dict(OPTIONS),
-        "max_turns": max_turns, "max_retries": max_retries, "turns": [],
+        "model": client.model, "base_url": sanitized_base_url(client.base_url), "options": dict(OPTIONS),
+        "max_turns": max_turns, "effective_max_turns": max_turns,
+        "max_retries": max_retries, "turns": [],
         "failures": [], "outcome": "running", "explanation_review": "pending",
+        "workflow_counters": {
+            "guard_activations": [],
+            "refusal_despite_evidence_retries": 0,
+            "guard_retries": 0,
+            "max_guard_retries": MAX_TERMINATION_GUARD_RETRIES,
+        },
         "self_check_enabled": True,
         "prompts": {name: (ROOT / "agents" / "prompts" / f"{name}.txt").read_text(encoding="utf-8")
                     for name in ("pxp_template", "explanation_check", *(persona for _, persona in participants))},
@@ -140,7 +192,11 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
     checkpoint()
     try:
         start_turn = 2 if scenario == "disagreement" else 1
-        for number in range(start_turn, max_turns + 1):
+        number = start_turn - 1
+        effective_turn_limit = max_turns
+        guard_retry_count = 0
+        while number < effective_turn_limit:
+            number += 1
             agent = scheduler.next_agent()
             state = board.get_state()
             turn = {"turn": number, "agent_id": agent.agent_id,
@@ -178,6 +234,101 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
             if not scheduler.is_running():
                 is_dl = scheduler.status in (IntelligibilityLevel.DEADLOCKED, "DEADLOCKED")
                 report["outcome"] = "deadlocked" if is_dl else "scheduler_consensus"
+                if report["outcome"] == "scheduler_consensus" and termination_guard is not None:
+                    active_ids = set(board.get_agents(active_only=True))
+                    answer_entry = next(
+                        (entry for entry in reversed(board.get_state().entries)
+                         if entry.agent_id in active_ids),
+                        None,
+                    )
+                    answer = answer_entry.prediction if answer_entry is not None else ""
+                    guard_answer = termination_candidate(
+                        answer,
+                        answer_entry.explanation if answer_entry is not None else "",
+                    )
+                    try:
+                        allowed_to_terminate = termination_guard(list(termination_trace or []), guard_answer)
+                    except Exception as exc:
+                        report["outcome"] = "error"
+                        report["failures"].append({
+                            "turn": number,
+                            "category": "termination_guard_error",
+                            "error": f"{type(exc).__name__}: {exc}",
+                        })
+                        break
+                    if not allowed_to_terminate:
+                        reason = (
+                            termination_guard_reason(list(termination_trace or []), guard_answer)
+                            if termination_guard_reason is not None else None
+                        ) or "refusal_despite_evidence"
+                        if guard_retry_count >= MAX_TERMINATION_GUARD_RETRIES:
+                            report["outcome"] = "consensus_needs_review"
+                            report["failures"].append({
+                                "turn": number,
+                                "category": "termination_guard_exhausted",
+                                "reason": reason,
+                                "retry_count": guard_retry_count,
+                            })
+                            checkpoint()
+                            break
+                        if answer_entry is None:
+                            report["outcome"] = "error"
+                            report["failures"].append({
+                                "turn": number,
+                                "category": "termination_guard_missing_answerer",
+                                "reason": reason,
+                            })
+                            break
+                        guard_retry_count += 1
+                        if reason.startswith("refusal_") or reason == "refusal_despite_evidence":
+                            report["workflow_counters"]["refusal_despite_evidence_retries"] += 1
+                        report["workflow_counters"]["guard_retries"] = guard_retry_count
+                        report["workflow_counters"]["guard_activations"].append({
+                            "retry_count": guard_retry_count,
+                            "reason": reason,
+                            "answerer_agent_id": answer_entry.agent_id,
+                            "rejected_answer": answer,
+                            "rejected_explanation": answer_entry.explanation,
+                        })
+                        if not board.reopen_for_review():
+                            report["outcome"] = "error"
+                            report["failures"].append({
+                                "turn": number,
+                                "category": "termination_guard_could_not_reopen_board",
+                                "reason": reason,
+                            })
+                            break
+                        if reason == "refusal_missing_specific_data":
+                            rejection_guidance = (
+                                "State the specific value, measurement, date, or record that is missing and why; "
+                                "a bare refusal is not enough evidence."
+                            )
+                        elif reason == "refusal_ignored_successful_text":
+                            rejection_guidance = (
+                                "A successful text read/search is available. Extract requested values from its "
+                                "returned text; absence of a literal column name does not prove the values are missing. "
+                                "If a required value is truly absent, identify that value and source."
+                            )
+                        else:
+                            rejection_guidance = (
+                                "The application rejected this consensus because verified evidence in the task "
+                                "context supports a different conclusion."
+                            )
+                        rejection = BoardEntry(
+                            agent_id=answer_entry.agent_id,
+                            tag=PXPTag.REJECT,
+                            prediction=answer,
+                            explanation=f"{reason}: {rejection_guidance}",
+                            target_entry_id=answer_entry.entry_id,
+                        )
+                        board.post_entry(rejection)
+                        scheduler.prioritize_next_turn(answer_entry.agent_id)
+                        report["workflow_counters"]["guard_activations"][-1]["rejection_entry_id"] = rejection.entry_id
+                        effective_turn_limit += 3
+                        report["effective_max_turns"] = effective_turn_limit
+                        report["outcome"] = "running"
+                        checkpoint()
+                        continue
                 if report["outcome"] == "scheduler_consensus" and any(
                     f["category"] == "ratify_prediction_text_differs" for f in report["failures"]
                 ):

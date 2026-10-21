@@ -13,12 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import ValidationError
 
 from agents.pex import ExplanationCheck, PEXGenerationError, PEXResponse
 from agents.pxp import InitialPXPResponse, PXPGenerationError, PXPResponse
-from blackboard.models import AgentRecord, BlackboardState, BoardEntry
+from blackboard.models import AgentRecord, BlackboardState, BoardEntry, PXPTag
 
 MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 BASE_URL = "http://127.0.0.1:11434"
@@ -36,6 +37,20 @@ class GenerationTransportError(RuntimeError):
         self.attempts = attempts
 
 
+def sanitized_base_url(value):
+    """Return endpoint identity without user information, query, or fragment."""
+    try:
+        parts = urlsplit(value)
+        if not parts.scheme or not parts.hostname:
+            return "local"
+        host = parts.hostname
+        if parts.port:
+            host = f"{host}:{parts.port}"
+        return urlunsplit((parts.scheme, host, parts.path, "", ""))
+    except (TypeError, ValueError):
+        return "local"
+
+
 class OllamaClient:
     def __init__(self, model=MODEL, base_url=BASE_URL):
         self.model = model
@@ -51,7 +66,7 @@ class OllamaClient:
         except HTTPError as exc:
             raise RuntimeError(f"Ollama HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}") from exc
         except (URLError, TimeoutError) as exc:
-            raise RuntimeError(f"Cannot complete request to {self.base_url}. Open Ollama and check the model is installed: {exc}") from exc
+            raise RuntimeError(f"Cannot complete request to {sanitized_base_url(self.base_url)}. Open Ollama and check the model is installed: {exc}") from exc
         if "error" in result:
             raise RuntimeError(result["error"])
         return result
@@ -104,7 +119,8 @@ class OllamaClient:
             "target_entry_id": target_entry_id,
             "history": [entry.model_dump(mode="json") for entry in snapshot.entries],
         }, ensure_ascii=False)
-        schema = PXPResponse if snapshot.entries else InitialPXPResponse
+        has_prior_agent_entry = any(entry.tag != PXPTag.FACT for entry in snapshot.entries)
+        schema = PXPResponse if has_prior_agent_entry else InitialPXPResponse
         result = self._generate_structured(
             prompt, agent.persona, max_retries, "pxp_template.txt", schema, PXPGenerationError,
             task=task,
@@ -172,7 +188,10 @@ class OllamaClient:
                 if check["error"]:
                     attempt["error"] = f"Explanation self-check output invalid: {check['error']}"
                 elif not check["parsed"]["supported"]:
-                    attempt["error"] = f"Unsupported explanation: {check['parsed']['reason']}"
+                    # Keep the reviewer rationale in the persisted self_check
+                    # record, but do not feed a potentially verbose or
+                    # self-contradictory rationale back as instructions.
+                    attempt["error"] = "Independent explanation review rejected this candidate."
             if attempt["error"] is None:
                 return {"parsed": parsed, "raw": raw, "attempts": attempts,
                         "usage": inference_usage(attempts)}
@@ -180,7 +199,9 @@ class OllamaClient:
             feedback = (
                 f"\n\nAttempt {len(attempts)} failed output validation or explanation review: {attempt['error']}\n"
                 f"{previous}"
-                "Answer the original task again. Return only JSON matching the supplied schema."
+                "Re-evaluate the candidate against the authoritative task scope and validated evidence. "
+                "When the task provides a verified deterministic calculation, use its value exactly. "
+                "Correct the rejected candidate and return only JSON matching the supplied schema."
             )
         raise error_class(attempts)
 
@@ -234,7 +255,7 @@ def save_report(kind, client, records):
     path = directory / f"{kind}-{stamp.strftime('%Y%m%dT%H%M%S%fZ')}.json"
     report = {
         "created_at": stamp.isoformat(), "model": client.model,
-        "base_url": client.base_url, "platform": platform.platform(),
+        "base_url": sanitized_base_url(client.base_url), "platform": platform.platform(),
         "options": OPTIONS, "records": records,
     }
     for key, endpoint in (("ollama", "/api/version"), ("loaded_models", "/api/ps")):

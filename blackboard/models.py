@@ -23,12 +23,13 @@ from pydantic import BaseModel, Field, field_validator
 # ---------------------------------------------------------------------------
 
 class PXPTag(str, Enum):
-    """The four moves an agent can make against the current board hypothesis."""
+    """The four PXP moves plus application-posted evidence facts."""
 
     RATIFY = "RATIFY"   # aligns with both prediction and explanation
     REVISE = "REVISE"   # adjusts own view, writes an updated thesis
     REFUTE = "REFUTE"   # rejects the position, cannot self-correct -> logs roadblock
     REJECT = "REJECT"   # full conflict with prediction and explanation
+    FACT = "FACT"       # verified application evidence visible to every agent
 
 
 class IntelligibilityLevel(str, Enum):

@@ -107,6 +107,28 @@ def test_conflicting_ratifications_are_flagged_despite_scheduler_stop(tmp_path):
     assert all(f["category"] == "ratify_prediction_text_differs" for f in report["failures"])
 
 
+def test_evidence_guard_retries_at_most_twice_without_changing_model_turn_usage(tmp_path):
+    client, report = run(
+        tmp_path,
+        [response(), response("RATIFY"), response("RATIFY")] * 3,
+        initial_facts=["Verified data-tool FACT: complete category counts are available."],
+        termination_trace=[{"task_query": "What percentage of observations had an outcome?"}],
+        termination_guard=lambda trace, answer: False,
+        termination_guard_reason=lambda trace, answer: "refusal_despite_evidence",
+    )
+
+    assert report["outcome"] == "consensus_needs_review"
+    assert report["workflow_counters"]["guard_retries"] == 2
+    assert report["workflow_counters"]["refusal_despite_evidence_retries"] == 2
+    assert [item["retry_count"] for item in report["workflow_counters"]["guard_activations"]] == [1, 2]
+    assert len([turn for turn in report["turns"] if turn.get("attempts")]) == 9
+    # Existing accounting includes both generation and explanation-review calls.
+    assert sum(turn["usage"]["calls"] for turn in report["turns"]) == 18
+    assert len([entry for entry in report["board"]["entries"] if entry["tag"] == "FACT"]) == 1
+    assert len([entry for entry in report["board"]["entries"] if entry["tag"] == "REJECT"]) == 2
+    assert client.generate.call_count == 9
+
+
 @pytest.mark.parametrize("kwargs", [{"max_turns": 0}, {"max_turns": 13}, {"max_turns": True},
                                     {"max_retries": -1}, {"task": " "}])
 def test_bad_settings_rejected_before_generation(tmp_path, kwargs):

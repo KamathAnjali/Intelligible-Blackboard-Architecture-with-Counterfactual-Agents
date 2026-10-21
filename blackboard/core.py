@@ -167,6 +167,20 @@ class Blackboard:
                 return list(self._state.entries)
             return [e for e in self._state.entries if e.agent_id == agent_id]
 
+    def reopen_for_review(self) -> bool:
+        """Return a consensus board to UNRESOLVED for a bounded evidence review."""
+        with self._lock:
+            previous = self._state.intelligibility
+            if previous not in (IntelligibilityLevel.STRONG, IntelligibilityLevel.ULTRA_STRONG):
+                return False
+            self._state.intelligibility = IntelligibilityLevel.UNRESOLVED
+            self._store.save(self._state)
+        self._emit(BoardEventType.INTELLIGIBILITY_CHANGED, {
+            "previous": previous.value,
+            "current": IntelligibilityLevel.UNRESOLVED.value,
+        })
+        return True
+
     # -- persistence & snapshot hooks (Week 2) -----------------------------
 
     def save_snapshot(self, tag: str | None = None):
