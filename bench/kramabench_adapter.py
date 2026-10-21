@@ -37,11 +37,14 @@ from bench.evidence import (
 )
 from bench.kramabench_data import (
     DATA_TOOL_SYSTEM_PROMPT,
+    DEFAULT_TIMEOUT_SECONDS,
     DataAccessError,
     DataToolWorkflowError,
     DatasetToolbox,
     gather_dataset_evidence,
 )
+
+DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS = 900
 
 
 KRAMABENCH_REVISION = "b2e0d77540263f8b6119f977fe79a8c4386b5a02"
@@ -379,7 +382,10 @@ class KramaBenchSystem:
                  conversation_runner: Callable[..., tuple[dict[str, Any], Path]] = run_conversation,
                  pipeline_generator: Callable[..., dict[str, Any]] = generate_pipeline_code,
                  max_turns: int = 6, max_retries: int = 1,
-                 pipeline_evaluation_enabled: bool = False):
+                 pipeline_evaluation_enabled: bool = False,
+                 task_wall_clock_cap_seconds: int = DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS):
+        if type(task_wall_clock_cap_seconds) is not int or task_wall_clock_cap_seconds <= 0:
+            raise ValueError("task_wall_clock_cap_seconds must be a positive integer")
         self.name = "KramaBenchPXPSystem"
         self.dataset_directory: Path | None = None
         self.verbose = bool(verbose)
@@ -390,6 +396,7 @@ class KramaBenchSystem:
         self.max_turns = max_turns
         self.max_retries = max_retries
         self.pipeline_evaluation_enabled = bool(pipeline_evaluation_enabled)
+        self.task_wall_clock_cap_seconds = task_wall_clock_cap_seconds
 
     def process_dataset(self, dataset_directory: str | os.PathLike) -> None:
         """Retain only a validated dataset root; task files are opened per query."""
@@ -420,6 +427,9 @@ class KramaBenchSystem:
         run_id = f"{query_id}-{uuid4().hex}"
         started_at = datetime.now(timezone.utc)
         start = time.perf_counter()
+        wall_deadline = time.monotonic() + self.task_wall_clock_cap_seconds
+        if hasattr(self.client, "set_task_deadline"):
+            self.client.set_task_deadline(wall_deadline)
         contexts: list[dict[str, Any]] = []
         conversation_report: dict[str, Any] | None = None
         pipeline_attempts: list[dict[str, Any]] = []
@@ -438,6 +448,8 @@ class KramaBenchSystem:
             "pipeline_evaluation_enabled": self.pipeline_evaluation_enabled,
             "max_turns": self.max_turns,
             "max_retries": self.max_retries,
+            "data_operation_timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
+            "task_wall_clock_cap_seconds": self.task_wall_clock_cap_seconds,
             "started_at": started_at.isoformat(),
             "status": "running",
             "task_data_sources": [],
@@ -467,13 +479,15 @@ class KramaBenchSystem:
             paths = resolve_subset_files(self.dataset_directory, subset_files)
             record["task_data_sources"] = list(subset_files)
             record["permitted_files"] = _source_manifest(self.dataset_directory, paths)
-            toolbox = DatasetToolbox(self.dataset_directory, paths)
+            toolbox = DatasetToolbox(self.dataset_directory, paths, task_deadline=wall_deadline)
             record["permitted_files"] = [dict(item) for item in toolbox.catalog()["files"]]
             prepared = gather_dataset_evidence(self.client, query, toolbox)
             data_attempts = prepared["attempts"]
             record["data_access_trace"] = prepared["trace"]
             record["data_access_usage"] = prepared["usage"]
             record["data_access_diagnostics"] = prepared["workflow_diagnostics"]
+            record["data_operation_processing_seconds"] = list(toolbox.operation_seconds)
+            record["review_evidence"] = prepared["evidence"].get("observations", [])
             record["data_access_request_diagnostics"] = prepared["request_diagnostics"]
             record["workflow_counters"] = _merge_workflow_counters(
                 record["workflow_counters"],
@@ -512,6 +526,10 @@ class KramaBenchSystem:
                 termination_trace=termination_trace,
                 termination_guard=lambda trace, answer: can_terminate(trace, answer),
                 termination_guard_reason=lambda trace, answer: termination_reason(trace, answer),
+                review_evidence=record["review_evidence"],
+                on_rejection=lambda entry, review: record.setdefault("counterfactual_rejection_events", []).append({
+                    "entry": entry.model_dump(mode="json"), "review": dict(review),
+                }),
             )
             record["workflow_counters"] = _merge_workflow_counters(
                 record["workflow_counters"], conversation_report.get("workflow_counters")
@@ -529,6 +547,7 @@ class KramaBenchSystem:
             answer_is_verified = (
                 isinstance(agent_answer, str)
                 and agent_answer.strip()
+                and final_entry.get("tag") != "REJECT"
                 and conversation_outcome == "scheduler_consensus"
                 and can_terminate(
                     termination_trace,
@@ -642,7 +661,11 @@ class KramaBenchSystem:
             raise
         finally:
             if toolbox is not None:
+                record["data_operation_processing_seconds"] = list(toolbox.operation_seconds)
                 toolbox.close()
             record["finished_at"] = datetime.now(timezone.utc).isoformat()
             record["runtime_seconds"] = round(time.perf_counter() - start, 4)
+            record["task_wall_clock_elapsed_seconds"] = round(time.monotonic() - (wall_deadline - self.task_wall_clock_cap_seconds), 4)
+            if hasattr(self.client, "set_task_deadline"):
+                self.client.set_task_deadline(None)
             self._write_record(record)

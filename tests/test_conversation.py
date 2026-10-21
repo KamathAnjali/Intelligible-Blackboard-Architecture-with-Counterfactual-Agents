@@ -94,6 +94,27 @@ def test_transport_failure_keeps_earlier_invalid_attempt_and_saves_without_serve
     assert {f["category"] for f in report["failures"]} == {"turn_error", "malformed_tag", "transport_error"}
 
 
+def test_reviewer_rejection_is_posted_and_scheduler_continues(tmp_path):
+    client = OllamaClient()
+    client.generate = Mock(side_effect=[response(), response(), response("RATIFY"), response("RATIFY")])
+    client.check_explanation = Mock(side_effect=[
+        {"parsed": {"supported": False, "reason": "No aggregate result supports this value."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+    ])
+    events = []
+    report, _ = run_conversation(
+        client, output_dir=tmp_path, max_retries=0,
+        on_rejection=lambda entry, review: events.append((entry.tag.value, review["reason"])),
+    )
+    tags = [item["tag"] for item in report["board"]["entries"]]
+    assert "REJECT" in tags
+    assert report["workflow_counters"]["reviewer_rejections"] == 1
+    assert events == [("REJECT", "No aggregate result supports this value.")]
+    assert report["outcome"] == "scheduler_consensus"
+
+
 def test_interrupt_saves_partial_transcript(tmp_path):
     _, report = run(tmp_path, [response(), KeyboardInterrupt()])
     assert report["outcome"] == "interrupted"

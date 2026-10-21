@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from agents.llm_client import OllamaClient
-from agents.pex import ExplanationCheck
+from agents.pex import ExplanationCheck, PEXGenerationError, PEXResponse
 
 
 def ollama_response(text, *, prompt_tokens=10, output_tokens=4):
@@ -88,3 +88,44 @@ def test_review_reason_remains_strictly_bounded_and_typed():
         ExplanationCheck.model_validate({"supported": False, "reason": "x" * 1025})
     with pytest.raises(ValidationError):
         ExplanationCheck.model_validate({"supported": False, "reason": "brief", "extra": True})
+
+
+def test_phase_218_legal_candidate_is_supported_by_saved_aggregate_result():
+    # Candidate and aggregate value are replayed from the saved genuine-run record.
+    candidate = json.dumps({
+        "prediction": "5435",
+        "explanation": "The sum of 'Total $ Loss' is $5,435,000,000, which is 5435 million dollars.",
+    })
+    evidence = [{"action": "aggregate", "result": {
+        "matched_rows": 10, "groups": [{"sum_loss": "5435000000"}], "group_count": 1,
+    }}]
+    client = OllamaClient()
+    client.generate = Mock(side_effect=[
+        ollama_response(candidate),
+        ollama_response(json.dumps({"supported": True, "reason": "The value and unit conversion match the aggregate."})),
+    ])
+
+    result = client._generate_structured(
+        "task", None, 0, "pex_template.txt", PEXResponse,
+        PEXGenerationError, task="Calculate the total from the data.", review_evidence=evidence,
+    )
+
+    assert result["parsed"]["prediction"] == "5435"
+    review_prompt = json.loads(client.generate.call_args_list[1].args[0])
+    assert review_prompt["data_tool_results"] == evidence
+
+
+def test_review_still_rejects_value_that_contradicts_data_results():
+    candidate = json.dumps({"prediction": "5436", "explanation": "The sum is 5436 million."})
+    evidence = [{"action": "aggregate", "result": {"groups": [{"sum_loss": "5435000000"}]}}]
+    client = OllamaClient()
+    client.generate = Mock(side_effect=[
+        ollama_response(candidate),
+        ollama_response(json.dumps({"supported": False, "reason": "The aggregate is 5435000000, not 5436000000."})),
+    ])
+    with pytest.raises(PEXGenerationError) as error:
+        client._generate_structured(
+            "task", None, 0, "pex_template.txt", PEXResponse,
+            PEXGenerationError, task="Calculate the total.", review_evidence=evidence,
+        )
+    assert error.value.attempts[0]["self_check"]["parsed"]["supported"] is False

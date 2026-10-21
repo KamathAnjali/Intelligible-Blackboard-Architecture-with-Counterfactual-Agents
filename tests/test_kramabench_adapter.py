@@ -86,7 +86,7 @@ def test_system_uses_real_pxp_runner_and_returns_official_schema_without_gold(tm
     dataset = fixture_dataset(tmp_path)
     client = FakeClient(fake_responses())
     output = tmp_path / "system-output"
-    system = KramaBenchSystem(client=client, output_dir=output)
+    system = KramaBenchSystem(client=client, output_dir=output, task_wall_clock_cap_seconds=77)
     system.process_dataset(dataset)
     evaluator_task = {
         "id": "fixture-1",
@@ -119,6 +119,10 @@ def test_system_uses_real_pxp_runner_and_returns_official_schema_without_gold(tm
     assert len(records) == 1
     saved = json.loads(records[0].read_text(encoding="utf-8"))
     assert saved["status"] == "success"
+    assert saved["data_operation_timeout_seconds"] == 120
+    assert saved["task_wall_clock_cap_seconds"] == 77
+    assert saved["task_wall_clock_elapsed_seconds"] > 0
+    assert len(saved["data_operation_processing_seconds"]) >= 3
     assert saved["task_id"] == saved["query_id"] == "fixture-1"
     assert saved["benchmark_revision"] == "b2e0d77540263f8b6119f977fe79a8c4386b5a02"
     assert saved["pipeline_code"] == response["pipeline_code"]

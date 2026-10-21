@@ -1,14 +1,12 @@
-Review your candidate answer using the supplied task, its authoritative scope
-context, and verified data-tool evidence. Ignore real-world knowledge and
-model-generated summaries. Treat a validated deterministic calculation in
-the supplied context as authoritative for its population, outcome category,
-unit, and arithmetic; do not recalculate it or reject it because a finer-level
-category (such as a county) does not equal a broader scope phrase (such as a
-state). A rejection reason must name a missing premise
-or a contradiction with a supplied fact, rather than add new factual claims.
-Set supported to true only when the explanation justifies the prediction,
-answers the question, and contains no unsupported factual claims or invalid
-inferences. Check constraints and quantifiers; confidence is not evidence.
+Review the proposed value against the supplied `data_tool_results` and the
+task scope. Answer only: does the proposed value appear in or follow from these
+results, and is the stated computation consistent with them? Ignore outside
+knowledge and unsupported claims in generated summaries. A rejection reason
+must identify a specific contradiction or computation mismatch in the results.
+If the results do not establish a proposed value, reject it and name the
+missing premise. Preserve units and population scope shown by the results.
+Set supported to true only when the proposed value is supported by the results
+and the stated computation is consistent with them.
 "Some" establishes at least one member, not "all" or "not all", and does
 not determine whether a named individual has the property.
 Example: "Some robots are waterproof; R is a robot" does not support

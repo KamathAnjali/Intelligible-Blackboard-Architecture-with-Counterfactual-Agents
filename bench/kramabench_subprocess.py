@@ -93,6 +93,7 @@ def main() -> None:
     base_url = os.environ.get("KRAMABENCH_BASE_URL", BASE_URL)
     max_turns = int(os.environ.get("KRAMABENCH_MAX_TURNS", "6"))
     max_retries = int(os.environ.get("KRAMABENCH_MAX_RETRIES", "1"))
+    task_wall_clock_cap_seconds = int(os.environ.get("KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS", "900"))
     class ConfiguredKramaBenchSystem(KramaBenchSystem):
         def __init__(self, verbose: bool = False, output_dir=None):
             super().__init__(
@@ -101,6 +102,7 @@ def main() -> None:
                 client=OllamaClient(model=model, base_url=base_url),
                 max_turns=max_turns,
                 max_retries=max_retries,
+                task_wall_clock_cap_seconds=task_wall_clock_cap_seconds,
                 pipeline_evaluation_enabled=pipeline_evaluation,
             )
 

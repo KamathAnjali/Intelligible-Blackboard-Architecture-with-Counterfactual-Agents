@@ -128,8 +128,34 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
             "DataToolWorkflowError: agent returned an invalid structured data request after bounded retries"
         ),
     }
-    assert (run_root / "evaluator_stdout.log").read_text(encoding="utf-8") == "partial evaluator output\n"
-    assert (run_root / "evaluator_stderr.log").read_text(encoding="utf-8") == "KeyError: workload\n"
+
+
+def test_missing_task_record_returns_no_result_without_workload_keyerror(monkeypatch, tmp_path):
+    import json
+    import bench.kramabench_runner as runner
+
+    _mock_selected_task_path(monkeypatch, tmp_path)
+    monkeypatch.setattr(runner, "verify_evaluator_environment", lambda *a, **k: "/fake/evaluator/python")
+    monkeypatch.setattr(runner, "verify_ollama_model", lambda *a, **k: {
+        "endpoint": "http://127.0.0.1:11434", "version": "fixture", "model": "fixture-model",
+    })
+    monkeypatch.setattr(runner, "_stage_run_tree", lambda *a, **k: None)
+    calls = []
+    def failed_without_record(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="KeyError: workload")
+    monkeypatch.setattr(runner.subprocess, "run", failed_without_record)
+
+    run_root = run_one_task(
+        tmp_path / "pinned", "environment", "environment-easy-1", tmp_path / "results",
+        approve_genuine_run=True, evaluator_mode="official",
+    )
+    manifest = json.loads((run_root / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "no_result"
+    assert manifest["result"] == "no result"
+    assert len(calls) == 1
+    assert (run_root / "evaluator_stdout.log").read_text(encoding="utf-8") == ""
+    assert (run_root / "evaluator_stderr.log").read_text(encoding="utf-8") == "KeyError: workload"
 
 
 def test_unpinned_checkout_is_rejected_before_any_run_output_is_created(tmp_path):

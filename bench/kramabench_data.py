@@ -17,6 +17,7 @@ import json
 import re
 import sqlite3
 import tempfile
+from contextlib import contextmanager
 import time
 from collections import OrderedDict
 from decimal import Decimal, InvalidOperation
@@ -55,6 +56,14 @@ _SENSITIVE_DIAGNOSTIC_KEY = re.compile(
 
 class DataAccessError(RuntimeError):
     """Invalid or unsupported data operation; never silently returns partial data."""
+
+
+class DataOperationTimeout(DataAccessError):
+    """One data operation exceeded its processing-only deadline."""
+
+
+class TaskWallClockTimeout(DataAccessError):
+    """The end-to-end task wall-clock cap was exceeded."""
 
 
 class DataToolFileSelectionError(DataAccessError):
@@ -512,7 +521,7 @@ class DatasetToolbox:
     """Parse complete allowlisted files and expose safe, structured operations."""
 
     def __init__(self, dataset_root: str | Path, permitted_paths: list[Path],
-                 *, timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS):
+                 *, timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS, task_deadline: float | None = None):
         if type(timeout_seconds) is not int or timeout_seconds <= 0:
             raise DataAccessError("timeout_seconds must be a positive integer")
         self.root = Path(dataset_root).resolve(strict=True)
@@ -520,7 +529,10 @@ class DatasetToolbox:
             raise DataAccessError("dataset root is not a directory")
         if not permitted_paths or len(permitted_paths) > MAX_DATA_FILES:
             raise DataAccessError(f"allowlist must contain between 1 and {MAX_DATA_FILES} files")
-        self.deadline = time.monotonic() + timeout_seconds
+        self.deadline = float("inf")
+        self.timeout_seconds = timeout_seconds
+        self.task_deadline = task_deadline
+        self.operation_seconds: list[float] = []
         self._temp = tempfile.TemporaryDirectory(prefix="kramabench-data-")
         self._db = sqlite3.connect(str(Path(self._temp.name) / "dataset.sqlite3"))
         self._db.row_factory = sqlite3.Row
@@ -558,7 +570,8 @@ class DatasetToolbox:
                     "notes": [],
                 }
                 self.files[relative] = descriptor
-                self._load_file(path, descriptor, index)
+                with self._operation_deadline():
+                    self._load_file(path, descriptor, index)
             self._db.commit()
         except Exception:
             self.close()
@@ -581,8 +594,22 @@ class DatasetToolbox:
         self.close()
 
     def _check_deadline(self) -> None:
+        if self.task_deadline is not None and time.monotonic() > self.task_deadline:
+            raise TaskWallClockTimeout("per-task wall-clock cap exceeded")
         if time.monotonic() > self.deadline:
-            raise DataAccessError("data processing timed out; no partial result was returned")
+            raise DataOperationTimeout("data processing timed out; no partial result was returned")
+
+    @contextmanager
+    def _operation_deadline(self):
+        previous = self.deadline
+        started = time.monotonic()
+        self.deadline = started + self.timeout_seconds
+        try:
+            yield
+            self._check_deadline()
+        finally:
+            self.operation_seconds.append(round(time.monotonic() - started, 6))
+            self.deadline = previous
 
     def _load_file(self, path: Path, descriptor: dict[str, Any], index: int) -> None:
         suffix = path.suffix.casefold()
@@ -1069,6 +1096,10 @@ class DatasetToolbox:
         return True, invalid_numbers
 
     def execute(self, request: DataToolRequest | dict[str, Any]) -> dict[str, Any]:
+        with self._operation_deadline():
+            return self._execute(request)
+
+    def _execute(self, request: DataToolRequest | dict[str, Any]) -> dict[str, Any]:
         self._check_deadline()
         operation = request if isinstance(request, DataToolRequest) else DataToolRequest.model_validate(request)
         action = operation.action
@@ -1925,6 +1956,11 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                     raise DataAccessError(
                         "category recovery returned an incomplete or inconsistent aggregate result"
                     )
+            except (DataOperationTimeout, TaskWallClockTimeout) as exc:
+                error = str(exc)
+                history.append({"action": request.action, "request": params, "result": {"error": error}})
+                audit.append({"action": request.action, "request": params, "status": "timeout", "error": error})
+                raise workflow_error(error) from exc
             except DataAccessError as exc:
                 error = str(exc)
                 history.append({
@@ -2243,6 +2279,7 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
             audit_entry = {
                 "action": request.action,
                 "request": params,
+                "result": result,
                 "result_sha256": hashlib.sha256(result_json.encode("utf-8")).hexdigest(),
                 "result_chars": len(result_json),
                 "status": "success",
@@ -2276,6 +2313,11 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                         # result exposed to the final answer and completion guard.
                         audit_entry["category_count_evidence"] = result
             audit.append(audit_entry)
+        except (DataOperationTimeout, TaskWallClockTimeout) as exc:
+            error = {"error": str(exc)}
+            history.append({"action": request.action, "request": params, "result": error})
+            audit.append({"action": request.action, "request": params, "status": "timeout", "error": str(exc)})
+            raise workflow_error(str(exc)) from exc
         except DataAccessError as exc:
             error = {"error": str(exc)}
             history.append({"action": request.action, "request": params, "result": error})

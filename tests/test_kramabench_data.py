@@ -13,6 +13,7 @@ from bench.kramabench_data import (
     MAX_GROUPS,
     MAX_TOOL_OUTPUT_CHARS,
     DataAccessError,
+    DataOperationTimeout,
     DATA_TOOL_SYSTEM_PROMPT,
     DataToolRequest,
     DataToolFileSelectionError,
@@ -121,6 +122,29 @@ def test_ollama_client_sends_the_exact_data_tool_schema_without_network():
     assert payload["format"] == schema
     assert payload["model"] == client.model
     assert payload["stream"] is False
+
+
+def test_operation_deadline_is_fresh_after_model_generation_delay(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "allowed.csv").write_text("value\n7\n", encoding="utf-8")
+    with toolbox_for(root, ["allowed.csv"]) as toolbox:
+        toolbox.deadline = time.monotonic() - 10  # elapsed time belongs to the old, task-wide clock
+        result = toolbox.execute({"action": "profile", "file": "allowed.csv"})
+    assert result["row_count"] == 1
+
+
+def test_timed_out_data_operation_is_not_retried_unchanged(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "allowed.csv").write_text("value\n7\n", encoding="utf-8")
+    client = FakeDataToolClient([json.dumps({"action": "profile", "file": "allowed.csv"})])
+    with toolbox_for(root, ["allowed.csv"]) as toolbox:
+        toolbox.execute = Mock(side_effect=DataOperationTimeout("operation deadline reached"))
+        with pytest.raises(DataToolWorkflowError, match="operation deadline reached"):
+            gather_dataset_evidence(client, "Profile the table", toolbox, max_calls=2)
+    assert len(client.calls) == 1
+    toolbox.execute.assert_called_once()
 
 
 class FakeDataToolClient:
@@ -1182,8 +1206,7 @@ def test_missing_files_encoding_and_timeout_fail_without_partial_results(tmp_pat
         toolbox_for(root, ["records.csv"], timeout_seconds=0)
     with toolbox_for(root, ["records.csv"]) as toolbox:
         toolbox.deadline = time.monotonic() - 1
-        with pytest.raises(DataAccessError, match="timed out"):
-            toolbox.execute({"action": "profile", "file": "records.csv"})
+        assert toolbox.execute({"action": "profile", "file": "records.csv"})["row_count"] == 1
 
 
 def test_aggregate_columns_failure_returns_allowlisted_corrected_example_and_stays_strict(tmp_path):

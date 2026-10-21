@@ -5,6 +5,7 @@ Run from the repository root: python -m agents.llm_client --help
 
 import argparse
 import json
+import inspect
 import platform
 import statistics
 import sys
@@ -55,13 +56,22 @@ class OllamaClient:
     def __init__(self, model=MODEL, base_url=BASE_URL):
         self.model = model
         self.base_url = base_url.rstrip("/")
+        self.task_deadline = None
+
+    def set_task_deadline(self, deadline):
+        self.task_deadline = deadline
 
     def request(self, path, payload=None):
         data = None if payload is None else json.dumps(payload).encode("utf-8")
         request = Request(self.base_url + path, data=data,
                           headers={"Content-Type": "application/json"})
+        timeout = 300
+        if self.task_deadline is not None:
+            timeout = min(timeout, self.task_deadline - time.monotonic())
+            if timeout <= 0:
+                raise RuntimeError("per-task wall-clock cap exceeded")
         try:
-            with urlopen(request, timeout=300) as response:
+            with urlopen(request, timeout=timeout) as response:
                 result = json.load(response)
         except HTTPError as exc:
             raise RuntimeError(f"Ollama HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}") from exc
@@ -91,7 +101,8 @@ class OllamaClient:
         )
 
     def generate_entry(self, task, state: BlackboardState, agent_id: str,
-                       target_entry_id=None, max_retries=2, is_counterfactual_sim=False):
+                       target_entry_id=None, max_retries=2, is_counterfactual_sim=False,
+                       review_evidence=None):
         """Build one BoardEntry from a snapshot without posting or mutating it.
 
         The application selects the target (latest entry by default). The model
@@ -123,7 +134,7 @@ class OllamaClient:
         schema = PXPResponse if has_prior_agent_entry else InitialPXPResponse
         result = self._generate_structured(
             prompt, agent.persona, max_retries, "pxp_template.txt", schema, PXPGenerationError,
-            task=task,
+            task=task, review_evidence=review_evidence,
         )
         # Explicitly copy model-owned fields; never unpack arbitrary model metadata.
         parsed = result["parsed"]
@@ -134,10 +145,11 @@ class OllamaClient:
         )
         return result
 
-    def check_explanation(self, task, answer):
+    def check_explanation(self, task, answer, evidence=None):
         """Review task support separately from the actor's board history."""
         prompt = json.dumps({"task": task, "prediction": answer["prediction"],
-                             "explanation": answer["explanation"]}, ensure_ascii=False)
+                             "explanation": answer["explanation"],
+                             "data_tool_results": evidence or []}, ensure_ascii=False)
         system = (ROOT / "agents/prompts/explanation_check.txt").read_text(encoding="utf-8")
         raw = self.generate(prompt, system=system, schema=ExplanationCheck.model_json_schema())
         try:
@@ -147,7 +159,7 @@ class OllamaClient:
             return {"raw": raw, "error": str(exc)}
 
     def _generate_structured(self, prompt, persona, max_retries, template_name,
-                             response_model, error_class, task=None):
+                             response_model, error_class, task=None, review_evidence=None):
         """Validate and review each candidate within the existing retry budget.
 
         A valid candidate gets one model self-check before it can be returned.
@@ -178,8 +190,17 @@ class OllamaClient:
             except ValueError as exc:
                 attempt["error"] = str(exc)
             if parsed is not None:
+                attempt["parsed"] = parsed
                 try:
-                    check = self.check_explanation(task if task is not None else prompt, parsed)
+                    reviewer = self.check_explanation
+                    if review_evidence is not None and (
+                        "evidence" in inspect.signature(reviewer).parameters
+                        or any(p.kind == inspect.Parameter.VAR_KEYWORD
+                               for p in inspect.signature(reviewer).parameters.values())
+                    ):
+                        check = reviewer(task if task is not None else prompt, parsed, evidence=review_evidence)
+                    else:
+                        check = reviewer(task if task is not None else prompt, parsed)
                 except (RuntimeError, OSError) as exc:
                     attempt["self_check"] = {"raw": None, "error": str(exc)}
                     attempt["error"] = f"Explanation self-check transport error: {exc}"

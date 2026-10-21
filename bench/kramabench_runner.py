@@ -23,7 +23,9 @@ from typing import Any
 from uuid import uuid4
 
 from agents.llm_client import MODEL, BASE_URL, OPTIONS, sanitized_base_url
-from bench.kramabench_adapter import KRAMABENCH_REVISION, _prompt_version
+from bench.kramabench_adapter import (
+    DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS, KRAMABENCH_REVISION, _prompt_version,
+)
 from bench.kramabench_preflight import WorkloadPreflightError, preflight_kramabench
 
 
@@ -737,7 +739,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
                  verbose: bool = False,
                  evaluator_python: str | Path | None = None,
                  approve_genuine_run: bool = False,
-                 evaluator_mode: str = OFFICIAL_EVALUATOR_MODE) -> Path:
+                 evaluator_mode: str = OFFICIAL_EVALUATOR_MODE,
+                 task_wall_clock_cap_seconds: int = DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS) -> Path:
     """Run one task through the explicitly selected, provenance-checked evaluator."""
     if approve_genuine_run is not True:
         raise OfficialHarnessError(
@@ -745,6 +748,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         )
     if evaluator_mode not in EVALUATOR_MODES:
         raise OfficialHarnessError(f"unsupported evaluator mode: {evaluator_mode}")
+    if type(task_wall_clock_cap_seconds) is not int or task_wall_clock_cap_seconds <= 0:
+        raise OfficialHarnessError("task_wall_clock_cap_seconds must be a positive integer")
     root, evaluate_path = verify_benchmark_checkout(benchmark_root)
     evaluator_source_sha256 = _evaluator_source_fingerprint(root)
     workload_path = root / "workload" / f"{workload}.json"
@@ -860,6 +865,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         "model_options": dict(OPTIONS),
         "max_turns": max_turns,
         "max_retries": max_retries,
+        "task_wall_clock_cap_seconds": task_wall_clock_cap_seconds,
         "num_workers": 1,
         "pipeline_evaluation_enabled": enable_pipeline_evaluation,
         "run_subtasks": run_subtasks,
@@ -922,6 +928,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             "KRAMABENCH_BASE_URL": base_url,
             "KRAMABENCH_MAX_TURNS": str(max_turns),
             "KRAMABENCH_MAX_RETRIES": str(max_retries),
+            "KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS": str(task_wall_clock_cap_seconds),
             "KRAMABENCH_PIPELINE_EVAL": "1" if enable_pipeline_evaluation else "0",
         }
         if evaluator_mode == COMPATIBILITY_EVALUATOR_MODE:
@@ -943,6 +950,11 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             else:
                 failure_detail = f"selected task {task_id} produced no evaluator result"
             manifest["evaluator_process"] = process_failure
+            if not task_failure:
+                manifest.update({"status": "no_result", "finished_at": datetime.now(timezone.utc).isoformat(),
+                                 "result": "no result"})
+                _write_json(manifest_path, manifest)
+                return run_root
             _write_json(manifest_path, manifest)
             raise OfficialHarnessError(
                 f"{failure_detail}; isolated evaluator exited with status {completed.returncode}. "
@@ -1003,6 +1015,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--max-turns", type=int, default=6)
     parser.add_argument("--max-retries", type=int, default=1)
+    parser.add_argument("--task-wall-clock-cap-seconds", type=int,
+                        default=DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS)
     parser.add_argument("--run-subtasks", action="store_true")
     parser.add_argument("--enable-pipeline-evaluation", action="store_true",
                         help="Allow upstream GPT evaluator calls, including pipeline and answer metrics.")
@@ -1038,6 +1052,7 @@ def main(argv: list[str] | None = None) -> int:
             evaluator_python=args.evaluator_python,
             approve_genuine_run=args.approve_genuine_run,
             evaluator_mode=args.evaluator_mode,
+            task_wall_clock_cap_seconds=args.task_wall_clock_cap_seconds,
         )
     except Exception as exc:
         print(f"KramaBench run failed: {type(exc).__name__}: {exc}", file=sys.stderr)

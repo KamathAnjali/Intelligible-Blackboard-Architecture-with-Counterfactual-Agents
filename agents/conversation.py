@@ -11,10 +11,11 @@ from pydantic import ValidationError
 
 from bench.evidence import termination_candidate
 from agents.llm_client import (
-    BASE_URL, MODEL, OPTIONS, ROOT, OllamaClient, inference_usage,
+    BASE_URL, MODEL, OPTIONS, ROOT, GenerationTransportError, OllamaClient, inference_usage,
     sanitized_base_url, timings,
 )
 from agents.pxp import InitialPXPResponse, PXPResponse
+from agents.pxp import PXPGenerationError
 from blackboard.core import Blackboard
 from blackboard.models import AgentRecord, BoardEntry, IntelligibilityLevel, PXPTag
 from blackboard.scheduler import Scheduler
@@ -79,7 +80,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                      task_id=None, initial_facts: list[str] | None = None,
                      termination_trace: list[dict] | None = None,
                      termination_guard: Callable[[list[dict], str], bool] | None = None,
-                     termination_guard_reason: Callable[[list[dict], str], str | None] | None = None):
+                     termination_guard_reason: Callable[[list[dict], str], str | None] | None = None,
+                     review_evidence=None, on_rejection: Callable | None = None):
     """Run a bounded session and checkpoint the transcript after each turn.
 
     No fabricated fallback entries are posted if generation fails. Reports can
@@ -161,6 +163,7 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
             "guard_activations": [],
             "refusal_despite_evidence_retries": 0,
             "guard_retries": 0,
+            "reviewer_rejections": 0,
             "max_guard_retries": MAX_TERMINATION_GUARD_RETRIES,
         },
         "self_check_enabled": True,
@@ -205,7 +208,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
             report["turns"].append(turn)
             print(f"Turn {number}: {agent.agent_id} ({agent.persona})...", flush=True)
             try:
-                result = client.generate_entry(task, state, agent.agent_id, max_retries=max_retries)
+                result = client.generate_entry(task, state, agent.agent_id, max_retries=max_retries,
+                                               review_evidence=review_evidence)
                 turn["attempts"] = result["attempts"]
                 entry = result["entry"]
                 turn["entry"] = entry.model_dump(mode="json")
@@ -220,6 +224,37 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                     if entry.prediction.strip().casefold() != target.prediction.strip().casefold():
                         report["failures"].append({"turn": number,
                             "category": "ratify_prediction_text_differs", "review": "pending"})
+            except (PXPGenerationError, GenerationTransportError) as exc:
+                turn["attempts"] = exc.attempts
+                rejected = next((item for item in reversed(exc.attempts)
+                                 if item.get("self_check", {}).get("parsed", {}).get("supported") is False
+                                 and isinstance(item.get("parsed"), dict)), None)
+                if rejected is None:
+                    turn["error"] = str(exc)
+                    report["outcome"] = "error"
+                    report["failures"].append({"turn": number, "category": "turn_error", "error": str(exc)})
+                else:
+                    review = rejected["self_check"]["parsed"]
+                    candidate = rejected["parsed"]
+                    rejection = BoardEntry(
+                        agent_id=agent.agent_id, tag=PXPTag.REJECT,
+                        prediction=candidate["prediction"], explanation=review["reason"],
+                        target_entry_id=state.entries[-1].entry_id if state.entries else None,
+                    )
+                    scheduler.submit_entry(rejection)
+                    turn["entry"] = rejection.model_dump(mode="json")
+                    turn["posted"] = True
+                    turn["review_rejected"] = True
+                    report["workflow_counters"]["reviewer_rejections"] += 1
+                    if on_rejection is not None:
+                        on_rejection(rejection, review)
+                    report["failures"].append({"turn": number, "category": "reviewer_rejection",
+                                               "reason": review["reason"]})
+                    if isinstance(exc, GenerationTransportError):
+                        turn["error"] = str(exc)
+                        report["outcome"] = "error"
+                        report["failures"].append({"turn": number, "category": "turn_error",
+                                                   "error": str(exc)})
             except (RuntimeError, ValueError, OSError) as exc:
                 turn["attempts"] = getattr(exc, "attempts", turn["attempts"])
                 turn["error"] = str(exc)
