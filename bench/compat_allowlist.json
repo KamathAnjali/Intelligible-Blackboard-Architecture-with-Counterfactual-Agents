@@ -125,6 +125,111 @@
         "patch_path": "benchmark/evaluator.py",
         "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
       }
+    },
+    {
+      "workload": "archeology",
+      "task_id": "archeology-easy-4",
+      "workload_git_blob": "e80b4e07562b2ca4fae3c69c57aa41b5050b5055",
+      "input_sha256": {
+        "climateMeasurements.xlsx": "a2d8d915cd3eafac99855a07a19208003f62f7d784ce8f4b762ae5ca091334a1"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "biomedical",
+      "task_id": "biomedical-easy-2",
+      "workload_git_blob": "9f038fd6d817d3b650ead5eccc255db12cca4d91",
+      "input_sha256": {
+        "1-s2.0-S0092867420301070-mmc1.xlsx": "cefdda0a26bbf667639f8787f426f046545453cb911252e05f5e3a16dcc9c9d2"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "environment",
+      "task_id": "environment-easy-3",
+      "workload_git_blob": "32b0a1545819483fcf8e9ea1e9b0423c026075e6",
+      "input_sha256": {
+        "water-body-testing-2012.csv": "e98422d708150a37b0265b808d256a052ffa54d0593c1af3ab99d7d10e9d3ff0",
+        "water-body-testing-2013.csv": "911d1ef8bf290494ace9ff1785b5e9789a50de21606aaef8d4b45a7ab695becb"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "legal",
+      "task_id": "legal-easy-9",
+      "workload_git_blob": "af7790b631e1fd31efd77c012d1db5dff54ce99c",
+      "input_sha256": {
+        "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Count.csv": "a726361b1eacd29bcad16b8e35cb96f618421832b3794b36587b4e233951e219"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "legal",
+      "task_id": "legal-easy-12",
+      "workload_git_blob": "af7790b631e1fd31efd77c012d1db5dff54ce99c",
+      "input_sha256": {
+        "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Categories.csv": "9bff1bf397a848d4c14cc4f8192b13d140e0ead40ce519389bf17541427af511"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "wildfire",
+      "task_id": "wildfire-easy-9",
+      "workload_git_blob": "8a7a2fe5f420fa3fe00224439b20d1922f8ad040",
+      "input_sha256": {
+        "Fire_Weather_Data_2002-2014_2016.csv": "c51c4409b77e5a1ad26e368ff95f8b5836dd122219d813af1b71a48a21ca658b"
+      },
+      "answer_type": "numeric_approximate",
+      "metric_names": [
+        "mean_absolute_error",
+        "mean_squared_error",
+        "rae_score"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
     }
   ]
 }
