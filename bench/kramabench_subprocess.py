@@ -94,6 +94,10 @@ def main() -> None:
     max_turns = int(os.environ.get("KRAMABENCH_MAX_TURNS", "6"))
     max_retries = int(os.environ.get("KRAMABENCH_MAX_RETRIES", "1"))
     task_wall_clock_cap_seconds = int(os.environ.get("KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS", "900"))
+    counterfactual_fraction = float(os.environ.get("KRAMABENCH_COUNTERFACTUAL_FRACTION", "0"))
+    counterfactual_seed = int(os.environ.get("KRAMABENCH_COUNTERFACTUAL_SEED", "42"))
+    counterfactual_streak_threshold = int(os.environ.get("KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD", "2"))
+    max_counterfactual_simulations = int(os.environ.get("KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS", "1"))
     class ConfiguredKramaBenchSystem(KramaBenchSystem):
         def __init__(self, verbose: bool = False, output_dir=None):
             super().__init__(
@@ -103,6 +107,10 @@ def main() -> None:
                 max_turns=max_turns,
                 max_retries=max_retries,
                 task_wall_clock_cap_seconds=task_wall_clock_cap_seconds,
+                counterfactual_fraction=counterfactual_fraction,
+                counterfactual_seed=counterfactual_seed,
+                counterfactual_streak_threshold=counterfactual_streak_threshold,
+                max_counterfactual_simulations=max_counterfactual_simulations,
                 pipeline_evaluation_enabled=pipeline_evaluation,
             )
 

@@ -383,7 +383,11 @@ class KramaBenchSystem:
                  pipeline_generator: Callable[..., dict[str, Any]] = generate_pipeline_code,
                  max_turns: int = 6, max_retries: int = 1,
                  pipeline_evaluation_enabled: bool = False,
-                 task_wall_clock_cap_seconds: int = DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS):
+                 task_wall_clock_cap_seconds: int = DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS,
+                 counterfactual_fraction: float = 0.0,
+                 counterfactual_seed: int = 42,
+                 counterfactual_streak_threshold: int = 2,
+                 max_counterfactual_simulations: int = 1):
         if type(task_wall_clock_cap_seconds) is not int or task_wall_clock_cap_seconds <= 0:
             raise ValueError("task_wall_clock_cap_seconds must be a positive integer")
         self.name = "KramaBenchPXPSystem"
@@ -397,6 +401,18 @@ class KramaBenchSystem:
         self.max_retries = max_retries
         self.pipeline_evaluation_enabled = bool(pipeline_evaluation_enabled)
         self.task_wall_clock_cap_seconds = task_wall_clock_cap_seconds
+        if counterfactual_fraction not in (0, 0.33, 0.66, 1.0):
+            raise ValueError("counterfactual_fraction must be one of 0, 0.33, 0.66, or 1.0")
+        if type(counterfactual_seed) is not int:
+            raise ValueError("counterfactual_seed must be an integer")
+        self.counterfactual_fraction = float(counterfactual_fraction)
+        self.counterfactual_seed = counterfactual_seed
+        if type(counterfactual_streak_threshold) is not int or counterfactual_streak_threshold < 2:
+            raise ValueError("counterfactual_streak_threshold must be at least 2")
+        if type(max_counterfactual_simulations) is not int or max_counterfactual_simulations < 0:
+            raise ValueError("max_counterfactual_simulations must be non-negative")
+        self.counterfactual_streak_threshold = counterfactual_streak_threshold
+        self.max_counterfactual_simulations = max_counterfactual_simulations
 
     def process_dataset(self, dataset_directory: str | os.PathLike) -> None:
         """Retain only a validated dataset root; task files are opened per query."""
@@ -432,6 +448,7 @@ class KramaBenchSystem:
             self.client.set_task_deadline(wall_deadline)
         contexts: list[dict[str, Any]] = []
         conversation_report: dict[str, Any] | None = None
+        conversation_counters_merged = False
         pipeline_attempts: list[dict[str, Any]] = []
         generation_attempts: list[dict[str, Any]] = []
         record: dict[str, Any] = {
@@ -446,6 +463,10 @@ class KramaBenchSystem:
             "model_options": dict(OPTIONS),
             "prompt_version": _prompt_version(),
             "pipeline_evaluation_enabled": self.pipeline_evaluation_enabled,
+            "counterfactual_fraction": self.counterfactual_fraction,
+            "counterfactual_seed": self.counterfactual_seed,
+            "counterfactual_streak_threshold": self.counterfactual_streak_threshold,
+            "max_counterfactual_simulations": self.max_counterfactual_simulations,
             "max_turns": self.max_turns,
             "max_retries": self.max_retries,
             "data_operation_timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
@@ -468,6 +489,10 @@ class KramaBenchSystem:
                 "repeated_invalid_request_stops": 0,
                 "blocked_done_rejections": 0,
                 "duplicate_filter_rejections": 0,
+                "reviewer_rejections": 0,
+                "counterfactual_triggers": 0,
+                "counterfactual_simulations": 0,
+                "counterfactual_changed_outcome": 0,
             },
             "provider_token_usage": {"calls": 0, "prompt_tokens": 0, "output_tokens": 0},
             "errors": [],
@@ -481,13 +506,17 @@ class KramaBenchSystem:
             record["permitted_files"] = _source_manifest(self.dataset_directory, paths)
             toolbox = DatasetToolbox(self.dataset_directory, paths, task_deadline=wall_deadline)
             record["permitted_files"] = [dict(item) for item in toolbox.catalog()["files"]]
+            record["precomputed_file_profiles"] = toolbox.precomputed_profiles()
             prepared = gather_dataset_evidence(self.client, query, toolbox)
             data_attempts = prepared["attempts"]
             record["data_access_trace"] = prepared["trace"]
             record["data_access_usage"] = prepared["usage"]
             record["data_access_diagnostics"] = prepared["workflow_diagnostics"]
             record["data_operation_processing_seconds"] = list(toolbox.operation_seconds)
-            record["review_evidence"] = prepared["evidence"].get("observations", [])
+            record["review_evidence"] = [
+                {"kind": "precomputed_file_profile", **profile}
+                for profile in record["precomputed_file_profiles"]
+            ] + prepared["evidence"].get("observations", [])
             record["data_access_request_diagnostics"] = prepared["request_diagnostics"]
             record["workflow_counters"] = _merge_workflow_counters(
                 record["workflow_counters"],
@@ -510,6 +539,11 @@ class KramaBenchSystem:
                 for item in prepared["trace"]
                 if item.get("status") == "success" and "category_count_evidence" in item
             ]
+            profile_messages = [
+                "Precomputed file profile (sample and exhaustive coverage are labelled): "
+                + json.dumps(profile, ensure_ascii=False, default=str)
+                for profile in record["precomputed_file_profiles"]
+            ]
             agent_task = build_agent_task(
                 query, prepared["evidence"], subset_files, verified_rate=verified_rate
             )
@@ -522,7 +556,7 @@ class KramaBenchSystem:
                 output_dir=conversation_dir,
                 scenario="default",
                 task_id=query_id,
-                initial_facts=evidence_messages,
+                initial_facts=profile_messages + evidence_messages,
                 termination_trace=termination_trace,
                 termination_guard=lambda trace, answer: can_terminate(trace, answer),
                 termination_guard_reason=lambda trace, answer: termination_reason(trace, answer),
@@ -530,9 +564,17 @@ class KramaBenchSystem:
                 on_rejection=lambda entry, review: record.setdefault("counterfactual_rejection_events", []).append({
                     "entry": entry.model_dump(mode="json"), "review": dict(review),
                 }),
+                counterfactual_fraction=self.counterfactual_fraction,
+                counterfactual_seed=self.counterfactual_seed,
+                counterfactual_streak_threshold=self.counterfactual_streak_threshold,
+                max_counterfactual_simulations=self.max_counterfactual_simulations,
             )
             record["workflow_counters"] = _merge_workflow_counters(
                 record["workflow_counters"], conversation_report.get("workflow_counters")
+            )
+            conversation_counters_merged = True
+            record["counterfactual_capable_agents"] = conversation_report.get(
+                "counterfactual_capable_agents", []
             )
             record["board_evidence_entries"] = [
                 entry for entry in conversation_report.get("board", {}).get("entries", [])
@@ -597,8 +639,13 @@ class KramaBenchSystem:
                 for turn in conversation_report.get("turns", [])
                 for attempt in turn.get("attempts", [])
             ]
-            generation_attempts = data_attempts + turn_attempts + pipeline_attempts
-            usage = _provider_usage(prepared["usage"], turn_attempts + pipeline_attempts)
+            counterfactual_attempts = [
+                attempt
+                for simulation in conversation_report.get("counterfactual_attempts", [])
+                for attempt in simulation.get("attempts", [])
+            ]
+            generation_attempts = data_attempts + turn_attempts + counterfactual_attempts + pipeline_attempts
+            usage = _provider_usage(prepared["usage"], turn_attempts + counterfactual_attempts + pipeline_attempts)
             record.update({
                 "status": "success",
                 "answer": answer,
@@ -620,9 +667,11 @@ class KramaBenchSystem:
             return response
         except Exception as exc:
             if conversation_report is not None:
-                record["workflow_counters"] = _merge_workflow_counters(
-                    record["workflow_counters"], conversation_report.get("workflow_counters")
-                )
+                if not conversation_counters_merged:
+                    record["workflow_counters"] = _merge_workflow_counters(
+                        record["workflow_counters"], conversation_report.get("workflow_counters")
+                    )
+                    conversation_counters_merged = True
                 record["board_evidence_entries"] = [
                     entry for entry in conversation_report.get("board", {}).get("entries", [])
                     if entry.get("tag") == "FACT"
@@ -644,10 +693,15 @@ class KramaBenchSystem:
                 for turn in (conversation_report or {}).get("turns", [])
                 for attempt in turn.get("attempts", [])
             ]
-            generation_attempts = data_attempts + turn_attempts + pipeline_attempts
+            counterfactual_attempts = [
+                attempt
+                for simulation in (conversation_report or {}).get("counterfactual_attempts", [])
+                for attempt in simulation.get("attempts", [])
+            ]
+            generation_attempts = data_attempts + turn_attempts + counterfactual_attempts + pipeline_attempts
             record["status"] = "failed"
             record["generation_attempts"] = generation_attempts
-            usage = _provider_usage(record["data_access_usage"], turn_attempts + pipeline_attempts)
+            usage = _provider_usage(record["data_access_usage"], turn_attempts + counterfactual_attempts + pipeline_attempts)
             record["attempt_count"] = usage["calls"]
             record["provider_token_usage"] = usage
             record["errors"] = record.get("errors", []) + [{

@@ -58,6 +58,25 @@ def test_ollama_data_tool_schema_is_flat_and_preserves_structural_contract():
     ]
 
 
+def test_precomputed_profiles_label_samples_and_exhaustive_low_cardinality_counts(tmp_path):
+    path = tmp_path / "profile.csv"
+    path.write_text("kind,amount\na,1\nb,2\na,3\n", encoding="utf-8")
+    with toolbox_for(tmp_path, ["profile.csv"]) as toolbox:
+        profiles = toolbox.precomputed_profiles()
+    assert len(profiles) == 1
+    profile = profiles[0]
+    assert profile["sha256"]
+    table = profile["tables"][0]
+    assert table["row_count"] == 3
+    assert table["sample_rows"]["coverage"] == "sample"
+    assert table["schema"][0]["dtype"].startswith("text")
+    assert table["low_cardinality_counts"]["kind"]["coverage"] == "exhaustive"
+    assert {item["value"]: item["count"] for item in table["low_cardinality_counts"]["kind"]["counts"]} == {
+        "a": 2, "b": 1,
+    }
+    assert "amount" in table["low_cardinality_counts"]
+
+
 @pytest.mark.parametrize("payload", [
     {},
     {"action": "preview", "offset": "not-an-integer"},

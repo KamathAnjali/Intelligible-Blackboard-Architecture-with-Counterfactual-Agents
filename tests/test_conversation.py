@@ -115,6 +115,74 @@ def test_reviewer_rejection_is_posted_and_scheduler_continues(tmp_path):
     assert report["outcome"] == "scheduler_consensus"
 
 
+def test_same_target_rejection_streak_runs_one_isolated_counterfactual(tmp_path):
+    client = OllamaClient()
+    client.generate = Mock(side_effect=[
+        response(), response(), response(prediction="alternative"), response(prediction="alternative"),
+    ])
+    client.check_explanation = Mock(side_effect=[
+        {"parsed": {"supported": False, "reason": "Evidence does not support the explanation."}, "error": None},
+        {"parsed": {"supported": False, "reason": "Evidence does not support the explanation."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+    ])
+    report, _ = run_conversation(
+        client,
+        output_dir=tmp_path,
+        max_turns=3,
+        max_retries=0,
+        counterfactual_fraction=1.0,
+        counterfactual_seed=9,
+    )
+    counters = report["workflow_counters"]
+    assert counters["reviewer_rejections"] == 2
+    assert counters["counterfactual_triggers"] == 1
+    assert counters["counterfactual_simulations"] == 1
+    assert counters["counterfactual_changed_outcome"] == 1
+    assert len(report["board"]["counterfactual_events"]) == 1
+    assert [entry["tag"] for entry in report["board"]["entries"]][:2] == ["REJECT", "REJECT"]
+    assert report["board"]["entries"][2]["tag"] == "REVISE"
+    simulated = report["board"]["counterfactual_events"][0]["simulated_entry"]
+    assert simulated["is_counterfactual_sim"] is True
+    assert report["counterfactual_attempts"][0]["simulated_entry"]["is_counterfactual_sim"] is True
+    assert report["counterfactual_attempts"][0]["revision_requested"] is True
+    assert report["counterfactual_attempts"][0]["live_revision_changed_prediction"] is True
+    simulated_prompt = json.loads(client.generate.call_args_list[2].args[0])
+    assert "Evidence does not support the explanation." in simulated_prompt["task"]
+    assert "Frame the explanation directly around the available evidence" in simulated_prompt["task"]
+    assert report["outcome"] == "turn_limit"
+
+
+def test_counterfactual_fraction_selection_is_seeded_and_zero_is_disabled(tmp_path):
+    _, first = run(tmp_path / "one", [response()], max_turns=1,
+                    counterfactual_fraction=0.33, counterfactual_seed=123)
+    _, second = run(tmp_path / "two", [response()], max_turns=1,
+                     counterfactual_fraction=0.33, counterfactual_seed=123)
+    assert first["counterfactual_capable_agents"] == second["counterfactual_capable_agents"]
+    assert len(first["counterfactual_capable_agents"]) == 1
+    _, disabled = run(tmp_path / "zero", [response()], max_turns=1,
+                      counterfactual_fraction=0.0, counterfactual_seed=123)
+    assert disabled["counterfactual_capable_agents"] == []
+    assert disabled["workflow_counters"]["counterfactual_triggers"] == 0
+
+
+def test_zero_counterfactual_fraction_keeps_rejection_path_without_simulation(tmp_path):
+    client = OllamaClient()
+    client.generate = Mock(side_effect=[response(), response()])
+    client.check_explanation = Mock(side_effect=[
+        {"parsed": {"supported": False, "reason": "Not supported."}, "error": None},
+        {"parsed": {"supported": False, "reason": "Not supported."}, "error": None},
+    ])
+    report, _ = run_conversation(
+        client, output_dir=tmp_path, max_turns=2, max_retries=0,
+        counterfactual_fraction=0.0,
+    )
+    assert client.generate.call_count == 2
+    assert report["workflow_counters"]["reviewer_rejections"] == 2
+    assert report["workflow_counters"]["counterfactual_simulations"] == 0
+    assert report["board"]["counterfactual_events"] == []
+
+
 def test_interrupt_saves_partial_transcript(tmp_path):
     _, report = run(tmp_path, [response(), KeyboardInterrupt()])
     assert report["outcome"] == "interrupted"

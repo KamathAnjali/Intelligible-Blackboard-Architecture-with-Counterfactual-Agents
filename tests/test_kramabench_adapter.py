@@ -130,6 +130,14 @@ def test_system_uses_real_pxp_runner_and_returns_official_schema_without_gold(tm
     assert saved["permitted_files"][0]["path"] == "records.csv"
     assert saved["permitted_files"][0]["format"] == "csv"
     assert saved["permitted_files"][0]["tables"][0]["row_count"] == 1
+    assert saved["precomputed_file_profiles"][0]["sha256"] == saved["permitted_files"][0]["sha256"]
+    assert saved["precomputed_file_profiles"][0]["tables"][0]["sample_rows"]["coverage"] == "sample"
+    assert any(
+        entry["tag"] == "FACT" and "Precomputed file profile" in entry["prediction"]
+        for entry in saved["board_evidence_entries"]
+    )
+    assert saved["counterfactual_fraction"] == 0.0
+    assert saved["counterfactual_seed"] == 42
     assert len(saved["data_access_trace"]) == 2
     assert saved["data_access_trace"][0]["status"] == "success"
     assert saved["data_access_usage"]["calls"] == 3
@@ -530,7 +538,7 @@ def test_phase_2_13_evidence_scope_and_rate_recovery_produce_answer_path(tmp_pat
         item.get("status") == "success" and "category_count_evidence" in item
         for item in saved["data_access_trace"]
     )
-    assert len(saved["board_evidence_entries"]) == expected_fact_entries
+    assert len(saved["board_evidence_entries"]) == expected_fact_entries + len(saved["precomputed_file_profiles"])
     assert all(entry["tag"] == "FACT" for entry in saved["board_evidence_entries"])
     assert all('"count":' in entry["prediction"] for entry in saved["board_evidence_entries"])
     assert saved["answer"] == formatted_rate
@@ -645,10 +653,10 @@ def test_refusal_consensus_is_rejected_then_retried_with_verified_board_evidence
     )
     assert activation["reason"] == "refusal_despite_evidence"
     assert activation["retry_count"] == 1
-    assert len(saved["board_evidence_entries"]) == 2
+    assert len(saved["board_evidence_entries"]) == 2 + len(saved["precomputed_file_profiles"])
     transcript = json.loads(Path(saved["conversation_transcript"]).read_text())
     facts = [entry for entry in transcript["board"]["entries"] if entry["tag"] == "FACT"]
-    assert len(facts) == 2
+    assert len(facts) == 2 + len(saved["precomputed_file_profiles"])
     reject = next(entry for entry in transcript["board"]["entries"] if entry["tag"] == "REJECT")
     assert "refusal_despite_evidence" in reject["explanation"]
     assert any(turn["entry"]["prediction"] == "50.000" for turn in transcript["turns"])
@@ -748,6 +756,34 @@ def test_pipeline_generation_error_does_not_return_empty_or_fake_code(tmp_path):
     saved = json.loads(next((output / "krama_task_records").glob("*.json")).read_text())
     assert saved["status"] == "failed"
     assert "pipeline_code" not in saved
+
+
+def test_conversation_counters_are_merged_once_when_failure_follows_first_merge(tmp_path):
+    dataset = fixture_dataset(tmp_path)
+    output = tmp_path / "system-output"
+
+    def report_with_four_rejections(*args, **kwargs):
+        return {
+            "outcome": "deadlocked",
+            "board": {"entries": []},
+            "turns": [],
+            "failures": [],
+            "workflow_counters": {"reviewer_rejections": 4},
+        }, tmp_path / "transcript.json"
+
+    system = KramaBenchSystem(
+        client=FakeClient([
+            data_tool("aggregate", file="records.csv", measures=[{"function": "count", "column": "*"}]),
+            data_tool("done", summary="Count complete."),
+        ]),
+        output_dir=output,
+        conversation_runner=report_with_four_rejections,
+    )
+    system.process_dataset(dataset)
+    with pytest.raises(AgentWorkflowError, match="deadlocked"):
+        system.serve_query("query", "counter-merge-1", ["records.csv"])
+    saved = json.loads(next((output / "krama_task_records").glob("*.json")).read_text())
+    assert saved["workflow_counters"]["reviewer_rejections"] == 4
 
 
 def test_pipeline_generation_retries_syntax_error_without_executing_code():

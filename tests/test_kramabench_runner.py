@@ -53,6 +53,20 @@ def make_unpinned_checkout(tmp_path):
     return root
 
 
+def authoritative_checkout_available(root):
+    required = (root / "workload" / "environment.json", root / "data" / "environment" / "input")
+    if not root.is_dir() or not required[0].is_file() or not required[1].is_dir():
+        return False
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0
+
+
 def test_evaluator_failure_logs_persist_exit_status_and_redact_secrets(tmp_path):
     completed = SimpleNamespace(
         returncode=1,
@@ -94,6 +108,10 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
     })
     monkeypatch.setattr(runner, "_stage_run_tree", lambda *a, **k: None)
     def failed_evaluator(args, **kwargs):
+        assert kwargs["env"]["KRAMABENCH_COUNTERFACTUAL_FRACTION"] == "0.66"
+        assert kwargs["env"]["KRAMABENCH_COUNTERFACTUAL_SEED"] == "17"
+        assert kwargs["env"]["KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD"] == "2"
+        assert kwargs["env"]["KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS"] == "1"
         record_directory = Path(kwargs["cwd"]) / "system_scratch" / runner.SYSTEM_NAME / "krama_task_records"
         record_directory.mkdir(parents=True)
         (record_directory / "failed-task.json").write_text(json.dumps({
@@ -115,11 +133,16 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
         run_one_task(
             tmp_path / "pinned", "environment", "environment-easy-1", output,
             approve_genuine_run=True, evaluator_mode="official",
+            counterfactual_fraction=0.66, counterfactual_seed=17,
         )
 
     run_root = next(output.iterdir())
     manifest = json.loads((run_root / "run_manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "failed"
+    assert manifest["counterfactual_fraction"] == 0.66
+    assert manifest["counterfactual_seed"] == 17
+    assert manifest["counterfactual_streak_threshold"] == 2
+    assert manifest["max_counterfactual_simulations"] == 1
     assert manifest["evaluator_process"] == {
         "exit_status": 1,
         "stdout_log": "evaluator_stdout.log",
@@ -133,6 +156,7 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
 def test_missing_task_record_returns_no_result_without_workload_keyerror(monkeypatch, tmp_path):
     import json
     import bench.kramabench_runner as runner
+    import bench.archive_run as archive_module
 
     _mock_selected_task_path(monkeypatch, tmp_path)
     monkeypatch.setattr(runner, "verify_evaluator_environment", lambda *a, **k: "/fake/evaluator/python")
@@ -140,6 +164,7 @@ def test_missing_task_record_returns_no_result_without_workload_keyerror(monkeyp
         "endpoint": "http://127.0.0.1:11434", "version": "fixture", "model": "fixture-model",
     })
     monkeypatch.setattr(runner, "_stage_run_tree", lambda *a, **k: None)
+    monkeypatch.setattr(archive_module, "REPO_ROOT", tmp_path)
     calls = []
     def failed_without_record(args, **kwargs):
         calls.append(args)
@@ -148,7 +173,7 @@ def test_missing_task_record_returns_no_result_without_workload_keyerror(monkeyp
 
     run_root = run_one_task(
         tmp_path / "pinned", "environment", "environment-easy-1", tmp_path / "results",
-        approve_genuine_run=True, evaluator_mode="official",
+        approve_genuine_run=True, evaluator_mode="official", archive_label="runner-archive",
     )
     manifest = json.loads((run_root / "run_manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "no_result"
@@ -156,6 +181,10 @@ def test_missing_task_record_returns_no_result_without_workload_keyerror(monkeyp
     assert len(calls) == 1
     assert (run_root / "evaluator_stdout.log").read_text(encoding="utf-8") == ""
     assert (run_root / "evaluator_stderr.log").read_text(encoding="utf-8") == "KeyError: workload"
+    archived = tmp_path / "archive" / "runner-archive"
+    assert (archived / "run_manifest.json").is_file()
+    assert (archived / "driver_logs/evaluator.stderr.log").is_file()
+    assert (archived / "checksum_manifest.json").is_file()
 
 
 def test_unpinned_checkout_is_rejected_before_any_run_output_is_created(tmp_path):
@@ -378,7 +407,7 @@ def test_compatibility_output_field_namespace_never_says_unmodified_official():
 
 def test_compatibility_checkout_isolated_and_rejects_unexpected_source_changes(tmp_path):
     source = Path("/private/tmp/krama-phase2_1-authoritative")
-    if not source.is_dir():
+    if not authoritative_checkout_available(source):
         pytest.skip("authoritative pinned KramaBench checkout is unavailable")
     before = subprocess.run(
         ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=all"],
@@ -540,7 +569,7 @@ def test_compatibility_task_preflight_matches_reviewed_pinned_inputs():
     from bench.kramabench_runner import _load_selected_records
 
     root = Path("/private/tmp/krama-phase2_1-authoritative")
-    if not root.is_dir():
+    if not authoritative_checkout_available(root):
         pytest.skip("authoritative pinned KramaBench checkout is unavailable")
     workload_path = root / "workload" / "environment.json"
     dataset = root / "data" / "environment" / "input"

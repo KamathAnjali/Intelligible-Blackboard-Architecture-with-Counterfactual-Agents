@@ -740,7 +740,13 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
                  evaluator_python: str | Path | None = None,
                  approve_genuine_run: bool = False,
                  evaluator_mode: str = OFFICIAL_EVALUATOR_MODE,
-                 task_wall_clock_cap_seconds: int = DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS) -> Path:
+                 task_wall_clock_cap_seconds: int = DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS,
+                 counterfactual_fraction: float = 0.0,
+                 counterfactual_seed: int = 42,
+                 counterfactual_streak_threshold: int = 2,
+                 max_counterfactual_simulations: int = 1,
+                 archive_label: str | None = None,
+                 archive_driver_log: str | Path | None = None) -> Path:
     """Run one task through the explicitly selected, provenance-checked evaluator."""
     if approve_genuine_run is not True:
         raise OfficialHarnessError(
@@ -750,6 +756,14 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         raise OfficialHarnessError(f"unsupported evaluator mode: {evaluator_mode}")
     if type(task_wall_clock_cap_seconds) is not int or task_wall_clock_cap_seconds <= 0:
         raise OfficialHarnessError("task_wall_clock_cap_seconds must be a positive integer")
+    if counterfactual_fraction not in (0, 0.33, 0.66, 1.0):
+        raise OfficialHarnessError("counterfactual_fraction must be one of 0, 0.33, 0.66, or 1.0")
+    if type(counterfactual_seed) is not int:
+        raise OfficialHarnessError("counterfactual_seed must be an integer")
+    if type(counterfactual_streak_threshold) is not int or counterfactual_streak_threshold < 2:
+        raise OfficialHarnessError("counterfactual_streak_threshold must be at least 2")
+    if type(max_counterfactual_simulations) is not int or max_counterfactual_simulations < 0:
+        raise OfficialHarnessError("max_counterfactual_simulations must be non-negative")
     root, evaluate_path = verify_benchmark_checkout(benchmark_root)
     evaluator_source_sha256 = _evaluator_source_fingerprint(root)
     workload_path = root / "workload" / f"{workload}.json"
@@ -866,6 +880,10 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         "max_turns": max_turns,
         "max_retries": max_retries,
         "task_wall_clock_cap_seconds": task_wall_clock_cap_seconds,
+        "counterfactual_fraction": float(counterfactual_fraction),
+        "counterfactual_seed": counterfactual_seed,
+        "counterfactual_streak_threshold": counterfactual_streak_threshold,
+        "max_counterfactual_simulations": max_counterfactual_simulations,
         "num_workers": 1,
         "pipeline_evaluation_enabled": enable_pipeline_evaluation,
         "run_subtasks": run_subtasks,
@@ -929,6 +947,10 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             "KRAMABENCH_MAX_TURNS": str(max_turns),
             "KRAMABENCH_MAX_RETRIES": str(max_retries),
             "KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS": str(task_wall_clock_cap_seconds),
+            "KRAMABENCH_COUNTERFACTUAL_FRACTION": str(counterfactual_fraction),
+            "KRAMABENCH_COUNTERFACTUAL_SEED": str(counterfactual_seed),
+            "KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD": str(counterfactual_streak_threshold),
+            "KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS": str(max_counterfactual_simulations),
             "KRAMABENCH_PIPELINE_EVAL": "1" if enable_pipeline_evaluation else "0",
         }
         if evaluator_mode == COMPATIBILITY_EVALUATOR_MODE:
@@ -941,6 +963,10 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             )
         except (OSError, subprocess.SubprocessError) as exc:
             raise OfficialHarnessError("isolated KramaBench evaluator process could not complete") from exc
+        driver_log_dir = run_root / "driver_logs"
+        driver_log_dir.mkdir(parents=True, exist_ok=True)
+        (driver_log_dir / "evaluator.stdout.log").write_text(completed.stdout or "", encoding="utf-8")
+        (driver_log_dir / "evaluator.stderr.log").write_text(completed.stderr or "", encoding="utf-8")
         if completed.returncode != 0:
             process_failure = _persist_evaluator_failure_logs(run_root, completed)
             task_failure = _task_failure_summary(run_root, task_id)
@@ -999,6 +1025,12 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         _write_json(manifest_path, manifest)
         raise
     finally:
+        if archive_label is not None:
+            from bench.archive_run import archive_run
+            archive_run(
+                run_root, archive_label,
+                extra_files=[archive_driver_log] if archive_driver_log is not None else None,
+            )
         if compatibility_temp is not None:
             compatibility_temp.cleanup()
 
@@ -1017,6 +1049,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-retries", type=int, default=1)
     parser.add_argument("--task-wall-clock-cap-seconds", type=int,
                         default=DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS)
+    parser.add_argument("--counterfactual-fraction", type=float, choices=(0, 0.33, 0.66, 1.0), default=0.0,
+                        help="Seeded share of active agents enabled for counterfactual simulations.")
+    parser.add_argument("--counterfactual-seed", type=int, default=42,
+                        help="Seed used to choose counterfactually capable agents.")
+    parser.add_argument("--counterfactual-streak-threshold", type=int, default=2,
+                        help="Consecutive same-target REJECT/REFUTE events needed to trigger a simulation.")
+    parser.add_argument("--max-counterfactual-simulations", type=int, default=1,
+                        help="Maximum counterfactual proposal simulations for this task.")
+    parser.add_argument("--archive-label",
+                        help="Archive this run under archive/<label> after it finishes; labels are never overwritten.")
+    parser.add_argument("--archive-driver-log",
+                        help="Optional outer driver log to include in the archive.")
     parser.add_argument("--run-subtasks", action="store_true")
     parser.add_argument("--enable-pipeline-evaluation", action="store_true",
                         help="Allow upstream GPT evaluator calls, including pipeline and answer metrics.")
@@ -1053,6 +1097,12 @@ def main(argv: list[str] | None = None) -> int:
             approve_genuine_run=args.approve_genuine_run,
             evaluator_mode=args.evaluator_mode,
             task_wall_clock_cap_seconds=args.task_wall_clock_cap_seconds,
+            counterfactual_fraction=args.counterfactual_fraction,
+            counterfactual_seed=args.counterfactual_seed,
+            counterfactual_streak_threshold=args.counterfactual_streak_threshold,
+            max_counterfactual_simulations=args.max_counterfactual_simulations,
+            archive_label=args.archive_label,
+            archive_driver_log=args.archive_driver_log,
         )
     except Exception as exc:
         print(f"KramaBench run failed: {type(exc).__name__}: {exc}", file=sys.stderr)

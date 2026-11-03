@@ -1013,6 +1013,88 @@ class DatasetToolbox:
     def catalog(self) -> dict[str, Any]:
         return {"files": [self.files[path] for path in sorted(self.files)]}
 
+    def precomputed_profiles(self, *, sample_rows: int = 3, low_cardinality_limit: int = 20,
+                             max_chars_per_file: int = 6000) -> list[dict[str, Any]]:
+        """Build bounded, trusted per-file profiles without consuming model tool calls."""
+        if type(sample_rows) is not int or not 1 <= sample_rows <= 10:
+            raise ValueError("sample_rows must be between 1 and 10")
+        if type(low_cardinality_limit) is not int or not 2 <= low_cardinality_limit <= 100:
+            raise ValueError("low_cardinality_limit must be between 2 and 100")
+        if type(max_chars_per_file) is not int or max_chars_per_file < 500:
+            raise ValueError("max_chars_per_file must be at least 500")
+
+        profiles = []
+        for path, descriptor in sorted(self.files.items()):
+            profile: dict[str, Any] = {
+                "file": path,
+                "sha256": descriptor["sha256"],
+                "format": descriptor["format"],
+                "parser_notes": list(descriptor.get("notes", [])),
+                "tables": [],
+            }
+            for table_info in descriptor.get("tables", []):
+                table = self._table(path, table_info["name"])
+                self._db.set_progress_handler(lambda: 1 if time.monotonic() > self.deadline else 0, 1_000)
+                try:
+                    with self._operation_deadline():
+                        columns = list(table["columns"])
+                        rows = self._preview(table, None, 0, sample_rows)["rows"]
+                        low_cardinality = {}
+                        sample_only_columns = []
+                        sql_table = table["sql_name"]
+                        for column in columns:
+                            self._check_deadline()
+                            sql_column = self._column(table, column)
+                            distinct_count = self._db.execute(
+                                f'SELECT COUNT(*) FROM (SELECT "{sql_column}" FROM "{sql_table}" '
+                                f'GROUP BY "{sql_column}" LIMIT ?)',
+                                (low_cardinality_limit + 1,),
+                            ).fetchone()[0]
+                            if distinct_count <= low_cardinality_limit:
+                                counts = self._db.execute(
+                                    f'SELECT "{sql_column}", COUNT(*) FROM "{sql_table}" '
+                                    f'GROUP BY "{sql_column}" ORDER BY COUNT(*) DESC, "{sql_column}"',
+                                ).fetchall()
+                                low_cardinality[column] = {
+                                    "coverage": "exhaustive",
+                                    "counts": [{"value": row[0], "count": row[1]} for row in counts],
+                                }
+                            else:
+                                sample_only_columns.append(column)
+                        profile["tables"].append({
+                            "table": table["name"],
+                            "row_count": table["row_count"],
+                            "schema": [{"column": col, "dtype": "text (normalized parser storage)"}
+                                       for col in columns],
+                            "sample_rows": {"coverage": "sample", "rows": rows},
+                            "low_cardinality_counts": low_cardinality,
+                            "other_columns": {"coverage": "sample only", "columns": sample_only_columns},
+                        })
+                except sqlite3.OperationalError as exc:
+                    if "interrupted" in str(exc).casefold():
+                        raise DataOperationTimeout(
+                            "precomputed profile operation timed out; no partial result was returned"
+                        ) from exc
+                    raise
+                finally:
+                    self._db.set_progress_handler(None, 0)
+            if not descriptor.get("tables") and path in self.text_pages:
+                profile["text_sample"] = {
+                    "coverage": "sample",
+                    "text": "\n".join(self.text_pages[path])[: min(1200, max_chars_per_file // 2)],
+                }
+            encoded = json.dumps(profile, ensure_ascii=False, default=str)
+            if len(encoded) > max_chars_per_file:
+                for table_profile in profile["tables"]:
+                    table_profile["sample_rows"]["rows"] = table_profile["sample_rows"]["rows"][:1]
+                if "text_sample" in profile:
+                    profile["text_sample"]["text"] = profile["text_sample"]["text"][:200]
+                encoded = json.dumps(profile, ensure_ascii=False, default=str)
+            if len(encoded) > max_chars_per_file:
+                raise DataAccessError(f"precomputed profile for {path!r} exceeds its bounded output size")
+            profiles.append(profile)
+        return profiles
+
     def _file(self, name: str | None) -> dict[str, Any]:
         if not isinstance(name, str) or name not in self.files:
             raise DataToolFileSelectionError(

@@ -224,7 +224,7 @@ class Blackboard:
 
     def fork_simulation_blackboard(
         self,
-        cutoff_entry_id: str,
+        cutoff_entry_id: str | None,
         sim_task_id: str | None = None,
     ) -> Blackboard:
         """
@@ -233,8 +233,11 @@ class Blackboard:
         without mutating the live board history.
         """
         with self._lock:
-            history_slice = self.get_history_slice(cutoff_entry_id=cutoff_entry_id, include_counterfactual=False)
-            task_name = sim_task_id or f"{self.task_id}_sim_{cutoff_entry_id[:8]}"
+            history_slice = (
+                self.get_history_slice(cutoff_entry_id=cutoff_entry_id, include_counterfactual=False)
+                if cutoff_entry_id is not None else []
+            )
+            task_name = sim_task_id or f"{self.task_id}_sim_{(cutoff_entry_id or 'empty')[:8]}"
             sim_state = BlackboardState(
                 task_id=task_name,
                 entries=history_slice,
