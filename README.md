@@ -90,3 +90,17 @@ Published records are tracked in `results/transcripts/<conversation-id>.json` an
 New runs still write to `results/conversations/`; inference reports use `results/ollama/`. These generated directories, benchmark results, and local raw datasets remain ignored. Existing files are preserved when records are copied into the published archive.
 
 `bench/ingest/` loads task records; `bench/metrics/` provides token accounting, synthetic CSV exports, and evaluator-gated plotting. `example` and `dry_run` are synthetic modes. `pilot` and `full_study` remain disabled until real benchmark execution and the official evaluator are connected.
+# KramaBench checkout setup
+
+The runner expects the pinned KramaBench revision at `$HOME/kramabench-pinned` and
+the evaluator environment at `$HOME/kramabench-eval-venv`. Recreate both with:
+
+```sh
+bench/setup_krama_checkout.sh
+```
+
+The script refuses to overwrite either path, verifies the pinned revision and
+all allowlisted input hashes, and leaves the checkout clean. The reviewed
+compatibility evaluator patch is stored in `bench/kramabench_runner.py` and is
+applied automatically to an isolated staged copy for each compatibility run;
+the pinned checkout is not patched.
