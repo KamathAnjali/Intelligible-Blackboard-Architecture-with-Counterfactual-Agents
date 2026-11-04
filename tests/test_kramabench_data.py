@@ -221,16 +221,17 @@ def test_phase_29_file_identifier_in_files_field_recovers_and_profiles_filters(t
         result = gather_dataset_evidence(client, "Inspect the selected environment data.", toolbox, max_calls=3)
 
     assert '"path": "water-body-testing-2013.csv"' in client.calls[0]["prompt"]
-    assert "files: []` does not identify a file" in client.calls[1]["prompt"]
     observations = result["evidence"]["observations"]
-    assert observations[0]["result"]["error"].startswith("this action requires one explicit file")
-    profile = observations[1]["result"]
+    profile = observations[0]["result"]
     assert profile["file"] == identifier
     assert profile["row_count"] == 2
     filtered = observations[2]["result"]
     assert filtered["total_matches"] == 1
     assert filtered["rows"] == [{"County Description": "Barnstable", "Violation": "yes"}]
-    assert [item["status"] for item in result["trace"]] == ["error", "success", "success"]
+    assert [item["status"] for item in result["trace"]] == ["success", "success", "success"]
+    assert result["trace"][0]["selector_defaulted"] is True
+    assert result["trace"][1]["selector_defaulted"] is False
+    assert result["workflow_diagnostics"]["workflow_counters"]["defaulted_file_selectors"] == 1
     assert result["usage"]["calls"] == 4
     assert result["workflow_diagnostics"]["tool_invocations"] == 3
 
@@ -244,7 +245,7 @@ def test_nested_allowlist_requires_exact_catalog_path_not_basename(tmp_path):
     with toolbox_for(root, ["county-data/water-body-testing-2013.csv"]) as toolbox:
         catalog_path = toolbox.catalog()["files"][0]["path"]
         assert catalog_path == "county-data/water-body-testing-2013.csv"
-        with pytest.raises(DataToolFileSelectionError, match="exactly match a path"):
+        with pytest.raises(DataToolFileSelectionError, match="invalid file path.*allowlisted path"):
             toolbox.execute({"action": "profile", "files": ["water-body-testing-2013.csv"]})
         assert toolbox.execute({"action": "profile", "files": [catalog_path]})["row_count"] == 1
 
@@ -259,7 +260,7 @@ def test_repeated_invalid_file_selection_stops_with_trace_and_usage(tmp_path):
     with toolbox_for(root, ["allowed.csv"]) as toolbox:
         execute = Mock(wraps=toolbox.execute)
         toolbox.execute = execute
-        with pytest.raises(DataToolWorkflowError, match="repeated the same invalid file selection") as raised:
+        with pytest.raises(DataToolWorkflowError, match="repeated an invalid file path") as raised:
             gather_dataset_evidence(client, "Profile the permitted file", toolbox, max_calls=12)
 
     assert len(client.calls) == 2
@@ -267,7 +268,73 @@ def test_repeated_invalid_file_selection_stops_with_trace_and_usage(tmp_path):
     assert raised.value.usage["calls"] == 2
     assert raised.value.workflow_diagnostics["tool_invocations"] == 2
     assert len(raised.value.trace) == 2
-    assert all("exact `path` shown in `allowlisted_files`" in item["error"] for item in raised.value.trace)
+    assert all("invalid file path 'private.csv'" in item["error"] for item in raised.value.trace)
+
+
+def test_recorded_missing_selectors_default_for_single_file_and_are_traced(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "one.csv").write_text("kind,value\na,2\nb,3\n", encoding="utf-8")
+    requests = [
+        {"action": "profile", "file": "one.csv"},
+        {"action": "filter", "file": "one.csv", "filters": []},
+        {"action": "aggregate", "file": "one.csv", "measures": [{"function": "count", "column": "*"}]},
+        {"action": "filter", "filters": []},
+        {"action": "filter", "files": [], "filters": []},
+        {"action": "done", "summary": "Inspected the selected data."},
+    ]
+    client = FakeDataToolClient([json.dumps(request) for request in requests])
+
+    with toolbox_for(root, ["one.csv"]) as toolbox:
+        result = gather_dataset_evidence(client, "Inspect the selected data", toolbox, max_calls=5)
+
+    assert [entry["status"] for entry in result["trace"]] == ["success"] * 5
+    assert [entry["selector_defaulted"] for entry in result["trace"]] == [False, False, False, True, True]
+    assert [entry["request"].get("file") for entry in result["trace"]] == ["one.csv"] * 5
+    assert result["workflow_diagnostics"]["workflow_counters"]["defaulted_file_selectors"] == 2
+    assert result["usage"]["calls"] == 6
+
+
+def test_missing_selector_feedback_uses_last_successful_file_and_corrected_request_is_not_repeat(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "first.csv").write_text("value\n1\n", encoding="utf-8")
+    (root / "second.csv").write_text("value\n2\n", encoding="utf-8")
+    requests = [
+        {"action": "profile", "file": "first.csv"},
+        {"action": "preview"},
+        {"action": "preview", "file": "first.csv"},
+        {"action": "profile", "file": "second.csv"},
+        {"action": "done", "summary": "Inspected both files."},
+    ]
+    client = FakeDataToolClient([json.dumps(request) for request in requests])
+
+    with toolbox_for(root, ["first.csv", "second.csv"]) as toolbox:
+        result = gather_dataset_evidence(client, "Inspect both selected files", toolbox, max_calls=4)
+
+    assert [entry["status"] for entry in result["trace"]] == ["success", "error", "success", "success"]
+    error = result["trace"][1]["error"]
+    assert "`file` is missing" in error
+    assert '"action": "preview", "file": "first.csv"' in error
+    assert result["trace"][2]["request"]["file"] == "first.csv"
+    assert result["workflow_diagnostics"]["workflow_counters"]["defaulted_file_selectors"] == 0
+
+
+def test_repeated_missing_selector_reports_missing_file_not_invalid_path(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "first.csv").write_text("value\n1\n", encoding="utf-8")
+    (root / "second.csv").write_text("value\n2\n", encoding="utf-8")
+    missing = json.dumps({"action": "preview"})
+    client = FakeDataToolClient([json.dumps({"action": "profile", "file": "first.csv"}), missing, missing])
+
+    with toolbox_for(root, ["first.csv", "second.csv"]) as toolbox:
+        with pytest.raises(DataToolWorkflowError, match="repeated a request with `file` missing") as raised:
+            gather_dataset_evidence(client, "Inspect the selected files", toolbox, max_calls=5)
+
+    assert len(raised.value.trace) == 3
+    assert "`file` is missing" in raised.value.trace[-1]["error"]
+    assert "invalid file path" not in raised.value.trace[-1]["error"]
 
 
 def test_gather_dataset_evidence_stops_after_bounded_malformed_response_retries(tmp_path):
@@ -376,6 +443,7 @@ def test_tool_budget_allows_final_done_without_weakening_tool_cap(tmp_path):
             "repeated_invalid_request_stops": 0,
             "blocked_done_rejections": 0,
             "duplicate_filter_rejections": 0,
+            "defaulted_file_selectors": 0,
         },
         "completed": True,
     }
@@ -484,7 +552,7 @@ def test_data_tool_generation_cannot_expand_the_file_allowlist(tmp_path):
     assert "allowed.csv" in client.calls[0]["prompt"]
     assert "private.csv" not in client.calls[0]["prompt"]
     assert "private contents" not in json.dumps(client.calls)
-    assert result["evidence"]["observations"][0]["result"]["error"].startswith("file must exactly match")
+    assert result["evidence"]["observations"][0]["result"]["error"].startswith("invalid file path")
 
 
 def make_text_pdf(path, text="Synthetic PDF total is 19"):

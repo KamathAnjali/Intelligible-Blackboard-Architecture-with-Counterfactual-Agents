@@ -489,6 +489,7 @@ class KramaBenchSystem:
                 "repeated_invalid_request_stops": 0,
                 "blocked_done_rejections": 0,
                 "duplicate_filter_rejections": 0,
+                "defaulted_file_selectors": 0,
                 "reviewer_rejections": 0,
                 "counterfactual_triggers": 0,
                 "counterfactual_simulations": 0,

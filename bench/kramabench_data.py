@@ -238,7 +238,7 @@ Use one of these valid request shapes, replacing placeholders with the exact val
 - json_get: {"action":"json_get","file":"<exact allowlisted path>","path":["<key>"],"offset":0,"limit":5}
 - done: {"action":"done","summary":"<concise evidence summary>"}
 For `aggregate`, output columns are defined by `group_by` and `measures`; never send a `columns` field. An aggregate needs at least one measure.
-For profile, preview, filter, read_text, search_text, and json_get, select one file using `file` with the exact `path` shown in `allowlisted_files`. A single-entry `files` list is also accepted for these actions. An empty `files` list does not identify a file. For a calculation spanning multiple files, use aggregate with a `files` list; it validates matching table schemas and processes every listed file.
+For profile, preview, filter, read_text, search_text, json_get, and single-file aggregate requests, use `file` with the exact `path` shown in `allowlisted_files`. When exactly one file is allowlisted, an omitted selector defaults to that file; with multiple files, `file` is required. A single-entry `files` list is also accepted for single-file actions. For a calculation spanning multiple files, use aggregate with a `files` list; it validates matching table schemas and processes every listed file.
 `profile` returns table metadata, row counts, missing counts, and up to five sample values per column; it does not return all rows. These samples are examples, not an exhaustive category inventory; do not conclude a category is absent because it is missing from the sample.
 Use the column name and sample values to identify what a field represents before filtering. A `County` or `County Description` field contains county names, not state names; do not search for a state name in a county field. If a geographic filter returns no rows, inspect the field's categories and the dataset context before deciding what the result means.
 `limit` is the maximum number of rows, matches, or JSON items returned by one preview/filter/search_text/json_get response. It must be between 1 and 50. Never set it to a table's row_count, and do not page through a large table to reconstruct it.
@@ -542,6 +542,7 @@ class DatasetToolbox:
         self.tables: dict[tuple[str, str], dict[str, Any]] = {}
         self.text_pages: dict[str, list[str]] = {}
         self.json_documents: dict[str, Any] = {}
+        self.last_successful_file: str | None = None
         self.total_bytes = 0
         try:
             for index, candidate in enumerate(permitted_paths):
@@ -1097,8 +1098,10 @@ class DatasetToolbox:
 
     def _file(self, name: str | None) -> dict[str, Any]:
         if not isinstance(name, str) or name not in self.files:
+            available = [item["path"] for item in self.catalog()["files"]]
             raise DataToolFileSelectionError(
-                "file must exactly match a path in the task allowlist; use the exact `path` shown in `allowlisted_files`"
+                f"invalid file path {name!r}; it must exactly match an allowlisted path. "
+                f"Available paths: {available}"
             )
         return self.files[name]
 
@@ -1109,10 +1112,22 @@ class DatasetToolbox:
         if operation.file is not None:
             return self._file(operation.file)
         if not operation.files:
-            raise DataToolFileSelectionError(
-                "this action requires one explicit file: set `file` to an exact `allowlisted_files` path, "
-                "or provide exactly one path in `files`; `files: []` does not identify a file"
-            )
+            example_path = self.last_successful_file
+            if example_path is None and len(self.files) == 1:
+                example_path = next(iter(self.files))
+            if example_path is None:
+                example_path = next(iter(self.files))
+            example = json.dumps({"action": operation.action, "file": example_path}, ensure_ascii=False)
+            if self.last_successful_file is not None:
+                message = (
+                    f"`file` is missing; include the last successfully used file. Corrected example: {example}"
+                )
+            else:
+                message = (
+                    f"`file` is missing; set it to an exact path from `allowlisted_files`. "
+                    f"Corrected example: {example}"
+                )
+            raise DataToolFileSelectionError(message)
         if len(operation.files) != 1:
             raise DataToolFileSelectionError(
                 "this action requires exactly one allowlisted path; use `aggregate` for multiple files"
@@ -1179,7 +1194,13 @@ class DatasetToolbox:
 
     def execute(self, request: DataToolRequest | dict[str, Any]) -> dict[str, Any]:
         with self._operation_deadline():
-            return self._execute(request)
+            result = self._execute(request)
+            successful_files = result.get("files")
+            if not isinstance(successful_files, list):
+                successful_files = [result["file"]] if isinstance(result.get("file"), str) else []
+            if len(successful_files) == 1 and successful_files[0] in self.files:
+                self.last_successful_file = successful_files[0]
+            return result
 
     def _execute(self, request: DataToolRequest | dict[str, Any]) -> dict[str, Any]:
         self._check_deadline()
@@ -1776,6 +1797,7 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
     repeated_invalid_request_stops = 0
     blocked_done_rejections = 0
     duplicate_filter_rejections = 0
+    defaulted_file_selectors = 0
     workflow_iterations = 0
     generation_requests = 0
     tool_invocations = 0
@@ -1855,6 +1877,7 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                 "repeated_invalid_request_stops": repeated_invalid_request_stops,
                 "blocked_done_rejections": blocked_done_rejections,
                 "duplicate_filter_rejections": duplicate_filter_rejections,
+                "defaulted_file_selectors": defaulted_file_selectors,
             },
             "completed": completed,
         }
@@ -2195,6 +2218,16 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                     + _validation_feedback(exc, response_text, toolbox)
                 )
         assert request is not None
+        selector_defaulted = False
+        if (
+            request.action not in {"catalog", "done"}
+            and request.file is None
+            and not request.files
+            and len(toolbox.files) == 1
+        ):
+            request = request.model_copy(update={"file": next(iter(toolbox.files))})
+            selector_defaulted = True
+            defaulted_file_selectors += 1
         params = request.model_dump(exclude_none=True)
         if request.rate_outcome_column is not None:
             declared_column = request.rate_outcome_column
@@ -2219,7 +2252,10 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                     f"choose an exact available column from {available[:40]}"
                 )
                 history.append({"action": "workflow_validation", "request": params, "result": {"error": message}})
-                audit.append({"action": request.action, "request": params, "status": "error", "error": message})
+                audit.append({
+                    "action": request.action, "request": params, "status": "error",
+                    "error": message, "selector_defaulted": selector_defaulted,
+                })
                 continue
             pending_rate_outcome_column = declared_column
             pending_outcome_categories.update(
@@ -2278,7 +2314,10 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                 "tool invocations) before finishing"
             )
             history.append({"action": "workflow_validation", "request": params, "result": {"error": message}})
-            audit.append({"action": request.action, "request": params, "status": "error", "error": message})
+            audit.append({
+                "action": request.action, "request": params, "status": "error",
+                "error": message, "selector_defaulted": selector_defaulted,
+            })
             raise workflow_error(message)
         tool_invocations += 1
         predicate_key = _empty_predicate_key(request) if request.action in {"filter", "aggregate"} else None
@@ -2295,6 +2334,7 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
             audit.append({
                 "action": request.action, "request": params, "status": "skipped_duplicate",
                 "error": message, "empty_filter_diagnostics": diagnostics,
+                "selector_defaulted": selector_defaulted,
             })
             repeated_empty_predicates[predicate_key] = repeated_empty_predicates.get(predicate_key, 0) + 1
             duplicate_filter_rejections += 1
@@ -2365,6 +2405,7 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                 "result_sha256": hashlib.sha256(result_json.encode("utf-8")).hexdigest(),
                 "result_chars": len(result_json),
                 "status": "success",
+                "selector_defaulted": selector_defaulted,
                 **({"empty_filter_diagnostics": result["empty_filter_diagnostics"]}
                    if "empty_filter_diagnostics" in result else {}),
             }
@@ -2398,27 +2439,42 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
         except (DataOperationTimeout, TaskWallClockTimeout) as exc:
             error = {"error": str(exc)}
             history.append({"action": request.action, "request": params, "result": error})
-            audit.append({"action": request.action, "request": params, "status": "timeout", "error": str(exc)})
+            audit.append({
+                "action": request.action, "request": params, "status": "timeout",
+                "error": str(exc), "selector_defaulted": selector_defaulted,
+            })
             raise workflow_error(str(exc)) from exc
         except DataAccessError as exc:
             error = {"error": str(exc)}
             history.append({"action": request.action, "request": params, "result": error})
-            audit.append({"action": request.action, "request": params, "status": "error", "error": str(exc)})
+            audit.append({
+                "action": request.action, "request": params, "status": "error",
+                "error": str(exc), "selector_defaulted": selector_defaulted,
+            })
             if isinstance(exc, DataToolFileSelectionError):
+                missing_selector = request.file is None and not request.files
                 selector_key = json.dumps({
                     "action": request.action,
                     "file": request.file,
                     "files": request.files,
                 }, sort_keys=True, ensure_ascii=False)
                 if selector_key in invalid_file_selections:
-                    activate_guard(
-                        "repeated_invalid_file_selection",
-                        "the same file selector did not match an exact allowlisted path",
+                    guard_name = (
+                        "repeated_missing_file_selector" if missing_selector
+                        else "repeated_invalid_file_selection"
                     )
-                    raise workflow_error(
-                        "data agent repeated the same invalid file selection; correct it using the exact "
-                        "`path` shown in `allowlisted_files`"
-                    ) from exc
+                    reason = "the same request omitted its required `file` selector" if missing_selector else (
+                        "the requested file path is outside the task allowlist"
+                    )
+                    activate_guard(
+                        guard_name,
+                        reason,
+                    )
+                    if missing_selector:
+                        message = f"data agent repeated a request with `file` missing. {exc}"
+                    else:
+                        message = f"data agent repeated an invalid file path. {exc}"
+                    raise workflow_error(message) from exc
                 invalid_file_selections.add(selector_key)
     else:
         raise workflow_error(

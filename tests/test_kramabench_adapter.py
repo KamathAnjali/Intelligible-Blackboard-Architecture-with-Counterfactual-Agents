@@ -82,6 +82,29 @@ def fake_responses():
     ]
 
 
+def test_task_record_counts_defaulted_file_selectors(tmp_path):
+    dataset = fixture_dataset(tmp_path)
+    output = tmp_path / "system-output"
+    client = FakeClient([
+        data_tool("profile"),
+        data_tool("done", summary="Profiled the selected input."),
+        pxp("REVISE"),
+        pxp("RATIFY"),
+        pxp("RATIFY"),
+        {"pipeline_code": "# synthetic pipeline"},
+    ])
+    system = KramaBenchSystem(client=client, output_dir=output)
+    system.process_dataset(dataset)
+
+    system.serve_query("Read the selected records.", "selector-default", ["records.csv"])
+
+    saved = json.loads(next((output / "krama_task_records").glob("*.json")).read_text())
+    assert saved["status"] == "success"
+    assert saved["data_access_trace"][0]["selector_defaulted"] is True
+    assert saved["data_access_trace"][0]["request"]["file"] == "records.csv"
+    assert saved["workflow_counters"]["defaulted_file_selectors"] == 1
+
+
 def test_system_uses_real_pxp_runner_and_returns_official_schema_without_gold(tmp_path):
     dataset = fixture_dataset(tmp_path)
     client = FakeClient(fake_responses())
@@ -166,6 +189,7 @@ def test_system_uses_real_pxp_runner_and_returns_official_schema_without_gold(tm
             "repeated_invalid_request_stops": 0,
             "blocked_done_rejections": 0,
             "duplicate_filter_rejections": 0,
+            "defaulted_file_selectors": 0,
         },
         "completed": True,
     }
@@ -279,6 +303,7 @@ def test_data_tool_limit_failure_persists_generation_trace_and_usage(tmp_path):
             "repeated_invalid_request_stops": 0,
             "blocked_done_rejections": 0,
             "duplicate_filter_rejections": 0,
+            "defaulted_file_selectors": 0,
         },
         "completed": False,
     }
@@ -326,7 +351,7 @@ def test_repeated_invalid_file_selection_persists_recoverable_diagnostics(tmp_pa
     system = KramaBenchSystem(client=client, output_dir=output)
     system.process_dataset(dataset)
 
-    with pytest.raises(DataToolWorkflowError, match="repeated the same invalid file selection"):
+    with pytest.raises(DataToolWorkflowError, match="repeated an invalid file path"):
         system.serve_query("query", "invalid-file-1", ["records.csv"])
 
     saved = json.loads(next((output / "krama_task_records").glob("*.json")).read_text())
@@ -338,7 +363,7 @@ def test_repeated_invalid_file_selection_persists_recoverable_diagnostics(tmp_pa
     assert saved["data_access_diagnostics"]["workflow_iterations"] == 2
     assert saved["data_access_diagnostics"]["tool_invocations"] == 2
     assert saved["errors"][0]["type"] == "DataToolWorkflowError"
-    assert "exact `path` shown in `allowlisted_files`" in saved["errors"][0]["message"]
+    assert "invalid file path 'private.csv'" in saved["errors"][0]["message"]
 
 
 def test_repeated_invalid_structured_request_persists_redacted_attempt_diagnostics(tmp_path):
