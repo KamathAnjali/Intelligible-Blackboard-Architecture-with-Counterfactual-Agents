@@ -53,6 +53,7 @@ class BoardEventType(str, Enum):
     INTELLIGIBILITY_CHANGED = "INTELLIGIBILITY_CHANGED"
     SNAPSHOT_SAVED = "SNAPSHOT_SAVED"
     ROLLBACK_FORKED = "ROLLBACK_FORKED"
+    TRIAL_COMPLETED = "TRIAL_COMPLETED"
 
 
 class BoardEvent(BaseModel):
@@ -139,3 +140,25 @@ class BlackboardState(BaseModel):
     intelligibility: IntelligibilityLevel = IntelligibilityLevel.UNRESOLVED
     deadlocks: list[DeadlockEvent] = Field(default_factory=list)
     counterfactual_events: list[CounterfactualResult] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Trial metrics & summary (Week 3 evaluation and logging)
+# ---------------------------------------------------------------------------
+
+class TrialMetrics(BaseModel):
+    """Aggregated outcome and performance metrics for one trial run."""
+
+    task_id: str
+    converged: bool
+    intelligibility: IntelligibilityLevel
+    iteration_count: int
+    deadlock_count: int
+    deadlock_flag: bool
+    counterfactual_attempts: int
+    counterfactual_applied: bool
+    participating_agents: list[str] = Field(default_factory=list)
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    duration_seconds: float = 0.0
+

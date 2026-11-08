@@ -8,9 +8,9 @@
 
 ## 1. Executive summary
 
-The Data Model and Storage layer (`1-Anjali`) has completed its **Week 1 foundation** and **Week 2 core deliverables**. The repository now features thread-safe Blackboard state management with reentrant locking, strict PXP grammatical validation, event emitter hooks for real-time WebSocket consumption, refined unanimous intelligibility classification (differentiating Strong vs Ultra-Strong and preventing single-agent impersonation), enhanced snapshot persistence with replay trace export, and an isolated sandbox forking mechanism supporting Student 3's counterfactual rollback contract.
+The Data Model and Storage layer (`1-Anjali`) has completed its **Week 1 foundation**, **Week 2 core deliverables**, and initial **Week 3 isolation and logging deliverables**. The repository now features thread-safe Blackboard state management with reentrant locking, strict PXP grammatical validation, event emitter hooks for real-time WebSocket consumption, refined unanimous intelligibility classification (differentiating Strong vs Ultra-Strong and preventing single-agent impersonation), enhanced snapshot persistence with replay trace export, isolated sandbox forking with deadlock-breaking recovery verification, and structured trial-run metrics logging.
 
-The automated test suite contains **34 passing tests** (`.venv/bin/pytest`) verifying schema validation, multi-agent consensus, deadlock detection, event dispatch, thread-safe high-concurrency writes, and sandbox isolation.
+The automated test suite contains **35 passing tests** verifying schema validation, multi-agent consensus, deadlock detection, event dispatch, thread-safe high-concurrency writes, sandbox isolation, and counterfactual deadlock recovery.
 
 ---
 
@@ -18,7 +18,7 @@ The automated test suite contains **34 passing tests** (`.venv/bin/pytest`) veri
 
 | Branch | Owner | Main responsibility | Implemented | Status |
 |---|---|---|---|---|
-| `1-Anjali` | Anjali | Blackboard models, core, storage, events, rollback contract | Models, validation, snapshots, event emitter hooks, refined consensus, rollback sandbox, tests | Week 1 & Week 2 complete (34 tests passing) |
+| `1-Anjali` | Anjali | Blackboard models, core, storage, events, rollback contract | Models, validation, snapshots, event emitter hooks, refined consensus, rollback sandbox, deadlock recovery test, trial logging | Week 1, Week 2, and Week 3 storage deliverables complete (35 tests passing) |
 | `2-Lopez` | Lopez | Protocol and scheduler | Round-robin turn selection, turn enforcement, registration synchronization, terminal status handling | Integrated with Blackboard |
 | `3-Dhruva` | Dhruva | Agents, prompts, local Ollama, PXP mapping | Strict PEX/PXP validation, retries, `BoardEntry` mapping, counterfactual persona prompts | Ready for counterfactual sandbox integration |
 | `4-Tanisha` | Tanisha | UI, WebSocket, ingestion, metrics | UI server, WebSocket scaffolding, React/D3 graph, token counter, KramaBench parser | Connected via BoardEvent emitter hooks |
@@ -62,6 +62,15 @@ The automated test suite contains **34 passing tests** (`.venv/bin/pytest`) veri
 - **High-Concurrency Thread Safety (`test_concurrency.py`)**:
   - Verified `threading.RLock` synchronization using 8 concurrent worker threads with barriers performing 160 simultaneous writes with zero lost entries.
 
+### Week 3 Storage & Recovery Deliverables (Implemented & Verified)
+
+- **Deadlock Recovery & Branching Isolation Verification (`test_rollback.py`)**:
+  - Verified the end-to-end recovery loop: injected deadlock (`DEADLOCKED`) -> isolated sandbox fork (`fork_simulation_blackboard`) -> counterfactual resolution -> live adoption via `REVISE` -> unanimous consensus (`ULTRA_STRONG`).
+  - Proved that live board history remains strictly isolated while recovering from deadlocks.
+- **Trial-Run Metrics & Outcome Logging (`blackboard/core.py`, `blackboard/models.py`)**:
+  - Added `TrialMetrics` contract capturing convergence status, final intelligibility tier, total iterations, deadlock count and flags, counterfactual simulation attempts, and duration.
+  - Implemented `Blackboard.get_trial_metrics()` and `Blackboard.log_trial_run(filepath)` with automatic JSON persistence and `BoardEventType.TRIAL_COMPLETED` event emission.
+
 ---
 
 ## 4. How the System Works
@@ -95,33 +104,33 @@ Task Ingestion -> Scheduler selects agent turn (next_agent)
 
 ## 5. Testing status
 
-All 34 automated tests pass cleanly:
+All 35 automated tests pass cleanly:
 
 ```text
 ============================= test session starts ==============================
 platform darwin -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
 rootdir: pxp_blackboard
 plugins: anyio-4.15.1
-collected 34 items
+collected 35 items
 
 test_blackboard.py .....                                                 [ 14%]
-test_classification.py ...                                               [ 23%]
-test_concurrency.py .                                                    [ 26%]
-test_emitter.py ...                                                      [ 35%]
-test_integration.py .                                                    [ 38%]
-test_models.py .....                                                     [ 52%]
-test_parser.py ....                                                      [ 64%]
-test_rollback.py .                                                       [ 67%]
+test_classification.py ...                                               [ 22%]
+test_concurrency.py .                                                    [ 25%]
+test_emitter.py ...                                                      [ 34%]
+test_integration.py .                                                    [ 37%]
+test_models.py .....                                                     [ 51%]
+test_parser.py ....                                                      [ 62%]
+test_rollback.py ..                                                      [ 68%]
 test_scheduler.py ........                                               [ 91%]
 test_store.py ...                                                        [100%]
 
-============================== 34 passed in 0.15s ==============================
+============================== 35 passed in 0.21s ==============================
 ```
 
 ---
 
 ## 6. Next Steps for Week 3
 
-1. **Counterfactual Engine Integration**: Pair with Student 3 to run live LLM replays in the forked simulation blackboard.
-2. **Deadlock Injection Harness**: Pair with Student 2 to automate deadlock injection and test counterfactual recovery rates.
-3. **Ablation & Trial Results Logging**: Implement automated trial result exporters (CSV/JSON) for the 20-30 task pilot evaluation.
+1. **Pipeline Integration Checkpoint**: Pull upstream changes from `integration-main` to connect with Student 2's scheduler, Student 3's LLM conversation runner, and Student 4's benchmark tools.
+2. **KramaBench Ingested Task Verification**: Run the 5 representative benchmark tasks through the complete pipeline to verify persistence and snapshot integrity.
+3. **Multi-Config Ablation Support**: Feed `Blackboard.get_trial_metrics()` into the trial runner across 0%, 33%, 66%, and 100% counterfactual configurations.

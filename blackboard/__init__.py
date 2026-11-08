@@ -9,6 +9,7 @@ from .models import (
     DeadlockEvent,
     IntelligibilityLevel,
     PXPTag,
+    TrialMetrics,
 )
 from .store import BackingStore, InMemoryJSONStore
 
@@ -23,6 +24,7 @@ __all__ = [
     "DeadlockEvent",
     "IntelligibilityLevel",
     "PXPTag",
+    "TrialMetrics",
     "BackingStore",
     "InMemoryJSONStore",
 ]
