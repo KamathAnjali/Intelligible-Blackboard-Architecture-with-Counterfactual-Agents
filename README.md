@@ -1,262 +1,92 @@
-# Intelligible-Blackboard-Architecture-with-Counterfactual-Agents
+# Intelligible Blackboard with Counterfactual Agents
 
-## PXP Blackboard
+This project studies whether agents sharing predictions and explanations can reach correct, intelligible answers. Contributions use four PXP tags: `RATIFY`, `REVISE`, `REFUTE`, and `REJECT`. The planned counterfactual mechanism will explore altered earlier contributions in an isolated replay before updating a live session.
 
-## Environment Setup & Team Guidelines
+`integration-main` contains all four workstreams:
 
-This README covers the development environment, local LLM setup, repository layout, and team conventions for working on PXP Blackboard.
+| Source branch | Integrated contribution |
+| --- | --- |
+| `1-Anjali` | Board contracts, synchronized state, events, consensus classification, snapshots, history slicing, and isolated board forks. |
+| `2-Lopez` | Event-driven round-robin scheduling, turn ownership checks, and terminal-state handling. |
+| `3-Dhruva` | Local Ollama inference, four personas, structured output validation, retries, explanation self-checks, conversations, and published run records. |
+| `4-Tanisha` | FastAPI/WebSocket backend, React/D3 interface, replay, task ingestion, token estimates, and benchmark infrastructure. |
 
----
+See the [progress report](docs/PROGRESS_REPORT.md) for implemented behavior and the [milestones](docs/PROJECT_MILESTONES.md) for planned work. Counterfactual scoring, live adoption, and official benchmark evaluation remain pending.
 
-## 1. Development Environment
+## Setup from WSL
 
-### Recommended: Develop locally
+Use one checkout of `integration-main`. For a new checkout:
 
-Each teammate should run the blackboard, agents, and UI on their own machine and work from the shared GitHub repository.
-
-| Environment | Guidance |
-|---|---|
-| **Local machine** | Recommended for daily development and demos. Use Ollama to run the agreed local model. |
-| **Google Colab** | Use only for one-off experiments, such as testing a prompt. Colab runtimes can disconnect or recycle, so it is not suitable for the persistent server, scheduler, or stateful agents. |
-| **Shared cloud VM** | Optional for the Week 3 ablation batch if local runs are too slow. A teammate with suitable GPU access may run the benchmark locally instead. |
-
-### Team environment agreement
-
-Before development gets underway, agree on and document:
-
-- Python version
-- Node.js version (for the frontend)
-- Ollama model name and exact tag
-- Model quantization, where applicable
-- Required environment variables and default ports
-
-Keep these choices consistent across machines to reduce setup issues and make benchmark results comparable.
-
----
-
-## 2. Local LLM Setup
-
-### Ollama (team default)
-
-Ollama is the recommended local runtime for macOS, Windows, and Linux.
-
-1. Install Ollama:
-   - **Linux:**  
-     ```bash
-     curl -fsSL https://ollama.com/install.sh | sh
-     ```
-   - **macOS / Windows:** Download and install it from [ollama.com](https://ollama.com).
-2. Pull the model agreed upon by the team. Candidate examples:
-   ```bash
-   ollama pull mistral:7b-instruct
-   # or
-   ollama pull llama3:8b-instruct
-   ```
-3. Ollama serves its local API at:
-   ```text
-   http://localhost:11434
-   ```
-4. Configure the agent wrapper to use the local Ollama endpoint.
-5. Confirm that all teammates are using the same model identifier and tag.
-
-> **Important:** Choose one model as a team and pin its exact name/tag and quantization in `.env.example` and this README. Do not silently switch models during comparable experiments.
-
-### Optional: vLLM
-
-Use vLLM only if a teammate has an NVIDIA GPU and needs higher throughput for the Week 3 benchmark batch. It generally requires Linux and compatible NVIDIA/CUDA setup, so it is not the default for daily development.
-
-Example:
-
-```bash
-pip install vllm
-vllm serve mistralai/Mistral-7B-Instruct-v0.3
+```sh
+git clone --branch integration-main https://github.com/KamathAnjali/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents.git
+cd Intelligible-Blackboard-Architecture-with-Counterfactual-Agents
 ```
 
----
+The existing Make recipes run Windows PowerShell, Windows Python, and Windows Ollama from WSL. Install GNU Make in WSL and Python 3.10+, Ollama, and Node.js/npm on Windows. Run from the repository root:
 
-## 3. Repository Structure
-
-Use a single monorepo, organized around the team's responsibility boundaries.
-
-```text
-pxp-blackboard/
-├── blackboard/          # Student 1 — schema, store, scheduler
-│   ├── models.py        # PXP tags and shared message contract
-│   ├── store.py
-│   ├── core.py
-│   └── scheduler.py
-├── agents/              # Student 2 — LLM wrappers, prompts, sandbox
-│   ├── llm_client.py
-│   ├── prompts/
-│   └── counterfactual.py
-├── ui/                  # Student 3 — interface
-│   ├── server/          # FastAPI + WebSocket
-│   └── frontend/        # React + D3/Vis.js
-├── bench/               # Student 3 — dataset ingest and evaluation
-│   ├── ingest/
-│   └── metrics/
-├── tests/
-├── docs/
-│   ├── Schema_Draft.md
-│   ├── API_USAGE.md
-│   ├── rollback-contract.md
-│   ├── PROGRESS_REPORT.md
-│   ├── progress_report_week2.md
-│   └── PROJECT_MILESTONES.md
-├── architecture/
-│   ├── ADR-001-Storage-Architecture.md
-│   └── backing-store.md
-├── .env.example
-├── .gitignore
-├── requirements.txt
-└── README.md
+```sh
+sudo apt install -y make
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'py -3 -m venv .venv'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '& .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r ui/server/requirements.txt httpx'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'npm.cmd --prefix ui/frontend ci'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '& "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe" pull qwen3:4b-instruct-2507-q4_K_M'
 ```
 
-### Shared contract: `blackboard/models.py`
+The Ollama command uses its default Windows installation path. The frontend's supported Node versions are specified in its lockfile. Native macOS/Linux environments can install the same dependencies and invoke the Python modules and npm directly.
 
-All three teammates depend on `blackboard/models.py`. Treat it as the shared interface between components.
+## Local agent commands
 
-- Freeze the message schema around **Week 1, Days 3–4**.
-- Document the agreed contract in `docs/pxp-message-contract.md`.
-- Any change after the freeze must be discussed with both teammates before merging.
-- PRs that modify `models.py` must explicitly tag both other teammates for review.
-
----
-
-## 4. Getting Started
-
-### Prerequisites
-
-Install:
-
-- Git
-- The agreed Python version
-- Node.js and npm (for the React frontend)
-- Ollama and the agreed model
-
-### Clone the repository
-
-```bash
-git clone <REPOSITORY_URL>
-cd pxp-blackboard
+```sh
+make start
+make conversation TURNS=6 RETRIES=2
+make disagreement TURNS=6 RETRIES=2
 ```
 
-### Set up Python
+`conversation` runs two agents on the default task. `disagreement` registers a proposer, evidence auditor, and counterexample challenger against a marked synthetic incorrect claim; subsequent responses come from the model. Its check requires correction to the expected answer and agreement by all three agents.
 
-```bash
-python -m venv .venv
+| Recipe | Purpose |
+| --- | --- |
+| `make help` | List commands. |
+| `make start` / `make stop` | Start Ollama / unload the model. |
+| `make chat` / `make query` | Interactive chat / one prompt. |
+| `make gpu` | Display model placement and device logs. |
+| `make latency RUNS=5` | Measure load and warm-request latency. |
+| `make samples` | Run five structured PEX examples. |
+| `make pex PERSONA=evidence_auditor RETRIES=2` | Generate a validated prediction and explanation. |
+| `make entry PERSONA=counterexample_challenger` | Generate a BoardEntry without posting it. |
+| `make conversation TURNS=6 RETRIES=2` | Run a bounded two-agent session. |
+| `make disagreement TURNS=6 RETRIES=2` | Run the three-agent scenario; turns must be 5-12. |
+| `make demo` | Check the existing three-turn live sequence. |
+| `make personas` / `make test` | Run existing live persona checks / offline checks. |
 
-# macOS / Linux
-source .venv/bin/activate
+`PERSONA` also accepts `aggressive_proposer` and `cautious_verifier`. General conversations allow 1-12 turns; retries allow 0-5. A valid candidate receives a separate explanation review using the same model. Generation and review usage are retained in the transcript.
 
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
+## UI and backend
 
-pip install -r requirements.txt
+Start the backend from WSL in one terminal:
+
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '$env:BOARD_MODE="LIVE_TAP"; & .\.venv\Scripts\python.exe -m uvicorn ui.server.main:app --port 8000'
 ```
 
-If the project uses `pyproject.toml` instead of `requirements.txt`, follow the install command documented there.
+Start the frontend in another terminal and open `http://localhost:5173`:
 
-### Configure environment variables
-
-```bash
-cp .env.example .env
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'npm.cmd --prefix ui/frontend run dev'
 ```
 
-On Windows, copy `.env.example` to `.env` using your file manager or PowerShell.
+To start a conversation owned by this backend, use a third terminal:
 
-Fill in local paths, ports, and model settings as required. **Never commit `.env` or secrets.** Keep `.env.example` updated with placeholder values only.
-
-Example settings to document in `.env.example`:
-
-```dotenv
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=<team-agreed-model-tag>
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/conversation/start -ContentType "application/json" -Body (@{scenario="disagreement"; turns=6; retries=2} | ConvertTo-Json)'
 ```
 
-### Run the system
+The standalone Make conversation runs in a separate process. The backend endpoint runs the conversation whose actual board events are sent to the UI. Omitting `BOARD_MODE` starts recorded replay using `bench/data/recorded_session.json`, which is a synthetic fixture. The UI's token panel estimates board-entry text; full inference usage is recorded separately in transcripts.
 
-Commands below assume the repository uses the paths shown in the structure above. Adjust them if the implementation differs.
+## Saved records and benchmarks
 
-```bash
-# Backend
-uvicorn ui.server.main:app --reload
-```
+Published records are tracked in `results/transcripts/<conversation-id>.json` and `results/snapshots/<conversation-id>.json`. Two partial runs have recovered snapshots; their original empty files are retained in `results/snapshots/originals/`. Raw records preserve the observed model responses and do not establish answer correctness.
 
-In another terminal:
+New runs still write to `results/conversations/`; inference reports use `results/ollama/`. These generated directories, benchmark results, and local raw datasets remain ignored. Existing files are preserved when records are copied into the published archive.
 
-```bash
-# Frontend
-cd ui/frontend
-npm install
-npm run dev
-```
-
-Run the core sanity-check demo, if present:
-
-```bash
-python demo.py
-```
-
----
-
-## 5. Git and Pull Request Guidelines
-
-### Branching
-
-- Keep `main` runnable at all times.
-- Create a branch for each feature or fix.
-- Do not push directly to `main`.
-- Open a pull request (PR) and get at least **one teammate review** before merging.
-
-Suggested branch names:
-
-```text
-infra/scheduler
-agents/rollback-sandbox
-ui/graph-view
-```
-
-### Commits
-
-- Make small, focused, frequent commits.
-- Use clear commit messages that describe the change.
-- Avoid one large end-of-week dump.
-
-### Pull requests
-
-Every PR should:
-
-- Explain what changed and why.
-- Link the relevant milestone or sprint task.
-- Mention how the change was tested.
-- Call out any interface, environment, or dependency changes.
-- Tag both other teammates if `blackboard/models.py` changes.
-
----
-
-## 6. Team Coordination
-
-- **Daily async check-in:** Post what you completed, what you plan next, and any blockers in the team's Slack/Discord thread.
-- **Schema freeze:** Hold a short team sync around Week 1, Days 3–4 to agree on `blackboard/models.py`.
-- **Data-contract review:** Schedule the Day 10 retrospection/data-contract review on the shared calendar.
-- **Weekly demo:** Demo progress every Friday, even if the implementation is still rough.
-- **Cross-boundary changes:** Discuss changes that affect another teammate's interface before merging them.
-
----
-
-## 7. Week 1 Setup Checklist
-
-- [ ] Agree on Python and Node.js versions.
-- [ ] Select and pin the shared Ollama model/tag and quantization.
-- [ ] Create the monorepo and confirm ownership boundaries.
-- [ ] Add `.env.example` and ensure `.env` is gitignored.
-- [ ] Confirm every teammate can install dependencies and run the core demo.
-- [ ] Agree on branch naming, PR review, and commit conventions.
-- [ ] Freeze `blackboard/models.py` and document the contract.
-- [ ] Schedule the Day 10 review and Friday demos.
-
----
-
-*PXP Blackboard — Team working guide*
-
+`bench/ingest/` loads task records; `bench/metrics/` provides token accounting, synthetic CSV exports, and evaluator-gated plotting. `example` and `dry_run` are synthetic modes. `pilot` and `full_study` remain disabled until real benchmark execution and the official evaluator are connected.

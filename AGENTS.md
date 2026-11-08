@@ -8,7 +8,7 @@
 - Do not create a separate document for each task. Update the relevant project document instead.
 - Keep project information consistent across the README and progress report.
 - Do not use wording that addresses students as instructions. Describe the project and its current state directly.
-- Use normal hyphens (`-`); do not use em dashes (`—`).
+- Use normal hyphens (`-`); do not use em dashes.
 
 ## Tests
 

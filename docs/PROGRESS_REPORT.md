@@ -1,136 +1,45 @@
-# Project Progress Report
+# Progress report
 
-**Updated:** September 2026  
-**Workstream Focus:** Student 1 - Data Model & Storage (`1-Anjali`)  
-**Basis:** Latest integrated branch state (`1-Anjali`)
+Updated 5 October 2026 for `integration-main` (with Student 1 Week 3 Storage & Recovery additions).
 
----
+## Integrated sources
 
-## 1. Executive summary
+All four source branch tips are included through Git merge history. Existing source files, documentation, and data are retained.
 
-The Data Model and Storage layer (`1-Anjali`) has completed its **Week 1 foundation**, **Week 2 core deliverables**, and initial **Week 3 isolation and logging deliverables**. The repository now features thread-safe Blackboard state management with reentrant locking, strict PXP grammatical validation, event emitter hooks for real-time WebSocket consumption, refined unanimous intelligibility classification (differentiating Strong vs Ultra-Strong and preventing single-agent impersonation), enhanced snapshot persistence with replay trace export, isolated sandbox forking with deadlock-breaking recovery verification, and structured trial-run metrics logging.
+| Branch | Included tip | Contribution |
+| --- | --- | --- |
+| `1-Anjali` | `cdf18c3` | Data contracts, synchronized board/storage, events, refined consensus, sandbox isolation, deadlock-breaking recovery verification, and trial-run metrics logging. |
+| `2-Lopez` | `9554aae` | Event-driven scheduling, turn enforcement, and scheduler lifecycle. |
+| `3-Dhruva` | `6d7b9d8` | Day 9 agent workflows and the conversation archive. |
+| `4-Tanisha` | `bc777ba` | UI/backend, ingestion, metrics, and benchmark infrastructure. |
 
-The automated test suite contains **35 passing tests** verifying schema validation, multi-agent consensus, deadlock detection, event dispatch, thread-safe high-concurrency writes, sandbox isolation, and counterfactual deadlock recovery.
+## Implemented behavior
 
----
+| Area | Current implementation |
+| --- | --- |
+| Board and storage | Pydantic contracts, synchronized mutations, JSON snapshots, replay export, event subscriptions, and structured trial-run metrics logging (`TrialMetrics`). Consensus requires matching RATIFY predictions from every active agent; a four-entry negative streak flags deadlock; constructive revisions allow deadlock recovery. |
+| Scheduler | Uses the board registry, reserves round-robin turns, rejects submissions from the wrong agent, and stops on terminal board status. Board events can wake the orchestration loop through `wait_for_next_agent()`; the current conversation runner still uses `next_agent()`. |
+| Local inference | Shared `qwen3:4b-instruct-2507-q4_K_M` model, context 4096, temperature 0, seed 42, and a 768-token generation cap. |
+| Structured agents | Four personas share strict PEX/PXP schemas. A separate model call checks explanation support; malformed or rejected outputs trigger bounded retries before entry creation. |
+| Conversations | Two-agent sessions and the three-agent seeded disagreement case submit entries through the scheduler. Reports contain prompts, raw responses, reviews, failures, usage, outcomes, and board checkpoints. |
+| UI/backend | FastAPI health and conversation-start endpoints, WebSocket board streaming, React/D3 graph layouts, node inspection, history scrubbing, and estimated entry-text token totals. LIVE_TAP attaches to the backend's in-process conversation board; replay and mock sources remain available. |
+| Ingestion and metrics | JSON/JSONL parsing supports the upstream KramaBench record shape. Synthetic trial modes produce CSVs; plotting requires official evaluator provenance. |
+| Sandbox foundations | History slices, isolated board forks, and deadlock-breaking recovery verification (`test_rollback.py`) are implemented. Sandbox branches remain strictly isolated while recovering deadlocked live sessions. |
 
-## 2. Team contribution map
+## Published conversation records
 
-| Branch | Owner | Main responsibility | Implemented | Status |
-|---|---|---|---|---|
-| `1-Anjali` | Anjali | Blackboard models, core, storage, events, rollback contract | Models, validation, snapshots, event emitter hooks, refined consensus, rollback sandbox, deadlock recovery test, trial logging | Week 1, Week 2, and Week 3 storage deliverables complete (35 tests passing) |
-| `2-Lopez` | Lopez | Protocol and scheduler | Round-robin turn selection, turn enforcement, registration synchronization, terminal status handling | Integrated with Blackboard |
-| `3-Dhruva` | Dhruva | Agents, prompts, local Ollama, PXP mapping | Strict PEX/PXP validation, retries, `BoardEntry` mapping, counterfactual persona prompts | Ready for counterfactual sandbox integration |
-| `4-Tanisha` | Tanisha | UI, WebSocket, ingestion, metrics | UI server, WebSocket scaffolding, React/D3 graph, token counter, KramaBench parser | Connected via BoardEvent emitter hooks |
+Five transcripts and five usable snapshots are tracked under `results/transcripts/` and `results/snapshots/`. Three runs completed with a recorded scheduler-consensus outcome; two contain partial checkpoints and retain their original `running` outcome. Consensus labels do not independently establish answer correctness.
 
----
+Snapshots for `conversation-20260929T144759406083Z` and `conversation-20260929T144943919595Z` were recovered from the board state embedded in their transcripts. The original zero-byte snapshot files are retained in `results/snapshots/originals/`. All other published records are unchanged copies of their local originals.
 
-## 3. Student 1 Deliverables Summary
+The Day 9 records show an initial auditor correction labeled REFUTE, followed by prompt tuning and a repeated five-turn sequence ending at `C: insufficient information`. The two completed disagreement runs retain their original generation and explanation-review evidence.
 
-### Week 1 Deliverables (Verified)
+New conversation checkpoints, Ollama reports, benchmark outputs, and raw dataset clones remain ignored; publication is a separate archive operation.
 
-- **BlackboardState Schema Draft & Justification**: Defined in `docs/Schema_Draft.md` and `blackboard/models.py`, listing every field (`task_id`, `entries`, `agents`, `intelligibility`, `deadlocks`, `counterfactual_events`) with types. Includes the 3-sentence justification for the append-only chronological list structure.
-- **Backing-Store ADR**: Documented in `architecture/backing-store.md` and `architecture/ADR-001-Storage-Architecture.md` (in-memory dict with JSON snapshots chosen; Redis deferred).
-- **Python Package Skeleton**: Scaffolded in `blackboard/` (`__init__.py`, `models.py`, `store.py`, `core.py`, `scheduler.py`).
-- **BoardEntry Pydantic Contract & Sample Payloads**: `BoardEntry` pydantic model with validation for non-empty fields, valid tags, and target IDs; 3 hand-written example payloads documented in `docs/Schema_Draft.md`.
-- **PXP Grammatical Parser & Unit Tests**: Verified via `test_parser.py` and `test_models.py` (malformed input, missing fields, invalid types, and whitespace rejection).
-- **Store Persistence & Snapshot Tests**: Verified in `test_store.py` (empty board, populated board round-trip, corrupted JSON error handling).
-- **Public API Documentation**: Documented in `docs/API_USAGE.md` and docstrings in `blackboard/core.py`.
-- **Multi-Agent RATIFY Integration Test**: Verified in `test_integration.py` driving agents through full consensus.
+## Integration verification and remaining work
 
-### Week 2 Deliverables (Implemented & Verified)
+Integration checks cover source ancestry, archive integrity, absence of unresolved conflict markers, and offline test execution. All core storage and isolation tests pass.
 
-- **Board Event Emitter Hooks (`blackboard/core.py`)**:
-  - Implemented `subscribe()`, `unsubscribe()`, and `_emit()` on `Blackboard`.
-  - Emits real-time `BoardEvent` objects (`AGENT_REGISTERED`, `ENTRY_POSTED`, `DEADLOCK_DETECTED`, `INTELLIGIBILITY_CHANGED`, `SNAPSHOT_SAVED`, `ROLLBACK_FORKED`) for the WebSocket layer.
-  - Listener exceptions are isolated so UI listeners cannot abort core state mutations.
-  - Verified in `test_emitter.py`.
-- **Refined Intelligibility Classification (`blackboard/core.py`)**:
-  - Requires unanimous consensus across all registered active agents (minimum 2 agents).
-  - Anti-impersonation: prevents repeated agreement posts from a single agent from faking consensus.
-  - Enforces matching prediction values.
-  - Tiers: `ULTRA_STRONG` (unanimous consensus reached through productive `REVISE` loops in history) vs `STRONG` (direct unanimous ratification).
-  - Verified in `test_classification.py`.
-- **Board-Snapshot Persistence & Replay (`blackboard/store.py`)**:
-  - Tagged snapshot persistence to disk via `snapshot_to_disk(task_id, tag)`.
-  - Added `list_snapshots()` and `export_replay_trace()` for UI history scrubbing.
-- **Retrospective Rollback Data Contract (`docs/rollback-contract.md`)**:
-  - Defined 5-pillar data contract in sync with Student 3.
-  - Implemented `get_history_slice()` and `fork_simulation_blackboard()` in `Blackboard`.
-  - Guarantees complete isolation between counterfactual simulation branches and the immutable live board history.
-  - Verified in `test_rollback.py`.
-- **High-Concurrency Thread Safety (`test_concurrency.py`)**:
-  - Verified `threading.RLock` synchronization using 8 concurrent worker threads with barriers performing 160 simultaneous writes with zero lost entries.
+The UI's token totals are estimates over prediction/explanation text, while transcript usage includes model generation and review calls. The checked-in replay fixture is synthetic. No official KramaBench performance results have been produced: the current trial runner uses synthetic data and keeps empirical modes disabled.
 
-### Week 3 Storage & Recovery Deliverables (Implemented & Verified)
-
-- **Deadlock Recovery & Branching Isolation Verification (`test_rollback.py`)**:
-  - Verified the end-to-end recovery loop: injected deadlock (`DEADLOCKED`) -> isolated sandbox fork (`fork_simulation_blackboard`) -> counterfactual resolution -> live adoption via `REVISE` -> unanimous consensus (`ULTRA_STRONG`).
-  - Proved that live board history remains strictly isolated while recovering from deadlocks.
-- **Trial-Run Metrics & Outcome Logging (`blackboard/core.py`, `blackboard/models.py`)**:
-  - Added `TrialMetrics` contract capturing convergence status, final intelligibility tier, total iterations, deadlock count and flags, counterfactual simulation attempts, and duration.
-  - Implemented `Blackboard.get_trial_metrics()` and `Blackboard.log_trial_run(filepath)` with automatic JSON persistence and `BoardEventType.TRIAL_COMPLETED` event emission.
-
----
-
-## 4. How the System Works
-
-### Architectural Flow
-
-```text
-Task Ingestion -> Scheduler selects agent turn (next_agent)
-               -> Agent reads Blackboard history slice
-               -> Local LLM generates structured PXP output
-               -> Scheduler validates turn ownership & submits (submit_entry)
-               -> Blackboard validates schema, agent registry, target links
-               -> Blackboard updates state under RLock protection
-               -> Intelligibility / Deadlock status recomputed
-               -> BoardEvent deltas emitted to WebSocket listeners
-               -> Snapshots persisted to disk for UI replay & debugging
-```
-
-### Component Interaction Details
-
-1. **Turn Management & Submission**:
-   The `Scheduler` queries active agents from `Blackboard.get_agents(active_only=True)` and enforces strict round-robin sequencing. Out-of-turn submissions are rejected with `ValueError`.
-2. **Event Publication**:
-   WebSocket listeners subscribe via `board.subscribe(callback)`. Any state mutation immediately emits a structured `BoardEvent` payload containing the task ID, timestamp, and JSON delta.
-3. **Consensus & Intelligibility**:
-   The classifier evaluates the latest entry from every active agent. If all active agents have submitted `RATIFY` with matching predictions, consensus is established. If `REVISE` was used earlier in the trace, the session is classified as `ULTRA_STRONG`; otherwise `STRONG`. A streak of 4 negative tags (`REFUTE`/`REJECT`) triggers a `DeadlockEvent` and sets status to `DEADLOCKED`.
-4. **Counterfactual Forking**:
-   When a deadlock occurs, Student 3 can call `board.fork_simulation_blackboard(cutoff_entry_id)`. This creates an isolated sandbox board populated with history up to the cutoff point, allowing replay without mutating live history.
-
----
-
-## 5. Testing status
-
-All 35 automated tests pass cleanly:
-
-```text
-============================= test session starts ==============================
-platform darwin -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
-rootdir: pxp_blackboard
-plugins: anyio-4.15.1
-collected 35 items
-
-test_blackboard.py .....                                                 [ 14%]
-test_classification.py ...                                               [ 22%]
-test_concurrency.py .                                                    [ 25%]
-test_emitter.py ...                                                      [ 34%]
-test_integration.py .                                                    [ 37%]
-test_models.py .....                                                     [ 51%]
-test_parser.py ....                                                      [ 62%]
-test_rollback.py ..                                                      [ 68%]
-test_scheduler.py ........                                               [ 91%]
-test_store.py ...                                                        [100%]
-
-============================== 35 passed in 0.21s ==============================
-```
-
----
-
-## 6. Next Steps for Week 3
-
-1. **Pipeline Integration Checkpoint**: Pull upstream changes from `integration-main` to connect with Student 2's scheduler, Student 3's LLM conversation runner, and Student 4's benchmark tools.
-2. **KramaBench Ingested Task Verification**: Run the 5 representative benchmark tasks through the complete pipeline to verify persistence and snapshot integrity.
-3. **Multi-Config Ablation Support**: Feed `Blackboard.get_trial_metrics()` into the trial runner across 0%, 33%, 66%, and 100% counterfactual configurations.
+Remaining work includes runtime integration verification, counterfactual replay/scoring/adoption, and a real benchmark agent/evaluator adapter. The [README](../README.md) contains setup and run commands; the [milestones](PROJECT_MILESTONES.md) retain the planned work.

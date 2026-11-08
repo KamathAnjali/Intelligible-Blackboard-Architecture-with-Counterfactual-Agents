@@ -13,7 +13,7 @@ When agents encounter a deadlock (`DEADLOCK_WINDOW` consecutive negative `REFUTE
 To preserve experimental integrity and prevent live session pollution:
 1. The historical timeline prior to the disputed decision must remain **strictly immutable**.
 2. Simulations must execute in an **isolated sandbox blackboard**.
-3. Evaluated alternatives produce a quantifiable **`delta_score`** before any modification or recommendation is promoted to the live board.
+3. A connected evaluator may produce a **`delta_score`** before an alternative is considered for adoption. Until such an evaluator exists, the score is `null` and the demo must not invent one.
 
 ---
 
@@ -44,12 +44,12 @@ To preserve experimental integrity and prevent live session pollution:
   ```
 
 ### Pillar 4: Simulation Output & Delta Scoring
-- **Definition**: The alternate entries produced inside the sandbox tagged with `is_counterfactual_sim=True` and scored against convergence metrics.
+- **Definition**: Alternate entries produced inside the sandbox are tagged with `is_counterfactual_sim=True`. Scoring requires a separate evaluator and is not implemented by the current demo.
 - **Contract Model**: `CounterfactualResult`
   - `agent_id` (`str`): Agent executing the simulation.
   - `original_entry_id` (`str`): The historical entry rewritten.
   - `simulated_entry` (`BoardEntry`): The alternative proposal generated.
-  - `delta_score` (`float`): Metric measuring probability of downstream consensus (e.g. $[0.0, 1.0]$ or $[-1.0, 1.0]$).
+  - `delta_score` (`float | null`): Optional evaluator output. It must be `null` when no evaluator calculated a score; no scale or probability interpretation is currently defined.
   - `applied_to_live` (`bool`): Whether this outcome was promoted to live execution.
   - `timestamp` (`datetime`): UTC timestamp.
 

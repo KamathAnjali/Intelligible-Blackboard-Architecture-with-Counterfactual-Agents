@@ -4,6 +4,8 @@
 **Date**: September 2026  
 **Status**: Week 1 & Week 2 Core Deliverables Fully Implemented, Integrated, and Verified
 
+> Archived report: this records a historical checkpoint and its test count. Its old Student 4 token-usage wording does not describe the current implementation: the UI counts board-entry text with a heuristic and does not receive full LLM prompt/completion usage. The listed benchmark pilot tasks were not verified in the current checkout; see [the current progress report](PROGRESS_REPORT.md).
+
 ---
 
 ## 1. Executive Summary
