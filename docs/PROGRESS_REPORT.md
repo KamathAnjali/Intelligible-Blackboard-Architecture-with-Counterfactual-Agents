@@ -43,3 +43,24 @@ Integration checks cover source ancestry, archive integrity, absence of unresolv
 The UI's token totals are estimates over prediction/explanation text, while transcript usage includes model generation and review calls. The checked-in replay fixture is synthetic. No official KramaBench performance results have been produced: the current trial runner uses synthetic data and keeps empirical modes disabled.
 
 Remaining work includes runtime integration verification, counterfactual replay/scoring/adoption, and a real benchmark agent/evaluator adapter. The [README](../README.md) contains setup and run commands; the [milestones](PROJECT_MILESTONES.md) retain the planned work.
+
+## Methods: Data Model, Persistence, and Branching State
+
+### 1. Chronological Append-Only State Model
+The blackboard state is modeled as an immutable chronological sequence of typed messages (`BoardEntry`) rather than an indexed overwrite dictionary. Each message contains a unique identifier (`entry_id`), participating agent identity (`agent_id`), grammatical move (`tag` in `{RATIFY, REVISE, REFUTE, REJECT}`), hypothesis statement (`prediction`), reasoning rationale (`explanation`), and causal pointer (`target_entry_id`). This append-only design preserves the full historical derivation graph, enabling deterministic history scrubbing, graph edge linking in visual tooling, and unambiguous deadlock detection.
+
+### 2. Thread-Safe Concurrency and In-Memory Mutations
+Active reasoning turns operate over an in-memory dictionary store (`InMemoryJSONStore`) guarded by a reentrant synchronization lock (`threading.RLock`). All state modifications (agent registration, message submission, intelligibility evaluation, and snapshot creation) are serialized under lock acquisition. Observers, such as WebSocket event taps, subscribe via `Blackboard.subscribe()` and receive asynchronous `BoardEvent` deltas outside critical sections to prevent UI event loops from deadlocking or interrupting core blackboard operations.
+
+### 3. Snapshot Persistence and Replay Trace Generation
+For crash recovery, auditing, and visual scrubbers, in-memory states can be serialized to disk as structured JSON snapshots via `InMemoryJSONStore.snapshot_to_disk()`. Replay traces are generated through `export_replay_trace()`, constructing an incremental step-by-step reconstruction of the deliberative process up to any designated turn without mutating the underlying live state.
+
+### 4. Branching Board State and Counterfactual Isolation
+When an argumentative deadlock is detected (a consecutive window of 4 negative `REFUTE`/`REJECT` entries), counterfactual agents initiate alternative hypothesis testing without polluting the live audit trail:
+- **History Slicing**: `Blackboard.get_history_slice(cutoff_entry_id)` retrieves an isolated sub-slice up to the cutoff, excluding all entries posted after the selected pivot.
+- **Isolated Sandbox Forking**: `Blackboard.fork_simulation_blackboard()` spawns a detached `Blackboard` instance backed by its own in-memory store populated strictly with state up to the cutoff.
+- **Simulation Execution**: Downstream turns execute inside the sandbox with `is_counterfactual_sim=True`.
+- **Live State Protection**: The live blackboard remains completely unaffected during sandbox exploration. If an alternative hypothesis demonstrates consensus convergence, the agent promotes a new live entry (`PXPTag.REVISE`) referencing the revised rationale to resolve the live deadlock.
+
+### 5. Structured Trial-Run Metrics Logging
+Session-level performance and convergence metrics are captured via `TrialMetrics`, tracking task identity, convergence status (`is_converged`), terminal intelligibility level, total turn count, deadlock frequency, counterfactual attempt count, and elapsed time. Results are exported via `Blackboard.log_trial_run()` for downstream benchmark batching and comparative evaluation.
