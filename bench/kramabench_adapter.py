@@ -13,14 +13,18 @@ import glob
 import hashlib
 import inspect
 import json
+import logging
 import os
 import re
 import time
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
+from threading import Lock
 
+from blackboard.models import BoardEventType
 from pydantic import BaseModel, Field, field_validator
 
 from agents.conversation import run_conversation
@@ -35,6 +39,7 @@ from bench.evidence import (
     termination_candidate,
     termination_reason,
 )
+from bench.metrics.token_counter import UsageLedger, UsageRecord, count_tokens_for_entry
 from bench.kramabench_data import (
     DATA_TOOL_SYSTEM_PROMPT,
     DEFAULT_TIMEOUT_SECONDS,
@@ -45,10 +50,12 @@ from bench.kramabench_data import (
 )
 
 DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS = 900
+logger = logging.getLogger(__name__)
 
 
 KRAMABENCH_REVISION = "b2e0d77540263f8b6119f977fe79a8c4386b5a02"
 SAFE_QUERY_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
+_UI_USAGE_EVENT_LOCK = Lock()
 
 PIPELINE_SYSTEM_PROMPT = """Generate the Python data pipeline for the supplied task using only the
 permitted files and the conversation's proposed answer. Return JSON matching
@@ -355,6 +362,114 @@ def _provider_usage(data_usage: dict[str, Any], other_attempts: list[dict[str, A
     }
 
 
+def _publish_ui_board_events(board: Any) -> None:
+    """Bridge actual child-process Blackboard entries to a run-scoped JSONL file."""
+    event_path = os.environ.get("KRAMA_UI_BOARD_EVENT_FILE")
+    if not event_path:
+        return
+    session_id = os.environ.get("KRAMA_UI_SESSION_ID", "")
+    lock = Lock()
+    event_count = 0
+    branch_event_types = {
+        "branch_created", "branch_entry_posted", "counterfactual_result", "live_adjustment_applied",
+    }
+
+    def on_event(board_event: Any) -> None:
+        nonlocal event_count
+        if board_event.event_type is not BoardEventType.ENTRY_POSTED:
+            event_type = getattr(board_event, "event_type", "")
+            raw_kind = getattr(event_type, "value", event_type)
+            if not isinstance(raw_kind, str):
+                raw_kind = getattr(event_type, "name", "")
+            kind = raw_kind.lower()
+            payload = getattr(board_event, "payload", {})
+            if kind not in branch_event_types or not isinstance(payload, dict) or not payload.get("branch_id"):
+                return
+            envelope = {
+                **payload, "type": kind, "source": "LIVE", "session_id": session_id,
+                "task_id": board.task_id,
+            }
+            if kind == "branch_entry_posted" and not isinstance(envelope.get("entry"), dict):
+                return
+            try:
+                target = Path(event_path)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with lock, target.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps(envelope, ensure_ascii=False, default=str) + "\n")
+                    stream.flush()
+            except OSError:
+                logger.exception("Could not write UI counterfactual-event bridge file")
+            return
+        entry = board_event.payload.get("entry")
+        if not isinstance(entry, dict):
+            return
+        event_count += 1
+        envelope = {
+            "type": "board_entry", "source": "LIVE", "session_id": session_id,
+            "task_id": board.task_id, "entry": entry, "entry_count": event_count,
+            "last_entry_id": entry.get("entry_id"),
+        }
+        try:
+            target = Path(event_path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with lock, target.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(envelope, ensure_ascii=False, default=str) + "\n")
+                stream.flush()
+        except OSError:
+            logger.exception("Could not write UI board-event bridge file")
+
+    board.subscribe(on_event)
+
+
+def _append_ui_usage_event(record: dict[str, Any]) -> None:
+    """Append a usage callback record to the UI subprocess bridge when enabled."""
+    event_path = os.environ.get("KRAMA_UI_BOARD_EVENT_FILE")
+    if not event_path:
+        return
+    envelope = {
+        "type": "usage_record", "source": "LIVE", "session_id": record.get("session_id"),
+        "task_id": record.get("task_id"), "record": record,
+    }
+    target = Path(event_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with _UI_USAGE_EVENT_LOCK, target.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(envelope, ensure_ascii=False, default=str) + "\n")
+        stream.flush()
+
+
+class _UsageCallbackClient:
+    """Pass an optional, request-scoped usage callback to compatible clients."""
+
+    def __init__(self, client: Any, callback: Callable[[dict[str, Any]], None], *,
+                 session_id: str, task_id: str, agent_id: str, call_kind: str):
+        self._client = client
+        self._callback = callback
+        self._context = {
+            "session_id": session_id, "task_id": task_id, "agent_id": agent_id,
+            "call_kind": call_kind, "branch_id": None,
+        }
+
+    def __getattr__(self, name: str):
+        return getattr(self._client, name)
+
+    def generate(self, *args, **kwargs):
+        generate = self._client.generate
+        try:
+            parameters = inspect.signature(generate).parameters.values()
+            supports_usage = any(
+                parameter.name == "on_usage" or parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters
+            )
+        except (TypeError, ValueError):
+            supports_usage = False
+        if supports_usage:
+            def forward(record):
+                value = asdict(record) if hasattr(record, "__dataclass_fields__") else dict(record)
+                self._callback({**self._context, **value})
+            kwargs["on_usage"] = forward
+        return generate(*args, **kwargs)
+
+
 def _merge_workflow_counters(current: dict[str, Any], incoming: dict[str, Any] | None) -> dict[str, Any]:
     """Merge data-workflow and conversation guard activations without losing either."""
     merged = dict(current)
@@ -367,6 +482,8 @@ def _merge_workflow_counters(current: dict[str, Any], incoming: dict[str, Any] |
             merged[key] = int(merged.get(key, 0) or 0) + int(value or 0)
         elif key == "max_guard_retries":
             merged[key] = max(int(merged.get(key, 0) or 0), int(value or 0))
+        elif key == "data_loop_degraded":
+            merged[key] = bool(merged.get(key, False) or value)
         elif key in merged and isinstance(value, (int, float)) and isinstance(merged[key], (int, float)):
             merged[key] += value
         else:
@@ -461,6 +578,7 @@ class KramaBenchSystem:
             "model": getattr(self.client, "model", MODEL),
             "base_url": sanitized_base_url(getattr(self.client, "base_url", "local")),
             "model_options": dict(OPTIONS),
+            "model_seed": int(getattr(self.client, "options", OPTIONS).get("seed", OPTIONS["seed"])),
             "prompt_version": _prompt_version(),
             "pipeline_evaluation_enabled": self.pipeline_evaluation_enabled,
             "counterfactual_fraction": self.counterfactual_fraction,
@@ -490,6 +608,8 @@ class KramaBenchSystem:
                 "blocked_done_rejections": 0,
                 "duplicate_filter_rejections": 0,
                 "defaulted_file_selectors": 0,
+                "data_loop_degraded": False,
+                "data_loop_degradation_reason": None,
                 "reviewer_rejections": 0,
                 "counterfactual_triggers": 0,
                 "counterfactual_simulations": 0,
@@ -497,7 +617,36 @@ class KramaBenchSystem:
             },
             "provider_token_usage": {"calls": 0, "prompt_tokens": 0, "output_tokens": 0},
             "errors": [],
+            "data_loop_degraded": False,
+            "data_loop_degradation_reason": None,
+            "data_loop_unverified_summary": None,
         }
+
+        usage_ledger = UsageLedger()
+        usage_records: list[dict[str, Any]] = []
+
+        def on_usage(value: UsageRecord | dict[str, Any]) -> None:
+            usage_record = asdict(value) if isinstance(value, UsageRecord) else dict(value)
+            usage_record.setdefault("session_id", os.environ.get("KRAMA_UI_SESSION_ID") or run_id)
+            usage_record.setdefault("task_id", query_id)
+            usage_ledger.ingest(usage_record)
+            usage_records.append(usage_record)
+            record["usage_records"] = list(usage_records)
+            record["usage_ledger"] = usage_ledger.export_report()
+            ledger_path = self.output_dir / "usage_ledgers" / f"{run_id}.json"
+            usage_ledger.write_json(ledger_path)
+            self._write_record(record)
+            _append_ui_usage_event(usage_record)
+
+        session_usage_id = os.environ.get("KRAMA_UI_SESSION_ID") or run_id
+        data_usage_client = _UsageCallbackClient(
+            self.client, on_usage, session_id=session_usage_id, task_id=query_id,
+            agent_id="data_agent", call_kind="other",
+        )
+        pipeline_usage_client = _UsageCallbackClient(
+            self.client, on_usage, session_id=session_usage_id, task_id=query_id,
+            agent_id="pipeline_generator", call_kind="other",
+        )
 
         toolbox: DatasetToolbox | None = None
         data_attempts: list[dict[str, Any]] = []
@@ -508,7 +657,10 @@ class KramaBenchSystem:
             toolbox = DatasetToolbox(self.dataset_directory, paths, task_deadline=wall_deadline)
             record["permitted_files"] = [dict(item) for item in toolbox.catalog()["files"]]
             record["precomputed_file_profiles"] = toolbox.precomputed_profiles()
-            prepared = gather_dataset_evidence(self.client, query, toolbox)
+            prepared = gather_dataset_evidence(
+                data_usage_client, query, toolbox,
+                precomputed_profiles=record["precomputed_file_profiles"],
+            )
             data_attempts = prepared["attempts"]
             record["data_access_trace"] = prepared["trace"]
             record["data_access_usage"] = prepared["usage"]
@@ -519,6 +671,22 @@ class KramaBenchSystem:
                 for profile in record["precomputed_file_profiles"]
             ] + prepared["evidence"].get("observations", [])
             record["data_access_request_diagnostics"] = prepared["request_diagnostics"]
+            record["data_loop_degraded"] = bool(prepared.get("data_loop_degraded", False))
+            record["data_loop_degradation_reason"] = prepared.get("data_loop_degradation_reason")
+            if record["data_loop_degraded"]:
+                record["data_loop_unverified_summary"] = None
+                for item in reversed(prepared["request_diagnostics"]):
+                    excerpt = item.get("rejected_request")
+                    if isinstance(excerpt, str):
+                        try:
+                            excerpt = json.loads(excerpt)
+                        except json.JSONDecodeError:
+                            continue
+                    if isinstance(excerpt, dict) and isinstance(excerpt.get("summary"), str):
+                        record["data_loop_unverified_summary"] = excerpt["summary"]
+                        break
+                prepared["workflow_diagnostics"]["workflow_counters"]["data_loop_degraded"] = True
+                prepared["workflow_diagnostics"]["workflow_counters"]["data_loop_degradation_reason"] = prepared.get("data_loop_degradation_reason")
             record["workflow_counters"] = _merge_workflow_counters(
                 record["workflow_counters"],
                 prepared["workflow_diagnostics"].get("workflow_counters"),
@@ -549,14 +717,14 @@ class KramaBenchSystem:
                 query, prepared["evidence"], subset_files, verified_rate=verified_rate
             )
             conversation_dir = self.output_dir / "krama_conversations" / run_id
-            conversation_report, transcript_path = self.conversation_runner(
-                self.client,
+            conversation_kwargs = dict(
                 task=agent_task,
                 max_turns=self.max_turns,
                 max_retries=self.max_retries,
                 output_dir=conversation_dir,
                 scenario="default",
                 task_id=query_id,
+                on_board_created=_publish_ui_board_events,
                 initial_facts=profile_messages + evidence_messages,
                 termination_trace=termination_trace,
                 termination_guard=lambda trace, answer: can_terminate(trace, answer),
@@ -570,6 +738,17 @@ class KramaBenchSystem:
                 counterfactual_streak_threshold=self.counterfactual_streak_threshold,
                 max_counterfactual_simulations=self.max_counterfactual_simulations,
             )
+            try:
+                parameters = inspect.signature(self.conversation_runner).parameters.values()
+                supports_usage = any(
+                    parameter.name == "on_usage" or parameter.kind == inspect.Parameter.VAR_KEYWORD
+                    for parameter in parameters
+                )
+            except (TypeError, ValueError):
+                supports_usage = False
+            if supports_usage:
+                conversation_kwargs["on_usage"] = on_usage
+            conversation_report, transcript_path = self.conversation_runner(self.client, **conversation_kwargs)
             record["workflow_counters"] = _merge_workflow_counters(
                 record["workflow_counters"], conversation_report.get("workflow_counters")
             )
@@ -599,7 +778,7 @@ class KramaBenchSystem:
             )
             if answer_is_verified:
                 answer = agent_answer
-                answer_source = "agent_consensus"
+                answer_source = "degraded_agent_consensus" if record.get("data_loop_degraded") else "agent_consensus"
                 answer_explanation = str(final_entry.get("explanation", ""))
             elif verified_rate is not None:
                 # A validated complete category aggregate is an independently
@@ -607,7 +786,10 @@ class KramaBenchSystem:
                 # PXP path in the task record, while returning the exact rate
                 # rather than turning a proven calculation into a refusal.
                 answer = verified_rate["answer"]
-                answer_source = "verified_data_calculation_fallback"
+                answer_source = (
+                    "degraded_verified_data_calculation_fallback"
+                    if record.get("data_loop_degraded") else "verified_data_calculation_fallback"
+                )
                 answer_explanation = (
                     f"Calculated from {verified_rate['numerator']} of "
                     f"{verified_rate['denominator']} rows in the task-selected population; "
@@ -624,7 +806,7 @@ class KramaBenchSystem:
             record["agent_conversation_failures"] = conversation_report.get("failures", [])
 
             generated = self.pipeline_generator(
-                self.client,
+                pipeline_usage_client,
                 agent_task,
                 answer,
                 answer_explanation,
@@ -718,6 +900,56 @@ class KramaBenchSystem:
             if toolbox is not None:
                 record["data_operation_processing_seconds"] = list(toolbox.operation_seconds)
                 toolbox.close()
+            if not usage_records:
+                aggregate = record.get("provider_token_usage", {})
+                if int(aggregate.get("calls", 0) or 0) > 0:
+                    usage_ledger.ingest_aggregate(
+                        session_id=os.environ.get("KRAMA_UI_SESSION_ID") or run_id,
+                        task_id=query_id,
+                        source="provider",
+                        prompt_tokens=int(aggregate.get("prompt_tokens", 0) or 0),
+                        completion_tokens=int(aggregate.get("output_tokens", 0) or 0),
+                        calls=int(aggregate.get("calls", 0) or 0),
+                    )
+                elif conversation_report is not None:
+                    # Preserve the fallback as explicitly scoped board-entry text estimates.
+                    for entry in conversation_report.get("board", {}).get("entries", []):
+                        counts = count_tokens_for_entry(
+                            str(entry.get("prediction", "")), str(entry.get("explanation", "")),
+                            agent_id=str(entry.get("agent_id", "unknown")),
+                            model_name=str(record.get("model", MODEL)),
+                        )
+                        is_sim = bool(entry.get("is_counterfactual_sim", False))
+                        usage_record = UsageRecord(
+                            session_id=os.environ.get("KRAMA_UI_SESSION_ID") or run_id,
+                            task_id=query_id,
+                            agent_id=str(entry.get("agent_id", "unknown")),
+                            call_kind="counterfactual_sim" if is_sim else "other",
+                            branch_id=entry.get("branch_id"),
+                            prompt_tokens=0,
+                            completion_tokens=counts["total_tokens"],
+                            total_tokens=counts["total_tokens"],
+                            source="estimated",
+                            model=str(record.get("model", MODEL)),
+                            started_at=str(entry.get("timestamp") or started_at.isoformat()),
+                            duration_ms=0,
+                        )
+                        usage_ledger.ingest(usage_record)
+                    record["usage_records"] = [asdict(item) for item in usage_ledger.records]
+            record["usage_ledger"] = usage_ledger.export_report()
+            aggregate_usage = record.get("provider_token_usage", {})
+            aggregate_provider_tokens = int(aggregate_usage.get("prompt_tokens", 0) or 0) + int(
+                aggregate_usage.get("output_tokens", 0) or 0
+            )
+            callback_provider_tokens = int(record["usage_ledger"].get("provider_total_tokens", 0) or 0)
+            record["usage_ledger_reconciliation"] = {
+                "provider_aggregate_tokens": aggregate_provider_tokens,
+                "ledger_provider_tokens": callback_provider_tokens,
+                "matches": aggregate_provider_tokens == callback_provider_tokens,
+                "per_call_attribution_available": bool(usage_records),
+            }
+            ledger_path = self.output_dir / "usage_ledgers" / f"{run_id}.json"
+            usage_ledger.write_json(ledger_path)
             record["finished_at"] = datetime.now(timezone.utc).isoformat()
             record["runtime_seconds"] = round(time.perf_counter() - start, 4)
             record["task_wall_clock_elapsed_seconds"] = round(time.monotonic() - (wall_deadline - self.task_wall_clock_cap_seconds), 4)

@@ -18,9 +18,13 @@ Integration Point (Student 3 — Week 2/3):
 from __future__ import annotations
 
 import logging
+import json
+import os
+import threading
 from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 from agents.llm_client import MODEL
 
@@ -28,6 +32,191 @@ logger = logging.getLogger("token-counter")
 
 # Keep token accounting metadata aligned with the project agent default.
 _DEFAULT_MODEL: str = MODEL
+
+
+@dataclass(frozen=True)
+class UsageRecord:
+    """One model-call usage observation, either provider reported or estimated."""
+
+    session_id: str
+    task_id: str
+    agent_id: str
+    call_kind: str
+    branch_id: str | None
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    source: str
+    model: str
+    started_at: str
+    duration_ms: int
+
+    def validate(self) -> None:
+        if self.call_kind not in {"proposer", "self_check", "retry", "counterfactual_sim", "other"}:
+            raise ValueError(f"unsupported UsageRecord.call_kind: {self.call_kind}")
+        if self.source not in {"provider", "estimated"}:
+            raise ValueError("UsageRecord.source must be provider or estimated")
+        for name in ("prompt_tokens", "completion_tokens", "total_tokens", "duration_ms"):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"UsageRecord.{name} must be a non-negative integer")
+        if self.total_tokens != self.prompt_tokens + self.completion_tokens:
+            raise ValueError("UsageRecord.total_tokens must equal prompt_tokens + completion_tokens")
+
+
+class UsageLedger:
+    """Thread-safe call ledger with explicit provider/estimate and branch accounting."""
+
+    def __init__(self) -> None:
+        self._records: list[UsageRecord] = []
+        self._aggregates: list[dict[str, Any]] = []
+        self._lock = threading.RLock()
+
+    @property
+    def records(self) -> tuple[UsageRecord, ...]:
+        with self._lock:
+            return tuple(self._records)
+
+    def ingest(self, value: UsageRecord | Mapping[str, Any]) -> dict[str, Any]:
+        if isinstance(value, UsageRecord):
+            record = value
+        elif isinstance(value, Mapping):
+            record = UsageRecord(**dict(value))
+        else:
+            raise TypeError("usage record must be a UsageRecord or mapping")
+        record.validate()
+        with self._lock:
+            self._records.append(record)
+            return self.export_report()
+
+    def ingest_aggregate(self, *, session_id: str, task_id: str, source: str,
+                         prompt_tokens: int, completion_tokens: int, calls: int | None = None) -> dict[str, Any]:
+        """Keep an existing provider aggregate without inventing per-call attribution."""
+        if source not in {"provider", "estimated"}:
+            raise ValueError("aggregate source must be provider or estimated")
+        values = (prompt_tokens, completion_tokens)
+        if any(type(value) is not int or value < 0 for value in values):
+            raise ValueError("aggregate token counts must be non-negative integers")
+        if calls is not None and (type(calls) is not int or calls < 0):
+            raise ValueError("aggregate calls must be a non-negative integer or None")
+        with self._lock:
+            self._aggregates.append({
+                "session_id": session_id, "task_id": task_id, "source": source,
+                "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens, "calls": calls,
+            })
+            return self.export_report()
+
+    @staticmethod
+    def _empty_bucket() -> dict[str, int]:
+        return {"calls": 0, "provider_calls": 0, "estimated_calls": 0,
+                "provider_tokens": 0, "estimated_tokens": 0,
+                "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    @classmethod
+    def _add(cls, bucket: dict[str, int], record: UsageRecord) -> None:
+        bucket["calls"] += 1
+        bucket[f"{record.source}_calls"] += 1
+        bucket[f"{record.source}_tokens"] += record.total_tokens
+        bucket["prompt_tokens"] += record.prompt_tokens
+        bucket["completion_tokens"] += record.completion_tokens
+        bucket["total_tokens"] += record.total_tokens
+
+    @staticmethod
+    def _source_label(provider_calls: int, estimated_calls: int) -> str:
+        if provider_calls and estimated_calls:
+            return "provider_and_estimated"
+        if provider_calls:
+            return "provider"
+        if estimated_calls:
+            return "estimated"
+        return "unavailable"
+
+    def export_report(self) -> dict[str, Any]:
+        with self._lock:
+            agents: dict[str, dict[str, Any]] = {}
+            sessions: dict[str, dict[str, Any]] = {}
+            call_kinds: dict[str, dict[str, int]] = {}
+            execution: dict[str, dict[str, int]] = {}
+            all_totals = self._empty_bucket()
+            for record in self._records:
+                agent = agents.setdefault(record.agent_id, {**self._empty_bucket(), "call_kinds": {}})
+                session = sessions.setdefault(record.session_id, {**self._empty_bucket(), "task_id": record.task_id})
+                kind = call_kinds.setdefault(record.call_kind, self._empty_bucket())
+                is_simulation = record.call_kind == "counterfactual_sim" or record.branch_id is not None
+                execution_name = "simulation" if is_simulation else "live"
+                exec_bucket = execution.setdefault(execution_name, self._empty_bucket())
+                agent_kind = agent["call_kinds"].setdefault(record.call_kind, self._empty_bucket())
+                for bucket in (agent, session, kind, exec_bucket, agent_kind, all_totals):
+                    self._add(bucket, record)
+
+            for aggregate in self._aggregates:
+                source = aggregate["source"]
+                tokens = aggregate["total_tokens"]
+                session = sessions.setdefault(aggregate["session_id"], {
+                    **self._empty_bucket(), "task_id": aggregate["task_id"],
+                })
+                kind = call_kinds.setdefault("other", self._empty_bucket())
+                unknown_agent = agents.setdefault("unattributed", {**self._empty_bucket(), "call_kinds": {}})
+                unknown_exec = execution.setdefault("unattributed", self._empty_bucket())
+                for bucket in (all_totals, session, kind, unknown_agent, unknown_exec):
+                    bucket[f"{source}_tokens"] += tokens
+                    bucket["prompt_tokens"] += aggregate["prompt_tokens"]
+                    bucket["completion_tokens"] += aggregate["completion_tokens"]
+                    bucket["total_tokens"] += tokens
+                if aggregate["calls"] is not None:
+                    for bucket in (all_totals, session, kind, unknown_agent, unknown_exec):
+                        bucket["calls"] += aggregate["calls"]
+                        bucket[f"{source}_calls"] += aggregate["calls"]
+
+            provider = all_totals["provider_tokens"]
+            estimated = all_totals["estimated_tokens"]
+            total = provider + estimated
+            report = {
+                "schema_version": 1,
+                "total_calls": all_totals["calls"],
+                "turn_count": all_totals["calls"],
+                "provider_total_tokens": provider,
+                "estimated_total_tokens": estimated,
+                "total_tokens": total,
+                "prompt_tokens": all_totals["prompt_tokens"],
+                "completion_tokens": all_totals["completion_tokens"],
+                "estimated_share_pct": round(100 * estimated / total, 2) if total else 0.0,
+                "source_label": self._source_label(
+                    all_totals["provider_calls"] or provider,
+                    all_totals["estimated_calls"] or estimated,
+                ),
+                "call_attribution_available": not bool(self._aggregates),
+                "agents": agents,
+                "sessions": sessions,
+                "by_call_kind": call_kinds,
+                "by_execution": execution,
+                "records": [asdict(record) for record in self._records],
+                "aggregates": list(self._aggregates),
+            }
+            if estimated and not provider:
+                report["measurement_label"] = "estimated, entry text only"
+            elif provider and estimated:
+                report["measurement_label"] = "provider calls plus separately reported estimates"
+            elif provider:
+                report["measurement_label"] = "provider-reported model-call usage"
+            else:
+                report["measurement_label"] = "no usage records"
+            return report
+
+    def write_json(self, path: str | os.PathLike[str]) -> Path:
+        """Persist the current ledger atomically as an archiveable JSON artifact."""
+        destination = Path(path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(self.export_report(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(destination)
+        return destination
+
+    def reset(self) -> None:
+        with self._lock:
+            self._records.clear()
+            self._aggregates.clear()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

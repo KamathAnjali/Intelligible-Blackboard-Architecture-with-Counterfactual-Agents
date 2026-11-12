@@ -83,13 +83,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'Invoke-RestMethod -M
 
 The standalone Make conversation runs in a separate process. The backend endpoint runs the conversation whose actual board events are sent to the UI. Omitting `BOARD_MODE` starts recorded replay using `bench/data/recorded_session.json`, which is a synthetic fixture. The UI's token panel estimates board-entry text; full inference usage is recorded separately in transcripts.
 
+The UI also has a frozen-scope KramaBench picker at `GET /api/tasks` and `POST /api/tasks/run`. To enable genuine task runs, start the backend with `BOARD_MODE=LIVE_TAP KRAMA_UI_APPROVE_GENUINE_RUN=1`; configure `KRAMABENCH_ROOT`, `KRAMABENCH_EVALUATOR_PYTHON`, `OLLAMA_BASE_URL`, and `KRAMA_UI_OUTPUT_ROOT` as needed. Only one task can run per server process. See [`ui/server/README.md`](ui/server/README.md) and [the UI event contract](docs/contracts/ui_events.md) for score withholding, CORS, archive behavior, and endpoint details.
+
 ## Saved records and benchmarks
 
 Published records are tracked in `results/transcripts/<conversation-id>.json` and `results/snapshots/<conversation-id>.json`. Two partial runs have recovered snapshots; their original empty files are retained in `results/snapshots/originals/`. Raw records preserve the observed model responses and do not establish answer correctness.
 
 New runs still write to `results/conversations/`; inference reports use `results/ollama/`. These generated directories, benchmark results, and local raw datasets remain ignored. Existing files are preserved when records are copied into the published archive.
 
-`bench/ingest/` loads task records; `bench/metrics/` provides token accounting, synthetic CSV exports, and evaluator-gated plotting. `example` and `dry_run` are synthetic modes. `pilot` and `full_study` remain disabled until real benchmark execution and the official evaluator are connected.
+`bench/ingest/` loads task records with a gold-free agent view and a separate evaluator reference. The default parser sample is a format sample, not benchmark data; run `./.venv/bin/python -m bench.ingest.krama_parser --report` to save its load report. `bench/metrics/trial_runner.py` supports only `example` and `dry_run` fixtures; their outputs are explicitly named `SYNTHETIC` under `bench/results/synthetic/` and are not benchmark evidence. Real paired KramaBench execution is managed by `bench.orchestrator` against the hash-verified scope. Start with `./.venv/bin/python -m bench.orchestrator plan`; real `dry-run`/`pilot` commands require `--approve-genuine-run` and paths supplied by flags or environment. `bench/run_benchmark_chunk.py` was retired in favor of the paired orchestrator.
 # KramaBench checkout setup
 
 The runner expects the pinned KramaBench revision at `$HOME/kramabench-pinned` and

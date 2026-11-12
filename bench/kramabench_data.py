@@ -326,6 +326,51 @@ def _validation_feedback(exc: Exception, response_text: Any = None,
         + "\n- ".join(details)
         if details else ""
     )
+    submitted = None
+    try:
+        submitted = json.loads(response_text) if isinstance(response_text, str) else None
+    except (json.JSONDecodeError, TypeError):
+        pass
+    if isinstance(submitted, dict) and submitted.get("action") == "aggregate" and "summary" in submitted:
+        file_path = submitted.get("file")
+        table_name = submitted.get("table")
+        if toolbox is not None:
+            if file_path not in toolbox.files:
+                file_path = toolbox.last_successful_file or next(iter(toolbox.files), None)
+            tables = [name for path, name in toolbox.tables if path == file_path]
+            if table_name not in tables:
+                table_name = tables[0] if tables else None
+        if file_path and table_name:
+            aggregate = json.dumps({"action": "aggregate", "file": file_path, "table": table_name,
+                                    "measures": [{"function": "count", "column": "*"}]})
+            done = json.dumps({"action": "done", "summary": "<brief summary supported by tool results>"})
+            feedback += (
+                "\n`summary` is a field of action `done`, not `aggregate`. Do not silently change the action. "
+                "If you meant to finish, send action=done (example, not executed): " + done +
+                " If you meant to count rows, send aggregate with measures (example, not executed): " + aggregate
+            )
+    if isinstance(submitted, dict) and submitted.get("action") == "filter":
+        limit = submitted.get("limit")
+        if isinstance(limit, int) and not isinstance(limit, bool) and limit > MAX_PAGE_SIZE:
+            file_path = submitted.get("file")
+            table_name = submitted.get("table")
+            if toolbox is not None:
+                if file_path not in toolbox.files:
+                    file_path = toolbox.last_successful_file or next(iter(toolbox.files), None)
+                tables = [name for path, name in toolbox.tables if path == file_path]
+                if table_name not in tables:
+                    table_name = tables[0] if tables else None
+            feedback += f"\nA filter returns at most {MAX_PAGE_SIZE} rows; set `limit` to {MAX_PAGE_SIZE} or less; counts require aggregate with `group_by`."
+            if file_path and table_name:
+                column = "<actual column>"
+                if toolbox is not None:
+                    table = toolbox.tables.get((file_path, table_name))
+                    if table and table.get("columns"):
+                        column = table["columns"][0]
+                filter_example = json.dumps({"action": "filter", "file": file_path, "table": table_name, "limit": MAX_PAGE_SIZE})
+                aggregate_example = json.dumps({"action": "aggregate", "file": file_path, "table": table_name,
+                    "group_by": [column], "measures": [{"function": "count", "column": "*"}]})
+                feedback += " Corrected filter example (not executed): " + filter_example + ". Category-count example (not executed): " + aggregate_example
     example = _corrected_aggregate_example(response_text, toolbox)
     if example is not None:
         feedback += (
@@ -1769,7 +1814,8 @@ def _verified_category_rate_evidence(observations: list[dict[str, Any]]) -> list
 
 def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                             *, max_calls: int = 12, max_evidence_chars: int = 32_000,
-                            max_response_retries: int = 2) -> dict[str, Any]:
+                            max_response_retries: int = 2,
+                            precomputed_profiles: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Gather bounded data evidence; max_calls caps tool dispatches, not finalization."""
     if type(max_calls) is not int or not 2 <= max_calls <= 24:
         raise ValueError("max_calls must be between 2 and 24")
@@ -2108,11 +2154,61 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                 outcome_aggregate_targets.setdefault(column, set()).add(target)
             useful_actions += 1
 
+    def _degraded_result(reason: str, original_failure: str) -> dict[str, Any]:
+        """Return only after deterministic recovery leaves usable tool evidence."""
+        _recover_missing_category_counts()
+        successful = [item for item in history if isinstance(item.get("result"), dict)
+                      and "error" not in item["result"]]
+        has_verified_categories = any(
+            "category_count_evidence" in item for item in audit if item.get("status") == "success"
+        )
+        if not successful or not has_verified_categories:
+            raise workflow_error(original_failure)
+        unresolved = (pending_filter_categories | pending_outcome_categories) - category_counts_inspected
+        if unresolved:
+            raise workflow_error(original_failure)
+        evidence = {
+            "available_files": toolbox.catalog(),
+            "observations": history,
+            "agent_summary": "",
+            "agent_summary_status": "unverified_omitted_after_data_loop_failure",
+            "verified_category_rates": _verified_category_rate_evidence(history),
+        }
+        evidence_json = json.dumps(evidence, ensure_ascii=False, default=str)
+        if len(evidence_json) > max_evidence_chars:
+            raise workflow_error(f"collected evidence exceeds {max_evidence_chars} characters")
+        diagnostics = workflow_diagnostics(completed=True)
+        diagnostics["data_loop_degraded"] = True
+        diagnostics["data_loop_degradation_reason"] = reason
+        return {
+            "evidence": evidence, "trace": audit, "attempts": attempts,
+            "request_diagnostics": request_diagnostics, "usage": usage_summary(),
+            "workflow_diagnostics": diagnostics, "data_loop_degraded": True,
+            "data_loop_degradation_reason": reason,
+        }
+
+    bounded_profiles = copy.deepcopy(precomputed_profiles or [])
+    # Keep schema and exhaustive counts intact; reduce sample payload first.
+    profile_budget = 8_000
+    while len(json.dumps(bounded_profiles, ensure_ascii=False, default=str)) > profile_budget:
+        changed = False
+        for profile in bounded_profiles:
+            for table in profile.get("tables", []):
+                sample = table.get("sample_rows")
+                if isinstance(sample, dict) and sample.get("rows"):
+                    sample["rows"].pop()
+                    changed = True
+                    break
+            if changed:
+                break
+        if not changed:
+            raise DataAccessError("precomputed profile exceeds its bounded data-agent prompt budget")
     for call_number in range(1, max_workflow_iterations + 1):
         workflow_iterations = call_number
         prompt = json.dumps({
             "task_query": query,
             "allowlisted_files": toolbox.catalog(),
+            "precomputed_file_profiles": bounded_profiles,
             "previous_tool_results": history,
         }, ensure_ascii=False)
         if len(prompt) > max_evidence_chars:
@@ -2186,6 +2282,24 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                     "rejected_request": _request_diagnostic_excerpt(response_text),
                     "validation_errors": _validation_error_details(exc),
                 })
+                try:
+                    rejected = json.loads(response_text) if isinstance(response_text, str) else {}
+                except (json.JSONDecodeError, TypeError):
+                    rejected = {}
+                if isinstance(rejected, dict):
+                    rejected_file = rejected.get("file")
+                    rejected_table = rejected.get("table")
+                    if rejected_file in toolbox.files and rejected_table:
+                        target = (rejected_file, rejected_table)
+                        outcome = rejected.get("rate_outcome_column")
+                        if rate_query and isinstance(outcome, str) and outcome in table_columns.get(target, set()):
+                            pending_rate_outcome_column = outcome
+                            pending_outcome_categories.add((rejected_file, rejected_table, outcome))
+                        rejected_filters = rejected.get("filters", [])
+                        for condition in rejected_filters if isinstance(rejected_filters, list) else []:
+                            column = condition.get("column") if isinstance(condition, dict) else None
+                            if isinstance(column, str) and column in table_columns.get(target, set()):
+                                pending_filter_categories.add((rejected_file, rejected_table, column))
                 if isinstance(exc, ValidationError) and "aggregate does not accept `columns`" in str(exc):
                     aggregate_columns_feedback_count += 1
                     activate_guard(
@@ -2200,11 +2314,12 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                         "the same structured request failed strict validation more than once",
                         {"generation_request": generation_requests, "request_sha256": fingerprint},
                     )
-                    raise workflow_error(
+                    return _degraded_result(
+                        "repeated_identical_invalid_request",
                         f"agent repeated an identical invalid structured data request on call {call_number}; "
                         "the request and validation feedback are recorded, so the workflow stopped before "
-                        "spending further generation attempts"
-                    ) from exc
+                        "spending further generation attempts",
+                    )
                 if retry_number == max_response_retries:
                     raise workflow_error(
                         f"agent returned an invalid structured data request on call {call_number} "
@@ -2318,7 +2433,7 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                 "action": request.action, "request": params, "status": "error",
                 "error": message, "selector_defaulted": selector_defaulted,
             })
-            raise workflow_error(message)
+            return _degraded_result("tool_budget_exhausted", message)
         tool_invocations += 1
         predicate_key = _empty_predicate_key(request) if request.action in {"filter", "aggregate"} else None
         if predicate_key is not None and predicate_key in empty_predicates:

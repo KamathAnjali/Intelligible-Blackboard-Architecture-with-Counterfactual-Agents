@@ -1,0 +1,9 @@
+{
+  "n_total": 5,
+  "n_loaded": 5,
+  "n_rejected": 0,
+  "n_limited_out": 0,
+  "rejection_reasons": {},
+  "source_path": "/Users/tanishasinghal/Downloads/Reasoning_Agents_AI_Project/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents/bench/data/sample.jsonl",
+  "file_sha256": "71dc3f59456689f4fc11bdd060d6b834708f15780b2d104d65ca8b239bc1adbf"
+}

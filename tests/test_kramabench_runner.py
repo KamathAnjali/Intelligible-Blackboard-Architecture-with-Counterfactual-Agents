@@ -112,6 +112,7 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
         assert kwargs["env"]["KRAMABENCH_COUNTERFACTUAL_SEED"] == "17"
         assert kwargs["env"]["KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD"] == "2"
         assert kwargs["env"]["KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS"] == "1"
+        assert kwargs["env"]["KRAMABENCH_MODEL_SEED"] == "73"
         record_directory = Path(kwargs["cwd"]) / "system_scratch" / runner.SYSTEM_NAME / "krama_task_records"
         record_directory.mkdir(parents=True)
         (record_directory / "failed-task.json").write_text(json.dumps({
@@ -134,6 +135,7 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
             tmp_path / "pinned", "environment", "environment-easy-1", output,
             approve_genuine_run=True, evaluator_mode="official",
             counterfactual_fraction=0.66, counterfactual_seed=17,
+            model_seed=73,
         )
 
     run_root = next(output.iterdir())
@@ -143,6 +145,8 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
     assert manifest["counterfactual_seed"] == 17
     assert manifest["counterfactual_streak_threshold"] == 2
     assert manifest["max_counterfactual_simulations"] == 1
+    assert manifest["model_seed"] == 73
+    assert manifest["model_options"]["seed"] == 73
     assert manifest["evaluator_process"] == {
         "exit_status": 1,
         "stdout_log": "evaluator_stdout.log",
@@ -504,6 +508,14 @@ def test_compatibility_allowlist_accepts_reviewed_task_and_pipeline_stays_disabl
     _validate_fixture(root, dataset_dir, allowlist, summary, record)
     with pytest.raises(OfficialHarnessError, match="pipeline evaluation and subtasks"):
         _validate_fixture(root, dataset_dir, allowlist, summary, record, enable_pipeline_evaluation=True)
+
+
+def test_compatibility_allowlist_accepts_qwen3_8b_override(tmp_path):
+    root, dataset_dir, allowlist, _, summary, record = _compatibility_validation_fixture(tmp_path)
+    _validate_compatibility_task(
+        root, "fixture", record["id"], dataset_dir, "qwen3:8b", "http://127.0.0.1:11434",
+        False, False, summary, record, allowlist,
+    )
 
 
 def test_compatibility_allowlist_accepts_another_audited_deterministic_mapping(tmp_path):

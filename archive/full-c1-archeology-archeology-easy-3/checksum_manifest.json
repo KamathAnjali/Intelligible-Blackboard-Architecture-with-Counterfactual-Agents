@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-04T11:22:08.477299+00:00",
+  "source_directory": "/Users/tanishasinghal/krama-results/fullbench/chunk-1/archeology/archeology-easy-3/run-20261104T111748Z-5515ce2b",
+  "label": "full-c1-archeology-archeology-easy-3",
+  "algorithm": "sha256",
+  "files": [
+    {
+      "path": "evaluator_stderr.log",
+      "sha256": "f3cbcf123ebd34fe82c858753255bb9ec491442fd655579d1c95b29cdd66ee0b",
+      "size_bytes": 3079,
+      "source_sha256": "f3cbcf123ebd34fe82c858753255bb9ec491442fd655579d1c95b29cdd66ee0b",
+      "redaction_applied": false
+    },
+    {
+      "path": "evaluator_stdout.log",
+      "sha256": "6ab57633f12ae4633a2b8830bfb47cc2e2a03112c77ba3cdcdf588b261b67b0c",
+      "size_bytes": 2096,
+      "source_sha256": "6ab57633f12ae4633a2b8830bfb47cc2e2a03112c77ba3cdcdf588b261b67b0c",
+      "redaction_applied": false
+    },
+    {
+      "path": "run_manifest.json",
+      "sha256": "31c076fdf3de16d9b551efbb4b7cc22a56c24e6865b4f028e3c7a374efa92a74",
+      "size_bytes": 5461,
+      "source_sha256": "8c35c9161a4a79b66decd4cf2e312e85ee622e59cc4ce08e4fb6ad70f11144e3",
+      "redaction_applied": true
+    },
+    {
+      "path": "driver_logs/evaluator.stdout.log",
+      "sha256": "6ab57633f12ae4633a2b8830bfb47cc2e2a03112c77ba3cdcdf588b261b67b0c",
+      "size_bytes": 2096,
+      "source_sha256": "6ab57633f12ae4633a2b8830bfb47cc2e2a03112c77ba3cdcdf588b261b67b0c",
+      "redaction_applied": false
+    },
+    {
+      "path": "driver_logs/evaluator.stderr.log",
+      "sha256": "f3cbcf123ebd34fe82c858753255bb9ec491442fd655579d1c95b29cdd66ee0b",
+      "size_bytes": 3079,
+      "source_sha256": "f3cbcf123ebd34fe82c858753255bb9ec491442fd655579d1c95b29cdd66ee0b",
+      "redaction_applied": false
+    },
+    {
+      "path": "results/KramaBenchPXPSystem/archeology_measures_20261104_164750.csv",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "size_bytes": 1,
+      "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "redaction_applied": false
+    },
+    {
+      "path": "system_scratch/KramaBenchPXPSystem/krama_task_records/archeology-easy-3-80ea6b7d658d4a05992d3dbe11190de8.json",
+      "sha256": "4b7afe6c4608b604bfa677d718eb1ced05baf1e0c76a28ef7d20593e441cd635",
+      "size_bytes": 66648,
+      "source_sha256": "8a6c89b43eda4b3dea04df69294ad05ffe2e6869952786d54868c222adf23aa6",
+      "redaction_applied": true
+    }
+  ],
+  "note": "Checksums describe archived, secret-scrubbed bytes; this manifest is not self-hashed."
+}

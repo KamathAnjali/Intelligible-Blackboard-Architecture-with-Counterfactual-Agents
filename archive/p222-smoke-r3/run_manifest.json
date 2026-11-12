@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "run_id": "run-20261104T092219Z-e92f4d7e",
+  "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+  "benchmark_checkout": "/Users/tanishasinghal/kramabench-pinned",
+  "workload": "environment",
+  "task_id": "environment-easy-1",
+  "model_provider": "ollama",
+  "evaluator_python": "/Users/tanishasinghal/kramabench-eval-venv/bin/python",
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "base_url": "http://127.0.0.1:11434",
+  "model_options": {
+    "num_ctx": 4096,
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 768
+  },
+  "max_turns": 6,
+  "max_retries": 1,
+  "task_wall_clock_cap_seconds": 900,
+  "counterfactual_fraction": 0.0,
+  "counterfactual_seed": 1,
+  "counterfactual_streak_threshold": 2,
+  "max_counterfactual_simulations": 1,
+  "num_workers": 1,
+  "pipeline_evaluation_enabled": false,
+  "run_subtasks": false,
+  "started_at": "2026-11-04T09:22:19.274781+00:00",
+  "preflight": {
+    "workload_path": "/Users/tanishasinghal/kramabench-pinned/workload/environment.json",
+    "dataset_directory": "/Users/tanishasinghal/kramabench-pinned/data/environment/input",
+    "task_count": 1,
+    "requested_task_ids": [
+      "environment-easy-1"
+    ],
+    "tasks": [
+      {
+        "task_id": "environment-easy-1",
+        "answer_type": "numeric_exact",
+        "permitted_files": [
+          {
+            "path": "water-body-testing-2013.csv",
+            "sha256": "911d1ef8bf290494ace9ff1785b5e9789a50de21606aaef8d4b45a7ab695becb",
+            "size_bytes": 1469864,
+            "format": "csv",
+            "encoding": "utf-8-sig",
+            "tables": [
+              {
+                "name": "table_0",
+                "row_count": 15388,
+                "columns": [
+                  "Community Code",
+                  "Community",
+                  "County Code",
+                  "County Description",
+                  "Year",
+                  "Sample Date",
+                  "Beach Name",
+                  "Beach Type Description",
+                  "Organism",
+                  "Indicator Level",
+                  "Violation"
+                ]
+              }
+            ],
+            "page_count": null,
+            "notes": [
+              "Found 3112 ambiguous numeric-looking value(s) in column 'Beach Name'; numeric aggregation will require an unambiguous encoding."
+            ]
+          }
+        ],
+        "parent_task_id": null
+      }
+    ]
+  },
+  "status": "failed",
+  "run_type": "genuine_kramabench_task",
+  "genuine_run_approved": true,
+  "evaluator_mode": "compatibility-no-key",
+  "result_class": "compatibility_evaluator_output",
+  "evaluator_tree_fingerprint_sha256": "90a34a7eaf1fb12e3fb35efda31f685aa1861d7d0423803f0405ebafe5adbaf3",
+  "evaluator_options": {
+    "num_workers": 1,
+    "use_truth_subset": true,
+    "pipeline_evaluation_enabled": false,
+    "run_subtasks": false,
+    "verbose": false
+  },
+  "answer_type": "numeric_exact",
+  "data_file_hashes": [
+    {
+      "task_id": "environment-easy-1",
+      "path": "water-body-testing-2013.csv",
+      "sha256": "911d1ef8bf290494ace9ff1785b5e9789a50de21606aaef8d4b45a7ab695becb"
+    }
+  ],
+  "prompt_version": "9ac3af17dbddf06fd5f53a66468b286c62112dfeb20f784bf3238141b7a97597",
+  "agent_config_sha256": "db0234a165596ddb7a39f5b5cabd999e55e7528950bb408d6b9c65fd72ec9c60",
+  "ollama_readiness": {
+    "endpoint": "http://127.0.0.1:11434",
+    "version": "0.34.4",
+    "model": "qwen3:4b-instruct-2507-q4_K_M"
+  },
+  "evaluator_source_sha256": "b8913ec894c0c3d5b2ad49621ce27d9a6154896b86274d8c1de8d96b23cbc260",
+  "compatibility_patch": {
+    "path": "benchmark/evaluator.py",
+    "sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+  },
+  "openai_api_key_required": "[REDACTED]",
+  "compatibility_allowlist_entry_sha256": "3006c6d344896e17538e53daaa0a11e08b7e2c08f1669a0f83988ef91f015618",
+  "evaluator_process": {
+    "exit_status": 1,
+    "stdout_log": "evaluator_stdout.log",
+    "stderr_log": "evaluator_stderr.log",
+    "task_failure_summary": "DataToolWorkflowError: agent repeated an identical invalid structured data request on call 6; the request and validation feedback are recorded, so the workflow stopped before spending further generation attempts"
+  },
+  "finished_at": "2026-11-04T09:23:54.387415+00:00",
+  "error_type": "OfficialHarnessError",
+  "error": "adapter failed before producing a result for selected task environment-easy-1 (DataToolWorkflowError: agent repeated an identical invalid structured data request on call 6; the request and validation feedback are recorded, so the workflow stopped before spending further generation attempts); isolated evaluator exited with status 1. Captured stdout: evaluator_stdout.log; stderr: evaluator_stderr.log. No score is accepted unless evaluator measure and aggregate files are present."
+}

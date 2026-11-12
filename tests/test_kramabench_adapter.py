@@ -100,9 +100,52 @@ def test_task_record_counts_defaulted_file_selectors(tmp_path):
 
     saved = json.loads(next((output / "krama_task_records").glob("*.json")).read_text())
     assert saved["status"] == "success"
+    assert saved["data_loop_degraded"] is False
+    assert saved["answer_source"] == "agent_consensus"
+    assert saved["model_seed"] == 42
     assert saved["data_access_trace"][0]["selector_defaulted"] is True
     assert saved["data_access_trace"][0]["request"]["file"] == "records.csv"
     assert saved["workflow_counters"]["defaulted_file_selectors"] == 1
+
+
+def test_degraded_data_loop_reaches_pxp_with_verified_facts_and_unverified_summary_excluded(tmp_path):
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    (dataset / "events.csv").write_text("Violation\nyes\nno\nyes\n", encoding="utf-8")
+    invalid = data_tool("aggregate", file="events.csv", table="table_0",
+                        rate_outcome_column="Violation", summary="fabricated 100 percent")
+    client = FakeClient([
+        data_tool("profile", file="events.csv"), invalid, invalid,
+    ])
+    captured = {}
+
+    def conversation_runner(_client, **kwargs):
+        captured.update(kwargs)
+        return ({"outcome": "impasse", "board": {"entries": []}, "turns": [],
+                 "workflow_counters": {}, "failures": []}, tmp_path / "transcript.json")
+
+    system = KramaBenchSystem(
+        client=client, output_dir=tmp_path / "out",
+        conversation_runner=conversation_runner,
+        pipeline_generator=lambda *args, **kwargs: {
+            "pipeline_code": "# generated", "attempts": [], "usage": {"calls": 0},
+        },
+    )
+    system.process_dataset(dataset)
+    response = system.serve_query(
+        "What percentage of records have a violation?", "degraded-replay", ["events.csv"]
+    )
+    assert captured["task"]
+    assert any("Verified data-tool FACT" in fact and "category_count" not in fact for fact in captured["initial_facts"])
+    assert "fabricated 100 percent" not in captured["task"]
+    saved = json.loads(next((tmp_path / "out" / "krama_task_records").glob("*.json")).read_text())
+    assert saved["data_loop_degraded"] is True
+    assert saved["data_loop_degradation_reason"] == "repeated_identical_invalid_request"
+    assert saved["workflow_counters"]["data_loop_degraded"] is True
+    assert saved["workflow_counters"]["data_loop_degradation_reason"] == "repeated_identical_invalid_request"
+    assert saved["data_loop_unverified_summary"] == "fabricated 100 percent"
+    assert saved["answer_source"] == "degraded_verified_data_calculation_fallback"
+    assert response["explanation"]["answer"] == saved["verified_rate_calculation"]["answer"]
 
 
 def test_system_uses_real_pxp_runner_and_returns_official_schema_without_gold(tmp_path):

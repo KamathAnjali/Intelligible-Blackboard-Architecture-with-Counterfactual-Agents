@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-04T13:16:24.220897+00:00",
+  "source_directory": "/Users/tanishasinghal/krama-results/fullbench/chunk-6/legal/legal-easy-4/run-20261104T131015Z-39a80591",
+  "label": "full-c6-legal-legal-easy-4",
+  "algorithm": "sha256",
+  "files": [
+    {
+      "path": "evaluator_stderr.log",
+      "sha256": "735891cd9af14c9603c87b785c74ec6129cee7ef1ed9576b9eb11f6deb034866",
+      "size_bytes": 3029,
+      "source_sha256": "735891cd9af14c9603c87b785c74ec6129cee7ef1ed9576b9eb11f6deb034866",
+      "redaction_applied": false
+    },
+    {
+      "path": "evaluator_stdout.log",
+      "sha256": "9d2c8b8449576a1097f39d15b24ed81326e8004f01545ff61c9395c5d6f062ae",
+      "size_bytes": 4327,
+      "source_sha256": "9d2c8b8449576a1097f39d15b24ed81326e8004f01545ff61c9395c5d6f062ae",
+      "redaction_applied": false
+    },
+    {
+      "path": "run_manifest.json",
+      "sha256": "0900c45b08cf1e4a8790c3bb0dd10166bdc30df51a86cdec1e4802280e851dd4",
+      "size_bytes": 5773,
+      "source_sha256": "63a0ff7ce654f7a979c63653379d7006d3005f15184db8ee7e0e47cd4d538576",
+      "redaction_applied": true
+    },
+    {
+      "path": "driver_logs/evaluator.stdout.log",
+      "sha256": "9d2c8b8449576a1097f39d15b24ed81326e8004f01545ff61c9395c5d6f062ae",
+      "size_bytes": 4327,
+      "source_sha256": "9d2c8b8449576a1097f39d15b24ed81326e8004f01545ff61c9395c5d6f062ae",
+      "redaction_applied": false
+    },
+    {
+      "path": "driver_logs/evaluator.stderr.log",
+      "sha256": "735891cd9af14c9603c87b785c74ec6129cee7ef1ed9576b9eb11f6deb034866",
+      "size_bytes": 3029,
+      "source_sha256": "735891cd9af14c9603c87b785c74ec6129cee7ef1ed9576b9eb11f6deb034866",
+      "redaction_applied": false
+    },
+    {
+      "path": "results/KramaBenchPXPSystem/legal_measures_20261104_184016.csv",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "size_bytes": 1,
+      "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "redaction_applied": false
+    },
+    {
+      "path": "system_scratch/KramaBenchPXPSystem/krama_task_records/legal-easy-4-2c6d98d0e1544210bf20a3ae7b0e9baa.json",
+      "sha256": "56cd4c37c4a9bcc2d107d9e52ba2b48d72d4a468c7cb1b771f7f63e0e3d2e94a",
+      "size_bytes": 1230847,
+      "source_sha256": "db8753f2bf6ad3a52483e062804346027e05f6bd3439d18ba3d3b7d013266977",
+      "redaction_applied": true
+    }
+  ],
+  "note": "Checksums describe archived, secret-scrubbed bytes; this manifest is not self-hashed."
+}

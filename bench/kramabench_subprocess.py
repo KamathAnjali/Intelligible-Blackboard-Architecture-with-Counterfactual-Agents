@@ -90,6 +90,7 @@ def main() -> None:
     from bench.kramabench_adapter import KramaBenchSystem
 
     model = os.environ.get("KRAMABENCH_MODEL", MODEL)
+    model_seed = int(os.environ.get("KRAMABENCH_MODEL_SEED", "42"))
     base_url = os.environ.get("KRAMABENCH_BASE_URL", BASE_URL)
     max_turns = int(os.environ.get("KRAMABENCH_MAX_TURNS", "6"))
     max_retries = int(os.environ.get("KRAMABENCH_MAX_RETRIES", "1"))
@@ -103,7 +104,7 @@ def main() -> None:
             super().__init__(
                 verbose=verbose,
                 output_dir=output_dir or run_root / "system_scratch" / "KramaBenchPXPSystem",
-                client=OllamaClient(model=model, base_url=base_url),
+                client=OllamaClient(model=model, base_url=base_url, model_seed=model_seed),
                 max_turns=max_turns,
                 max_retries=max_retries,
                 task_wall_clock_cap_seconds=task_wall_clock_cap_seconds,

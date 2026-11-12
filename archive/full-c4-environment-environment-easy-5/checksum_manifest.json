@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-04T11:40:48.272738+00:00",
+  "source_directory": "/Users/tanishasinghal/krama-results/fullbench/chunk-4/environment/environment-easy-5/run-20261104T113659Z-128ea0b8",
+  "label": "full-c4-environment-environment-easy-5",
+  "algorithm": "sha256",
+  "files": [
+    {
+      "path": "evaluator_stderr.log",
+      "sha256": "d9bf026868a18fcfaec9e0351be98ae17e0aea7f7cf821dc83f87b108002dda0",
+      "size_bytes": 3089,
+      "source_sha256": "d9bf026868a18fcfaec9e0351be98ae17e0aea7f7cf821dc83f87b108002dda0",
+      "redaction_applied": false
+    },
+    {
+      "path": "evaluator_stdout.log",
+      "sha256": "de7cd0cfd1b2dccef1f2ef7357e3075abfa6f117b809bbdeb80d3f85c82d4da4",
+      "size_bytes": 2425,
+      "source_sha256": "de7cd0cfd1b2dccef1f2ef7357e3075abfa6f117b809bbdeb80d3f85c82d4da4",
+      "redaction_applied": false
+    },
+    {
+      "path": "run_manifest.json",
+      "sha256": "e53fa4d16420d804d331cf3ad085a08e91c5dfa2204a55648b7f9987caafe2df",
+      "size_bytes": 8435,
+      "source_sha256": "19820ce73b8ebe2456a2ff6108b79fe9afaa41457d9be304383fdf6c8c72d2e5",
+      "redaction_applied": true
+    },
+    {
+      "path": "driver_logs/evaluator.stdout.log",
+      "sha256": "de7cd0cfd1b2dccef1f2ef7357e3075abfa6f117b809bbdeb80d3f85c82d4da4",
+      "size_bytes": 2425,
+      "source_sha256": "de7cd0cfd1b2dccef1f2ef7357e3075abfa6f117b809bbdeb80d3f85c82d4da4",
+      "redaction_applied": false
+    },
+    {
+      "path": "driver_logs/evaluator.stderr.log",
+      "sha256": "d9bf026868a18fcfaec9e0351be98ae17e0aea7f7cf821dc83f87b108002dda0",
+      "size_bytes": 3089,
+      "source_sha256": "d9bf026868a18fcfaec9e0351be98ae17e0aea7f7cf821dc83f87b108002dda0",
+      "redaction_applied": false
+    },
+    {
+      "path": "results/KramaBenchPXPSystem/environment_measures_20261104_170700.csv",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "size_bytes": 1,
+      "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "redaction_applied": false
+    },
+    {
+      "path": "system_scratch/KramaBenchPXPSystem/krama_task_records/environment-easy-5-272b177dc30149128ba1113268ff7526.json",
+      "sha256": "d6a33729fcb80650b8e589fdd31eae90d244f88bb71736003964d3727c16870d",
+      "size_bytes": 36233,
+      "source_sha256": "be1d7ae3b2cc47f10b2e9853387c962651bcae533c9105af33af65e0c09e59ef",
+      "redaction_applied": true
+    }
+  ],
+  "note": "Checksums describe archived, secret-scrubbed bytes; this manifest is not self-hashed."
+}

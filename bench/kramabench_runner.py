@@ -32,6 +32,7 @@ from bench.kramabench_preflight import WorkloadPreflightError, preflight_kramabe
 SYSTEM_NAME = "KramaBenchPXPSystem"
 OFFICIAL_EVALUATOR_MODE = "official"
 COMPATIBILITY_EVALUATOR_MODE = "compatibility-no-key"
+COMPATIBILITY_LOCAL_MODELS = (MODEL, "qwen3:8b")
 EVALUATOR_MODES = (OFFICIAL_EVALUATOR_MODE, COMPATIBILITY_EVALUATOR_MODE)
 COMPATIBILITY_PATCH_SHA256 = "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
 COMPATIBILITY_EVALUATOR_PATH = "benchmark/evaluator.py"
@@ -295,9 +296,10 @@ def _validate_compatibility_task(root: Path, workload: str, task_id: str,
         raise OfficialHarnessError(
             "compatibility-no-key requires pipeline evaluation and subtasks to remain disabled"
         )
-    if model != MODEL or base_url.rstrip("/") != BASE_URL:
+    if model not in COMPATIBILITY_LOCAL_MODELS or base_url.rstrip("/") != BASE_URL:
         raise OfficialHarnessError(
-            f"compatibility-no-key requires the configured local model {MODEL!r} at {BASE_URL!r}"
+            "compatibility-no-key requires one of the configured local models "
+            f"{COMPATIBILITY_LOCAL_MODELS!r} at {BASE_URL!r}"
         )
     expected_dataset = (root / "data" / workload / "input").resolve()
     if dataset_directory is not None and Path(dataset_directory).resolve() != expected_dataset:
@@ -587,7 +589,8 @@ def _run_provenance_metadata(summary: Any, task_id: str, evaluator_source_sha256
                             verbose: bool, ollama_readiness: dict[str, str],
                             evaluator_mode: str = OFFICIAL_EVALUATOR_MODE,
                             compatibility_info: dict[str, str] | None = None,
-                            compatibility_allowlist_entry: dict[str, Any] | None = None) -> dict[str, Any]:
+                            compatibility_allowlist_entry: dict[str, Any] | None = None,
+                            model_seed: int = 42) -> dict[str, Any]:
     if evaluator_mode not in EVALUATOR_MODES:
         raise OfficialHarnessError(f"unsupported evaluator mode: {evaluator_mode}")
     if len(evaluator_source_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in evaluator_source_sha256):
@@ -609,7 +612,7 @@ def _run_provenance_metadata(summary: Any, task_id: str, evaluator_source_sha256
     prompt_version = _prompt_version()
     agent_config = {
         "model": model,
-        "model_options": dict(OPTIONS),
+        "model_options": {**OPTIONS, "seed": model_seed},
         "max_turns": max_turns,
         "max_retries": max_retries,
         "pipeline_evaluation_enabled": pipeline_evaluation_enabled,
@@ -643,6 +646,7 @@ def _run_provenance_metadata(summary: Any, task_id: str, evaluator_source_sha256
         "answer_type": task_summary.answer_type,
         "data_file_hashes": data_hashes,
         "prompt_version": prompt_version,
+        "model_seed": model_seed,
         "agent_config_sha256": config_sha256,
         "ollama_readiness": ollama_readiness,
     }
@@ -746,7 +750,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
                  counterfactual_streak_threshold: int = 2,
                  max_counterfactual_simulations: int = 1,
                  archive_label: str | None = None,
-                 archive_driver_log: str | Path | None = None) -> Path:
+                 archive_driver_log: str | Path | None = None,
+                 model_seed: int = 42) -> Path:
     """Run one task through the explicitly selected, provenance-checked evaluator."""
     if approve_genuine_run is not True:
         raise OfficialHarnessError(
@@ -760,6 +765,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         raise OfficialHarnessError("counterfactual_fraction must be one of 0, 0.33, 0.66, or 1.0")
     if type(counterfactual_seed) is not int:
         raise OfficialHarnessError("counterfactual_seed must be an integer")
+    if type(model_seed) is not int:
+        raise OfficialHarnessError("model_seed must be an integer")
     if type(counterfactual_streak_threshold) is not int or counterfactual_streak_threshold < 2:
         raise OfficialHarnessError("counterfactual_streak_threshold must be at least 2")
     if type(max_counterfactual_simulations) is not int or max_counterfactual_simulations < 0:
@@ -845,6 +852,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             enable_pipeline_evaluation, run_subtasks, verbose, ollama_readiness,
             evaluator_mode=evaluator_mode, compatibility_info=compatibility_info,
             compatibility_allowlist_entry=compatibility_allowlist_entry,
+            model_seed=model_seed,
         )
     except BaseException:
         if compatibility_temp is not None:
@@ -876,7 +884,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         "evaluator_python": evaluator_python,
         "model": model,
         "base_url": sanitized_base_url(base_url),
-        "model_options": dict(OPTIONS),
+        "model_options": {**OPTIONS, "seed": model_seed},
+        "model_seed": model_seed,
         "max_turns": max_turns,
         "max_retries": max_retries,
         "task_wall_clock_cap_seconds": task_wall_clock_cap_seconds,
@@ -943,6 +952,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             "KRAMABENCH_WORKLOAD": workload,
             "KRAMABENCH_TASK_ID": task_id,
             "KRAMABENCH_MODEL": model,
+            "KRAMABENCH_MODEL_SEED": str(model_seed),
             "KRAMABENCH_BASE_URL": base_url,
             "KRAMABENCH_MAX_TURNS": str(max_turns),
             "KRAMABENCH_MAX_RETRIES": str(max_retries),
@@ -967,6 +977,18 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         driver_log_dir.mkdir(parents=True, exist_ok=True)
         (driver_log_dir / "evaluator.stdout.log").write_text(completed.stdout or "", encoding="utf-8")
         (driver_log_dir / "evaluator.stderr.log").write_text(completed.stderr or "", encoding="utf-8")
+        record_dir = run_root / "system_scratch" / SYSTEM_NAME / "krama_task_records"
+        for record_path in record_dir.glob("*.json") if record_dir.is_dir() else []:
+            try:
+                task_record = json.loads(record_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if task_record.get("task_id") == task_id:
+                manifest["data_loop_degraded"] = bool(task_record.get("data_loop_degraded", False))
+                manifest["data_loop_degradation_reason"] = task_record.get("data_loop_degradation_reason")
+                manifest["workflow_counters"] = task_record.get("workflow_counters", {})
+                manifest["model_seed"] = task_record.get("model_seed", model_seed)
+                break
         if completed.returncode != 0:
             process_failure = _persist_evaluator_failure_logs(run_root, completed)
             task_failure = _task_failure_summary(run_root, task_id)
@@ -1044,6 +1066,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset-directory")
     parser.add_argument("--output-directory", required=True)
     parser.add_argument("--model", default=MODEL)
+    parser.add_argument("--model-seed", type=int, default=42,
+                        help="Ollama generation seed; defaults to the existing seed (42).")
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--max-turns", type=int, default=6)
     parser.add_argument("--max-retries", type=int, default=1)
@@ -1087,6 +1111,7 @@ def main(argv: list[str] | None = None) -> int:
             output_directory=args.output_directory,
             dataset_directory=args.dataset_directory,
             model=args.model,
+            model_seed=args.model_seed,
             base_url=args.base_url,
             max_turns=args.max_turns,
             max_retries=args.max_retries,

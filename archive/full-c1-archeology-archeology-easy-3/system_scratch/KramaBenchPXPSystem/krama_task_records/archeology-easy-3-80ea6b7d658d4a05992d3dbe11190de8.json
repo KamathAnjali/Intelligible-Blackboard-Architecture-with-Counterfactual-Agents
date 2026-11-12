@@ -1,0 +1,2153 @@
+{
+  "schema_version": 1,
+  "run_id": "archeology-easy-3-80ea6b7d658d4a05992d3dbe11190de8",
+  "task_id": "archeology-easy-3",
+  "query_id": "archeology-easy-3",
+  "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+  "provider": "ollama",
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "base_url": "http://127.0.0.1:11434",
+  "model_options": {
+    "num_ctx": 4096,
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 768
+  },
+  "model_seed": 42,
+  "prompt_version": "9ac3af17dbddf06fd5f53a66468b286c62112dfeb20f784bf3238141b7a97597",
+  "pipeline_evaluation_enabled": false,
+  "counterfactual_fraction": 0.0,
+  "counterfactual_seed": 1,
+  "counterfactual_streak_threshold": 2,
+  "max_counterfactual_simulations": 1,
+  "max_turns": 6,
+  "max_retries": 1,
+  "data_operation_timeout_seconds": 120,
+  "task_wall_clock_cap_seconds": 900,
+  "started_at": "2026-11-04T11:17:50.163035+00:00",
+  "status": "failed",
+  "task_data_sources": [
+    "roman_cities.csv"
+  ],
+  "permitted_files": [
+    {
+      "path": "roman_cities.csv",
+      "sha256": "0cea47b3d090d8e5dcc1a52dcd9064e3398ed18994233e677f74dab4ef2659b2",
+      "size_bytes": 225298,
+      "format": "csv",
+      "encoding": "utf-8-sig",
+      "tables": [
+        {
+          "name": "table_0",
+          "row_count": 1388,
+          "columns": [
+            "Primary Key",
+            "Ancient Toponym",
+            "Modern Toponym",
+            "Province",
+            "Country",
+            "Barrington Atlas Rank",
+            "Barrington Atlas Reference",
+            "Start Date",
+            "End Date",
+            "Longitude (X)",
+            "Latitude (Y)",
+            "Select Bibliography"
+          ]
+        }
+      ],
+      "page_count": null,
+      "notes": [
+        "Found 115 ambiguous numeric-looking value(s) in column 'Ancient Toponym'; numeric aggregation will require an unambiguous encoding.",
+        "Found 337 ambiguous numeric-looking value(s) in column 'Province'; numeric aggregation will require an unambiguous encoding."
+      ]
+    }
+  ],
+  "data_access_trace": [
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "table": "table_0",
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "table": "table_0",
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "table": "table_0",
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "table": "table_0",
+        "columns": [
+          "Primary Key",
+          "Ancient Toponym",
+          "Modern Toponym",
+          "Province",
+          "Country",
+          "Barrington Atlas Rank",
+          "Barrington Atlas Reference",
+          "Start Date",
+          "End Date",
+          "Longitude (X)",
+          "Latitude (Y)",
+          "Select Bibliography"
+        ],
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000,
+        "summary": "The dataset contains 1,388 rows representing Roman cities, with detailed information such as ancient and modern toponyms, geographic coordinates, historical dates, and bibliographic references. All columns have non-null values except for 'Select Bibliography', which has 3 missing entries. The data is primarily focused on Greek cities in the region of Achaea, with geographic coordinates and references to authoritative sources like the Barrington Atlas and key scholarly works (e.g., BNP, DGRG, Hansen, PECS, Sear)."
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000,
+        "summary": "The dataset contains 1,388 rows representing Roman cities, primarily located in the region of Achaea, Greece. Each row includes detailed information such as ancient and modern toponyms, geographic coordinates (longitude and latitude), historical timeframes (start and end dates), and bibliographic references to authoritative sources like the Barrington Atlas, BNP (British Numismatic Parity), DGRG (Dictionnaire Général de la Géographie Romaine), PECS (Peloponnesian Epigraphy and Classical Sources), and Sear (Sear's Roman Coins). All columns have non-null values except for 'Select Bibliography', which has 3 missing entries. The Start Date is consistently recorded as '-600', indicating a rough estimate of the beginning of the city's Roman period, while the End Date is uniformly marked as 'NULL', suggesting that the end of the city's occupation is unknown or not recorded. The geographic coordinates are precise and geographically plausible for the region of Achaea. The data is well-structured and suitable for mapping, historical analysis, or academic research on Roman settlements in Greece.",
+        "rate_outcome_column": "Select Bibliography"
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": true
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000,
+        "summary": "The dataset contains 1,388 rows representing Roman cities, primarily located in the region of Achaea, Greece. Each row includes detailed information such as ancient and modern toponyms, geographic coordinates (longitude and latitude), historical timeframes (start and end dates), and bibliographic references to authoritative sources like the Barrington Atlas, BNP (British Numismatic Parity), DGRG (Dictionnaire Général de la Géographie Romaine), PECS (Peloponnesian Epigraphy and Classical Sources), and Sear (Sear's Roman Coins). All columns have non-null values except for 'Select Bibliography', which has 3 missing entries. The Start Date is consistently recorded as '-600', indicating a rough estimate of the beginning of the city's Roman period, while the End Date is uniformly marked as 'NULL', suggesting that the end of the city's occupation is unknown or not recorded. The geographic coordinates are precise and geographically plausible for the region of Achaea. The data is well-structured and suitable for mapping, historical analysis, or academic research on Roman settlements in Greece.",
+        "rate_outcome_column": "Select Bibliography"
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000,
+        "summary": "The dataset contains 1,388 rows representing Roman cities, primarily located in the region of Achaea, Greece. Each row includes detailed information such as ancient and modern toponyms, geographic coordinates (longitude and latitude), historical timeframes (start and end dates), and bibliographic references to authoritative sources like the Barrington Atlas, BNP (British Numismatic Parity), DGRG (Dictionnaire Général de la Géographie Romaine), PECS (Peloponnesian Epigraphy and Classical Sources), and Sear (Sear's Roman Coins). All columns have non-null values except for 'Select Bibliography', which has 3 missing entries. The Start Date is consistently recorded as '-600', indicating a rough estimate of the beginning of the city's Roman period, while the End Date is uniformly marked as 'NULL', suggesting that the end of the city's occupation is unknown or not recorded. The geographic coordinates are precise and geographically plausible for the region of Achaea. The data is well-structured and suitable for mapping, historical analysis, or academic research on Roman settlements in Greece.",
+        "rate_outcome_column": "Select Bibliography"
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000,
+        "summary": "The dataset contains 1,388 rows representing Roman cities, primarily located in the region of Achaea, Greece. Each row includes detailed information such as ancient and modern toponyms, geographic coordinates (longitude and latitude), historical timeframes (start and end dates), and bibliographic references to authoritative sources like the Barrington Atlas, BNP (British Numismatic Parity), DGRG (Dictionnaire Général de la Géographie Romaine), PECS (Peloponnesian Epigraphy and Classical Sources), and Sear (Sear's Roman Coins). All columns have non-null values except for 'Select Bibliography', which has 3 missing entries. The Start Date is consistently recorded as '-600', indicating a rough estimate of the beginning of the city's Roman period, while the End Date is uniformly marked as 'NULL', suggesting that the end of the city's occupation is unknown or not recorded. The geographic coordinates are precise and geographically plausible for the region of Achaea. The data is well-structured and suitable for mapping, historical analysis, or academic research on Roman settlements in Greece.",
+        "rate_outcome_column": "Select Bibliography"
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000,
+        "summary": "The dataset contains 1,388 rows representing Roman cities, primarily located in the region of Achaea, Greece. Each row includes detailed information such as ancient and modern toponyms, geographic coordinates (longitude and latitude), historical timeframes (start and end dates), and bibliographic references to authoritative sources like the Barrington Atlas, BNP (British Numismatic Parity), DGRG (Dictionnaire Général de la Géographie Romaine), PECS (Peloponnesian Epigraphy and Classical Sources), and Sear (Sear's Roman Coins). All columns have non-null values except for 'Select Bibliography', which has 3 missing entries. The Start Date is consistently recorded as '-600', indicating a rough estimate of the beginning of the city's Roman period, while the End Date is uniformly marked as 'NULL', suggesting that the end of the city's occupation is unknown or not recorded. The geographic coordinates are precise and geographically plausible for the region of Achaea. The data is well-structured and suitable for mapping, historical analysis, or academic research on Roman settlements in Greece.",
+        "rate_outcome_column": "Select Bibliography"
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    },
+    {
+      "action": "profile",
+      "request": {
+        "action": "profile",
+        "file": "roman_cities.csv",
+        "files": [],
+        "filters": [],
+        "group_by": [],
+        "measures": [],
+        "offset": 0,
+        "limit": 20,
+        "path": [],
+        "max_chars": 4000,
+        "summary": "The dataset contains 1,388 rows representing Roman cities, primarily located in the region of Achaea, Greece. Each row includes detailed information such as ancient and modern toponyms, geographic coordinates (longitude and latitude), historical timeframes (start and end dates), and bibliographic references to authoritative sources like the Barrington Atlas, BNP (British Numismatic Parity), DGRG (Dictionnaire Général de la Géographie Romaine), PECS (Peloponnesian Epigraphy and Classical Sources), and Sear (Sear's Roman Coins). All columns have non-null values except for 'Select Bibliography', which has 3 missing entries. The Start Date is consistently recorded as '-600', indicating a rough estimate of the beginning of the city's Roman period, while the End Date is uniformly marked as 'NULL', suggesting that the end of the city's occupation is unknown or not recorded. The geographic coordinates are precise and geographically plausible for the region of Achaea. The data is well-structured and suitable for mapping, historical analysis, or academic research on Roman settlements in Greece.",
+        "rate_outcome_column": "Select Bibliography"
+      },
+      "result": {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "row_count": 1388,
+        "sample_values_note": "Each column has up to five non-null examples; these are not exhaustive or necessarily distinct.",
+        "columns": [
+          {
+            "column": "Primary Key",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Hanson2016_1",
+              "Hanson2016_2",
+              "Hanson2016_3",
+              "Hanson2016_4",
+              "Hanson2016_5"
+            ]
+          },
+          {
+            "column": "Ancient Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Abae",
+              "Acharnae",
+              "Acraephia",
+              "Aegina",
+              "Aegira"
+            ]
+          },
+          {
+            "column": "Modern Toponym",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Kalapodi",
+              "Acharnes",
+              "Akraifnio",
+              "Aigina",
+              "Aigeira"
+            ]
+          },
+          {
+            "column": "Province",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea",
+              "Achaea"
+            ]
+          },
+          {
+            "column": "Country",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece",
+              "Greece"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Rank",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "4 or 5",
+              "3",
+              "3",
+              "2",
+              "3"
+            ]
+          },
+          {
+            "column": "Barrington Atlas Reference",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "55 D3",
+              "59 B2",
+              "55 E4",
+              "59 A3",
+              "58 C1"
+            ]
+          },
+          {
+            "column": "Start Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "-600",
+              "-600",
+              "-600",
+              "-600",
+              "-600"
+            ]
+          },
+          {
+            "column": "End Date",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL",
+              "NULL"
+            ]
+          },
+          {
+            "column": "Longitude (X)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "22.933333",
+              "23.734088",
+              "23.219702",
+              "23.4285",
+              "22.35572"
+            ]
+          },
+          {
+            "column": "Latitude (Y)",
+            "nonnull_count": 1388,
+            "missing_count": 0,
+            "sample_values": [
+              "38.583333",
+              "38.083473",
+              "38.452606",
+              "37.750074",
+              "38.147951"
+            ]
+          },
+          {
+            "column": "Select Bibliography",
+            "nonnull_count": 1385,
+            "missing_count": 3,
+            "sample_values": [
+              "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "BNP; DGRG; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006.",
+              "DGRG; Hansen and Nielsen 2004."
+            ]
+          }
+        ]
+      },
+      "result_sha256": "cb67490518280e83dcddc1213ca1eb95b912679d75d689e1e217105d9cd802d9",
+      "result_chars": 2127,
+      "status": "success",
+      "selector_defaulted": false
+    }
+  ],
+  "data_access_usage": {
+    "calls": 10,
+    "prompt_tokens": 22866,
+    "output_tokens": 1918,
+    "wall_seconds": 257.58
+  },
+  "data_access_diagnostics": {
+    "max_tool_invocations": 12,
+    "max_workflow_iterations": 14,
+    "max_generation_requests": 42,
+    "tool_invocations": 10,
+    "workflow_iterations": 11,
+    "generation_requests": 10,
+    "automatic_recovery_invocations": 0,
+    "blocked_done_attempts": 0,
+    "category_inspection_pending": true,
+    "unresolved_filter_categories": [],
+    "rate_validation_required": false,
+    "rate_outcome_column": "Select Bibliography",
+    "unresolved_outcome_categories": [
+      {
+        "file": "roman_cities.csv",
+        "table": "table_0",
+        "column": "Select Bibliography"
+      }
+    ],
+    "duplicate_empty_filter_requests": 0,
+    "invalid_structured_response_attempts": 0,
+    "uninspected_task_files": [],
+    "workflow_counters": {
+      "guard_activations": [],
+      "guard_retries": 0,
+      "aggregate_columns_validation_feedback": 0,
+      "multi_file_coverage_rejections": 0,
+      "repeated_invalid_request_stops": 0,
+      "blocked_done_rejections": 0,
+      "duplicate_filter_rejections": 0,
+      "defaulted_file_selectors": 1
+    },
+    "completed": false
+  },
+  "data_access_request_diagnostics": [],
+  "workflow_counters": {
+    "guard_activations": [],
+    "guard_retries": 0,
+    "max_guard_retries": 2,
+    "refusal_despite_evidence_retries": 0,
+    "aggregate_columns_validation_feedback": 0,
+    "multi_file_coverage_rejections": 0,
+    "repeated_invalid_request_stops": 0,
+    "blocked_done_rejections": 0,
+    "duplicate_filter_rejections": 0,
+    "defaulted_file_selectors": 1,
+    "data_loop_degraded": false,
+    "data_loop_degradation_reason": null,
+    "reviewer_rejections": 0,
+    "counterfactual_triggers": 0,
+    "counterfactual_simulations": 0,
+    "counterfactual_changed_outcome": 0
+  },
+  "provider_token_usage": {
+    "calls": 10,
+    "prompt_tokens": 22866,
+    "output_tokens": 1918,
+    "wall_seconds": 257.58
+  },
+  "errors": [
+    {
+      "type": "DataToolWorkflowError",
+      "message": "data evidence exceeded 32000 characters; no results were dropped",
+      "pipeline_attempts": [],
+      "conversation_failures": []
+    }
+  ],
+  "data_loop_degraded": false,
+  "data_loop_degradation_reason": null,
+  "data_loop_unverified_summary": null,
+  "precomputed_file_profiles": [
+    {
+      "file": "roman_cities.csv",
+      "sha256": "0cea47b3d090d8e5dcc1a52dcd9064e3398ed18994233e677f74dab4ef2659b2",
+      "format": "csv",
+      "parser_notes": [
+        "Found 115 ambiguous numeric-looking value(s) in column 'Ancient Toponym'; numeric aggregation will require an unambiguous encoding.",
+        "Found 337 ambiguous numeric-looking value(s) in column 'Province'; numeric aggregation will require an unambiguous encoding."
+      ],
+      "tables": [
+        {
+          "table": "table_0",
+          "row_count": 1388,
+          "schema": [
+            {
+              "column": "Primary Key",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Ancient Toponym",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Modern Toponym",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Province",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Country",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Barrington Atlas Rank",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Barrington Atlas Reference",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Start Date",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "End Date",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Longitude (X)",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Latitude (Y)",
+              "dtype": "text (normalized parser storage)"
+            },
+            {
+              "column": "Select Bibliography",
+              "dtype": "text (normalized parser storage)"
+            }
+          ],
+          "sample_rows": {
+            "coverage": "sample",
+            "rows": [
+              {
+                "Primary Key": "Hanson2016_1",
+                "Ancient Toponym": "Abae",
+                "Modern Toponym": "Kalapodi",
+                "Province": "Achaea",
+                "Country": "Greece",
+                "Barrington Atlas Rank": "4 or 5",
+                "Barrington Atlas Reference": "55 D3",
+                "Start Date": "-600",
+                "End Date": "NULL",
+                "Longitude (X)": "22.933333",
+                "Latitude (Y)": "38.583333",
+                "Select Bibliography": "BNP; Hansen 2006; Hansen and Nielsen 2004; PECS; Sear 2006."
+              },
+              {
+                "Primary Key": "Hanson2016_2",
+                "Ancient Toponym": "Acharnae",
+                "Modern Toponym": "Acharnes",
+                "Province": "Achaea",
+                "Country": "Greece",
+                "Barrington Atlas Rank": "3",
+                "Barrington Atlas Reference": "59 B2",
+                "Start Date": "-600",
+                "End Date": "NULL",
+                "Longitude (X)": "23.734088",
+                "Latitude (Y)": "38.083473",
+                "Select Bibliography": "BNP; DGRG; PECS; Sear 2006."
+              },
+              {
+                "Primary Key": "Hanson2016_3",
+                "Ancient Toponym": "Acraephia",
+                "Modern Toponym": "Akraifnio",
+                "Province": "Achaea",
+                "Country": "Greece",
+                "Barrington Atlas Rank": "3",
+                "Barrington Atlas Reference": "55 E4",
+                "Start Date": "-600",
+                "End Date": "NULL",
+                "Longitude (X)": "23.219702",
+                "Latitude (Y)": "38.452606",
+                "Select Bibliography": "BNP; DGRG; Hansen and Nielsen 2004; PECS; Sear 2006."
+              }
+            ]
+          },
+          "low_cardinality_counts": {
+            "Barrington Atlas Rank": {
+              "coverage": "exhaustive",
+              "counts": [
+                {
+                  "value": "3",
+                  "count": 816
+                },
+                {
+                  "value": "4 or 5",
+                  "count": 377
+                },
+                {
+                  "value": "2",
+                  "count": 162
+                },
+                {
+                  "value": "-",
+                  "count": 19
+                },
+                {
+                  "value": "1",
+                  "count": 14
+                }
+              ]
+            }
+          },
+          "other_columns": {
+            "coverage": "sample only",
+            "columns": [
+              "Primary Key",
+              "Ancient Toponym",
+              "Modern Toponym",
+              "Province",
+              "Country",
+              "Barrington Atlas Reference",
+              "Start Date",
+              "End Date",
+              "Longitude (X)",
+              "Latitude (Y)",
+              "Select Bibliography"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "generation_attempts": [
+    {
+      "prompt_eval_count": 2769,
+      "eval_count": 19,
+      "total_duration": 23685968250,
+      "load_duration": 3899685458,
+      "wall_seconds": 23.730147541034967,
+      "response_sha256": "529f4e222a4b3f8aa4251365527e0e2082949ae02793b09bca44b76bf74ad107",
+      "response_chars": 64
+    },
+    {
+      "prompt_eval_count": 3697,
+      "eval_count": 19,
+      "total_duration": 19043329917,
+      "load_duration": 7850750,
+      "wall_seconds": 19.08392491703853,
+      "response_sha256": "529f4e222a4b3f8aa4251365527e0e2082949ae02793b09bca44b76bf74ad107",
+      "response_chars": 64
+    },
+    {
+      "prompt_eval_count": 2050,
+      "eval_count": 70,
+      "total_duration": 18450010583,
+      "load_duration": 6072583,
+      "wall_seconds": 18.46451195795089,
+      "response_sha256": "53dee0b13a1bf818f642d85cfa4a24fb08620add8f8462d927ef955ecd98b92f",
+      "response_chars": 188
+    },
+    {
+      "prompt_eval_count": 2050,
+      "eval_count": 201,
+      "total_duration": 29664675542,
+      "load_duration": 3800000,
+      "wall_seconds": 29.720548208104447,
+      "response_sha256": "47f4a1459719a452fc7d29ce5ee9b6a0c2fd8061ac051a5b20c98105a4fc173b",
+      "response_chars": 830
+    },
+    {
+      "prompt_eval_count": 2050,
+      "eval_count": 264,
+      "total_duration": 40641257125,
+      "load_duration": 6811250,
+      "wall_seconds": 40.66757487482391,
+      "response_sha256": "04b523cddbbe4c20885c71e2cbe1237a1a2eff6f0bf129692f4dc9124957dc60",
+      "response_chars": 1191
+    },
+    {
+      "prompt_eval_count": 2050,
+      "eval_count": 269,
+      "total_duration": 35970282667,
+      "load_duration": 5162792,
+      "wall_seconds": 35.99638499994762,
+      "response_sha256": "b78197416a25f247e9c4a4d7ee4e2ecfb0d6a179d45a5aabb1338c45b817daeb",
+      "response_chars": 1221
+    },
+    {
+      "prompt_eval_count": 2050,
+      "eval_count": 269,
+      "total_duration": 21274024833,
+      "load_duration": 6221917,
+      "wall_seconds": 21.313318541971967,
+      "response_sha256": "b78197416a25f247e9c4a4d7ee4e2ecfb0d6a179d45a5aabb1338c45b817daeb",
+      "response_chars": 1221
+    },
+    {
+      "prompt_eval_count": 2050,
+      "eval_count": 269,
+      "total_duration": 20189704833,
+      "load_duration": 3507166,
+      "wall_seconds": 20.217500957893208,
+      "response_sha256": "b78197416a25f247e9c4a4d7ee4e2ecfb0d6a179d45a5aabb1338c45b817daeb",
+      "response_chars": 1221
+    },
+    {
+      "prompt_eval_count": 2050,
+      "eval_count": 269,
+      "total_duration": 22468903417,
+      "load_duration": 3664167,
+      "wall_seconds": 22.51293925009668,
+      "response_sha256": "b78197416a25f247e9c4a4d7ee4e2ecfb0d6a179d45a5aabb1338c45b817daeb",
+      "response_chars": 1221
+    },
+    {
+      "prompt_eval_count": 2050,
+      "eval_count": 269,
+      "total_duration": 25813263167,
+      "load_duration": 3476167,
+      "wall_seconds": 25.873080916935578,
+      "response_sha256": "b78197416a25f247e9c4a4d7ee4e2ecfb0d6a179d45a5aabb1338c45b817daeb",
+      "response_chars": 1221
+    }
+  ],
+  "attempt_count": 10,
+  "data_operation_processing_seconds": [
+    0.037576,
+    0.004264,
+    0.00412,
+    0.003197,
+    0.002084,
+    0.003277,
+    0.00335,
+    0.004073,
+    0.004352,
+    0.002839,
+    0.004119,
+    0.005105
+  ],
+  "finished_at": "2026-11-04T11:22:07.936749+00:00",
+  "runtime_seconds": 257.7737,
+  "task_wall_clock_elapsed_seconds": 257.7737
+}

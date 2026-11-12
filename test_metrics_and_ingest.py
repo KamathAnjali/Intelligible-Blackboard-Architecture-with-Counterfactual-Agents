@@ -16,8 +16,8 @@ from bench.ingest.krama_parser import (
     TaskFormat,
     parse_krama_record,
     load_krama_dataset,
-    feed_tasks_to_live_board,
 )
+from ui.server.fixtures.synthetic_feed import synthetic_visualisation_feed
 
 
 def test_token_counter_basic():
@@ -75,9 +75,10 @@ def test_krama_parser_and_live_feed():
         "domain": "math",
     })
     assert task.task_id == "test_t1"
-    assert task.expected_answer == "12"
+    assert task.evaluator_reference.expected_answer == "12"
+    assert not hasattr(task.agent_facing_task, "expected_answer")
 
     # Test feed_tasks_to_live_board (offline / without server)
-    states = feed_tasks_to_live_board([task], interval_s=0.01, emit_to_bus=False)
+    states = synthetic_visualisation_feed([task.agent_facing_task], interval_s=0.0, emit_to_bus=False)
     assert len(states) == 1
     assert len(states[0].entries) >= 2

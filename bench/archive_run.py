@@ -51,9 +51,11 @@ def _is_selected(path: Path) -> bool:
         return False
     return (
         name == "run_manifest.json"
+        or name == "transcript.json"
         or name == "per_task_evaluation_records.jsonl"
         or name == "aggregated_results.csv"
         or "krama_task_records" in parts and path.suffix.casefold() == ".json"
+        or "usage_ledgers" in parts and path.suffix.casefold() == ".json"
         or path.suffix.casefold() == ".log"
         or ("driver_logs" in parts or "_driver_logs" in parts or "logs" in parts)
         and path.suffix.casefold() in {".txt", ".jsonl"}

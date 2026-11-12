@@ -53,9 +53,10 @@ def sanitized_base_url(value):
 
 
 class OllamaClient:
-    def __init__(self, model=MODEL, base_url=BASE_URL):
+    def __init__(self, model=MODEL, base_url=BASE_URL, model_seed=42):
         self.model = model
         self.base_url = base_url.rstrip("/")
+        self.options = {**OPTIONS, "seed": model_seed}
         self.task_deadline = None
 
     def set_task_deadline(self, deadline):
@@ -86,7 +87,7 @@ class OllamaClient:
         started = time.perf_counter()
         payload = {
             "model": self.model, "prompt": prompt, "system": system,
-            "stream": False, "keep_alive": "10m", "options": OPTIONS,
+            "stream": False, "keep_alive": "10m", "options": self.options,
         }
         if schema is not None:
             payload["format"] = schema

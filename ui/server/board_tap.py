@@ -39,6 +39,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from blackboard.core import Blackboard
@@ -62,11 +63,131 @@ RECORDED_SESSION_PATH: Path = Path(
 )
 
 
-from bench.metrics.token_counter import count_tokens_for_entry, global_token_tracker
+from agents.llm_client import MODEL
+from bench.metrics.token_counter import UsageLedger, count_tokens_for_entry, global_token_tracker
 
 _live_loop: asyncio.AbstractEventLoop | None = None
 _live_board: Blackboard | None = None
 _live_listener: Any = None
+global_usage_ledger = UsageLedger()
+_estimated_entry_ids: set[str] = set()
+_estimated_entries_lock = Lock()
+_usage_session_id: str | None = None
+_usage_task_id: str | None = None
+COUNTERFACTUAL_EVENT_TYPES = {
+    "branch_created", "branch_entry_posted", "counterfactual_result", "live_adjustment_applied",
+}
+
+
+def process_counterfactual_event(event: dict[str, Any]) -> dict[str, Any] | None:
+    """Validate/normalize one explicit branch lifecycle event for the UI wire."""
+    kind = event.get("type")
+    if isinstance(kind, str) and kind.upper() in {item.upper() for item in COUNTERFACTUAL_EVENT_TYPES}:
+        kind = kind.lower()
+    if kind not in COUNTERFACTUAL_EVENT_TYPES:
+        return None
+    payload = event.get("payload")
+    normalized = {**(payload if isinstance(payload, dict) else {}), **event, "type": kind}
+    normalized.pop("payload", None)
+    if not isinstance(normalized.get("branch_id"), str) or not normalized["branch_id"]:
+        return None
+    if kind == "branch_entry_posted" and not isinstance(normalized.get("entry"), dict):
+        return None
+    if kind == "counterfactual_result" and (
+        not isinstance(normalized.get("adopted"), bool)
+        or normalized.get("adoption_method") not in {"prompt", "vote_weight", "discarded"}
+        or not isinstance(normalized.get("reason"), str)
+    ):
+        return None
+    if kind == "live_adjustment_applied" and not all(
+        isinstance(normalized.get(key), str) for key in ("agent_id", "method", "session_entry_id")
+    ):
+        return None
+    normalized.setdefault("source", "LIVE")
+    return normalized
+
+
+def process_board_counterfactual_event(board_event: Any, session_id: str | None = None,
+                                       task_id: str | None = None) -> dict[str, Any] | None:
+    """Serialize an emitter event only when it uses the explicit branch contract."""
+    event_type = getattr(board_event, "event_type", "")
+    raw_kind = getattr(event_type, "value", event_type)
+    if not isinstance(raw_kind, str):
+        raw_kind = getattr(event_type, "name", "")
+    raw_kind = raw_kind.lower()
+    envelope = {
+        "type": raw_kind,
+        "payload": getattr(board_event, "payload", {}),
+        "session_id": session_id,
+        "task_id": task_id or getattr(board_event, "task_id", None),
+        "source": "LIVE",
+    }
+    return process_counterfactual_event(envelope)
+
+
+def reset_token_usage(session_id: str | None = None, task_id: str | None = None) -> None:
+    """Start clean UI accounting for one session/task."""
+    global _usage_session_id, _usage_task_id
+    global_usage_ledger.reset()
+    global_token_tracker.reset()
+    with _estimated_entries_lock:
+        _estimated_entry_ids.clear()
+    _usage_session_id, _usage_task_id = session_id, task_id
+
+
+def ingest_usage_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Consume an optional model callback record and return its separate-source tally."""
+    return global_usage_ledger.ingest(record)
+
+
+def process_board_entry_event(event: dict[str, Any]) -> dict[str, Any]:
+    """Add entry-text fallback accounting and return a typed live board event."""
+    converted = _entry_to_event(event.get("entry", {}))
+    for key in ("source", "session_id", "task_id", "entry_count", "last_entry_id"):
+        if key in event:
+            converted[key] = event[key]
+    return converted
+
+
+def usage_tally_report() -> dict[str, Any]:
+    """Prefer call-level UsageRecords; otherwise expose only entry-text estimates."""
+    report = global_usage_ledger.export_report()
+    if report["total_calls"]:
+        return report
+    legacy = global_token_tracker.export_tally_report()
+    agents = {}
+    for agent_id, summary in legacy["agents"].items():
+        tokens = summary["total_tokens"]
+        agents[agent_id] = {
+            **summary, "provider_tokens": 0, "estimated_tokens": tokens,
+            "call_kinds": {"other": {"calls": summary["turn_count"], "estimated_tokens": tokens}},
+        }
+    return {
+        "schema_version": 1, "total_calls": legacy["turn_count"],
+        "turn_count": legacy["turn_count"],
+        "provider_total_tokens": 0, "estimated_total_tokens": legacy["total_tokens"],
+        "total_tokens": legacy["total_tokens"],
+        "estimated_share_pct": 100.0 if legacy["total_tokens"] else 0.0,
+        "source_label": "estimated" if legacy["turn_count"] else "unavailable",
+        "measurement_label": "estimated, entry text only" if legacy["turn_count"] else "no usage records",
+        "measurement_scope": "prediction and explanation text only; prompts and internal calls are excluded",
+        "prompt_tokens": 0, "completion_tokens": legacy["total_tokens"],
+        "agents": agents,
+        "sessions": {_usage_session_id or "current": {
+            "calls": legacy["turn_count"], "provider_tokens": 0,
+            "estimated_tokens": legacy["total_tokens"], "total_tokens": legacy["total_tokens"],
+        }} if legacy["turn_count"] else {},
+        "by_call_kind": {"other": {"calls": legacy["turn_count"], "provider_tokens": 0,
+                                    "estimated_tokens": legacy["total_tokens"],
+                                    "total_tokens": legacy["total_tokens"]}},
+        "by_execution": {
+            "live": {"calls": legacy["turn_count"], "provider_tokens": 0,
+                     "estimated_tokens": legacy["mainline_tokens"], "total_tokens": legacy["mainline_tokens"]},
+            "simulation": {"calls": sum(1 for s in legacy["agents"].values() if s["simulation_tokens"]),
+                           "provider_tokens": 0, "estimated_tokens": legacy["simulation_tokens"],
+                           "total_tokens": legacy["simulation_tokens"]},
+        },
+    }
 
 
 # ── Helper: convert BoardEntry → wire event dict ──────────────────────────────
@@ -82,15 +203,16 @@ def _entry_to_event(entry_dict: dict) -> dict:
     # Calculate token count for this specific entry
     tokens = count_tokens_for_entry(pred, expl, agent_id=agent)
 
-    # Track in global tracker
-    global_token_tracker.record_turn(
-        entry_id=eid,
-        agent_id=agent,
-        tag=tag,
-        prediction=pred,
-        explanation=expl,
-        is_counterfactual_sim=bool(entry_dict.get("is_counterfactual_sim", False)),
-    )
+    # This remains explicitly scoped fallback accounting, not model-call usage.
+    with _estimated_entries_lock:
+        is_new_estimate = eid not in _estimated_entry_ids
+        _estimated_entry_ids.add(eid)
+    if is_new_estimate:
+        global_token_tracker.record_turn(
+            entry_id=eid, agent_id=agent, tag=tag, prediction=pred, explanation=expl,
+            model_name=MODEL,
+            is_counterfactual_sim=bool(entry_dict.get("is_counterfactual_sim", False)),
+        )
 
     return {
         "type": "board_entry",
@@ -106,7 +228,7 @@ def _entry_to_event(entry_dict: dict) -> dict:
             "token_count": tokens,
             "token_count_kind": "estimated_board_entry_text_only",
         },
-        "token_tally": global_token_tracker.export_tally_report(),
+        "token_tally": usage_tally_report(),
     }
 
 
@@ -121,10 +243,18 @@ def attach_live_board(board: Blackboard, loop: asyncio.AbstractEventLoop | None 
     if _live_board is board:
         return
     detach_live_board()
-    global_token_tracker.reset()
+    reset_token_usage(task_id=board.task_id)
 
     def on_board_event(board_event) -> None:
         if board_event.event_type is not BoardEventType.ENTRY_POSTED:
+            branch_event = process_board_counterfactual_event(
+                board_event, session_id=_usage_session_id, task_id=board.task_id,
+            )
+            if branch_event:
+                try:
+                    asyncio.run_coroutine_threadsafe(bus.publish(branch_event), event_loop)
+                except RuntimeError:
+                    logger.exception("[LIVE_TAP] Could not publish counterfactual branch event")
             return
         entry = board_event.payload.get("entry")
         if not entry:
@@ -132,6 +262,10 @@ def attach_live_board(board: Blackboard, loop: asyncio.AbstractEventLoop | None 
         event = _entry_to_event(entry)
         try:
             asyncio.run_coroutine_threadsafe(bus.publish(event), event_loop)
+            asyncio.run_coroutine_threadsafe(bus.publish({
+                "type": "token_tally", "source": "LIVE_TAP", "session_id": _usage_session_id,
+                "task_id": board.task_id, "token_tally": event["token_tally"],
+            }), event_loop)
         except RuntimeError:
             logger.exception("[LIVE_TAP] Could not publish board event")
 
@@ -185,7 +319,10 @@ async def _run_log_replay() -> None:
             await bus.publish({
                 "type": "session_summary",
                 "source": "LOG_REPLAY",
-                "summary": raw.get("intelligibility", "UNRESOLVED") if isinstance(raw, dict) else "UNRESOLVED",
+                "summary": {
+                    "outcome": raw.get("intelligibility", "UNRESOLVED") if isinstance(raw, dict) else "UNRESOLVED",
+                    **bus.snapshot(),
+                },
             })
             await bus.publish({"type": "stream_complete", "source": "LOG_REPLAY"})
             logger.info("[LOG_REPLAY] Replay complete.")

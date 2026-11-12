@@ -402,6 +402,101 @@ def test_identical_invalid_structured_responses_stop_early_with_bounded_diagnost
     assert "api_key" in {item["field"] for item in diagnostic["validation_errors"]}
 
 
+def test_cross_action_summary_feedback_names_done_and_aggregate_examples(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "records.csv").write_text("status,value\nyes,1\nno,2\n", encoding="utf-8")
+    client = FakeDataToolClient([
+        json.dumps({"action": "profile", "file": "records.csv"}),
+        json.dumps({"action": "aggregate", "file": "records.csv", "table": "table_0",
+                    "summary": "unsupported claim", "rate_outcome_column": "status"}),
+        json.dumps({"action": "aggregate", "file": "records.csv", "table": "table_0",
+                    "group_by": ["status"], "measures": [{"function": "count", "column": "*"}],
+                    "rate_outcome_column": "status"}),
+        json.dumps({"action": "done", "summary": "Counts came from the aggregate."}),
+    ])
+    with toolbox_for(root, ["records.csv"]) as toolbox:
+        result = gather_dataset_evidence(client, "Find the status rate", toolbox, max_calls=4)
+    feedback = client.calls[2]["system"]
+    assert "`summary` is a field of action `done`, not `aggregate`" in feedback
+    assert '"action": "done"' in feedback and '"action": "aggregate"' in feedback
+    assert '"file": "records.csv"' in feedback and '"table": "table_0"' in feedback
+    assert result["evidence"]["agent_summary_status"] == "model_generated_unverified"
+
+
+def test_filter_limit_feedback_explains_page_cap_and_aggregate_counts(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "records.csv").write_text("status,value\nyes,1\nno,2\n", encoding="utf-8")
+    client = FakeDataToolClient([
+        json.dumps({"action": "profile", "file": "records.csv"}),
+        json.dumps({"action": "filter", "file": "records.csv", "table": "table_0", "limit": 5000}),
+        json.dumps({"action": "filter", "file": "records.csv", "table": "table_0", "limit": 50}),
+        json.dumps({"action": "done", "summary": "Filtered."}),
+    ])
+    with toolbox_for(root, ["records.csv"]) as toolbox:
+        gather_dataset_evidence(client, "Inspect the records", toolbox, max_calls=3)
+    feedback = client.calls[2]["system"]
+    assert "filter returns at most 50 rows" in feedback
+    assert "counts require aggregate with `group_by`" in feedback
+    assert '"file": "records.csv"' in feedback and '"table": "table_0"' in feedback
+
+
+def test_repeated_invalid_summary_degrades_only_with_verified_recovery(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "records.csv").write_text("status,value\nyes,1\nno,2\nyes,3\n", encoding="utf-8")
+    invalid = json.dumps({"action": "aggregate", "file": "records.csv", "table": "table_0",
+                         "rate_outcome_column": "status", "summary": "fabricated result"})
+    client = FakeDataToolClient([
+        json.dumps({"action": "profile", "file": "records.csv"}), invalid, invalid,
+    ])
+    with toolbox_for(root, ["records.csv"]) as toolbox:
+        result = gather_dataset_evidence(client, "What percentage of records have each status?", toolbox, max_calls=3)
+    assert result["data_loop_degraded"] is True
+    assert result["data_loop_degradation_reason"] == "repeated_identical_invalid_request"
+    assert result["evidence"]["agent_summary"] == ""
+    assert result["evidence"]["agent_summary_status"] == "unverified_omitted_after_data_loop_failure"
+    assert any(item["action"] == "aggregate_recovery" and item["status"] == "success" for item in result["trace"])
+    recovered = [item for item in result["evidence"]["observations"] if item["action"] == "aggregate_recovery"]
+    assert recovered and "fabricated result" not in json.dumps(result["evidence"])
+
+
+def test_tool_budget_exhaustion_degrades_when_complete_verified_counts_exist(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "records.csv").write_text("status\nyes\nno\n", encoding="utf-8")
+    client = FakeDataToolClient([
+        json.dumps({"action": "profile", "file": "records.csv"}),
+        json.dumps({"action": "aggregate", "file": "records.csv", "table": "table_0",
+                    "group_by": ["status"], "measures": [{"function": "count", "column": "*"}],
+                    "rate_outcome_column": "status"}),
+        json.dumps({"action": "preview", "file": "records.csv", "table": "table_0"}),
+    ])
+    with toolbox_for(root, ["records.csv"]) as toolbox:
+        result = gather_dataset_evidence(client, "What is the share for status?", toolbox, max_calls=2)
+    assert result["data_loop_degraded"] is True
+    assert result["data_loop_degradation_reason"] == "tool_budget_exhausted"
+    assert result["workflow_diagnostics"]["tool_invocations"] == 2
+
+
+def test_data_agent_prompt_includes_bounded_sample_and_exhaustive_profiles(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "records.csv").write_text("status,value\nyes,1\nno,2\n", encoding="utf-8")
+    client = FakeDataToolClient([
+        json.dumps({"action": "profile", "file": "records.csv"}),
+        json.dumps({"action": "done", "summary": "Done."}),
+    ])
+    with toolbox_for(root, ["records.csv"]) as toolbox:
+        profiles = toolbox.precomputed_profiles()
+        gather_dataset_evidence(client, "Inspect records", toolbox, max_calls=2, precomputed_profiles=profiles)
+    payload = json.loads(client.calls[0]["prompt"])
+    table = payload["precomputed_file_profiles"][0]["tables"][0]
+    assert table["sample_rows"]["coverage"] == "sample"
+    assert table["low_cardinality_counts"]["status"]["coverage"] == "exhaustive"
+
+
 def test_tool_budget_allows_final_done_without_weakening_tool_cap(tmp_path):
     root = tmp_path / "dataset"
     root.mkdir()

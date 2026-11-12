@@ -1,13 +1,13 @@
 # Benchmark Scoping Note — Proposed Evaluation
 
 **Owner:** Student 4 (UI & Benchmarking)
-**Status:** Phase 2 adapter groundwork implemented. The pinned official evaluator and a genuine smoke run remain blocked; no official benchmark result has been produced.
+**Status:** The frozen task scope and paired orchestrator are implemented. No run from the new paired orchestrator has been validated yet; historical scores remain compatibility-mode/adapted where labelled.
 
 ## Dataset and scoring
 
 KramaBench is an end-to-end benchmark for data-science agents. Its records describe tasks and expected outputs; the official evaluator applies metrics according to answer type and supports evaluation of benchmark subtasks/pipelines. It is not a symbolic-logic benchmark. See the [official KramaBench repository](https://github.com/mitdbg/KramaBench) and the parser at [`bench/ingest/krama_parser.py`](../bench/ingest/krama_parser.py).
 
-The parser can load task records, but loading a dataset is not an evaluation. The current trial runner does not call the agent conversation or the official evaluator. Its `example` and `dry_run` modes are simulation/fixture modes, while `pilot` and `full_study` are disabled. No agreement rate from the simulator should be reported as benchmark accuracy.
+The parser can load task records, but loading a dataset is not an evaluation. The legacy trial runner's `example` and `dry_run` modes are synthetic fixture/simulation modes and cannot produce benchmark evidence. Real paired execution is implemented in `bench.orchestrator`, which delegates each task/configuration to the per-task runner and uses evaluator measures—not subprocess exit status—for correctness. No simulator agreement rate should be reported as benchmark accuracy.
 
 ## Proposed design (not yet executed)
 
@@ -17,7 +17,7 @@ The parser can load task records, but loading a dataset is not an evaluation. Th
 - Record evaluator metric and score, agent/model/version, prompts and responses or reproducible logs, configuration, and run metadata.
 - Report internal agreement, deadlocks, intelligibility, token estimates, and runtime separately from official benchmark scores. Tokens are estimates unless model usage metadata is available; local simulator time is not agent latency.
 
-The proposed 20–30 tasks per setting and 4-task dry run are planning targets, not completed runs. See [`bench/results/README.md`](../bench/results/README.md) for the status of existing local outputs.
+The frozen scope contains five compatibility-evaluator tuning tasks and 25 held-out tasks with the unmodified evaluator. Its SHA-256 is `b972537ca85005ac8700d85837ed9f14ba8be920df23a616b651ffaa5aeae268`; verify it with `./.venv/bin/python -m bench.scope.load_scope bench/scope/pilot_scope_v1.json`. Tasks are eligible only when their inputs exist and a deterministic metric has a machine-readable exact-match pass rule. Selection is seeded and does not rank by query text or prior success. This scope has two agents, so the four configured fractions produce effective capability counts 0/1/2/2; 66% and 100% are not distinct conditions for this roster. The scope is a frozen pilot definition, not a claim that its runs have completed. See [`docs/orchestrator_design.md`](orchestrator_design.md) and [`bench/results/README.md`](../bench/results/README.md) for execution and result handling.
 
 ## Verified KramaBench integration contract and remaining work
 
@@ -175,3 +175,17 @@ Future command for the first genuine task (not executed):
 ```
 
 Run it only after the local non-generative readiness check confirms the exact Ollama model tag and the user explicitly approves the real local model call. Compatibility-evaluator output must remain labeled separately from unmodified official KramaBench output. Phase 3 is not part of this implementation.
+
+## Frozen pilot scope v1 (2026-11-10)
+
+The machine-readable freeze is [`bench/scope/pilot_scope_v1.json`](../bench/scope/pilot_scope_v1.json), with its full candidate-by-candidate rationale in [`bench/scope/candidate_inventory.csv`](../bench/scope/candidate_inventory.csv). The frozen file's canonical SHA-256 is `b972537ca85005ac8700d85837ed9f14ba8be920df23a616b651ffaa5aeae268`; verify it with `./.venv/bin/python -m bench.scope.load_scope bench/scope/pilot_scope_v1.json`. The loader rejects a missing or mismatched content hash. Rebuild the inventory/scope in a fresh output directory with `./.venv/bin/python -m bench.scope.build_scope --benchmark-root "$HOME/kramabench-pinned" --output-dir /tmp/krama-scope-rebuild`.
+
+The source is the unmodified `mitdbg/KramaBench` revision `b2e0d77540263f8b6119f977fe79a8c4386b5a02`. The builder inventories all 109 top-level workload rows. It does not include task queries, expected answers, reference pipelines, or subtasks in the inventory or frozen scope. Evaluator metrics are taken from the pinned `answer_type_fixtures.json`; eligible checks are deterministic metrics only. Inputs must resolve in the pinned checkout, use a supported format/parser, and stay within the data-tool byte limits. Task order is selected by ascending SHA-256 of `seed + NUL + workload + NUL + task_id`, seed `20261110`; neither agent outcomes nor answer values affect selection.
+
+The scope has five compatibility-evaluator tuning tasks and 25 held-out tasks for the unmodified official evaluator. They do not overlap. Tuning tasks can support prompt/replay-rule development and the five-task pipeline dry run; all 25 held-out tasks remain untouched until the configuration is frozen. The builder excludes previously exposed tasks from the official held-out pool by scanning archived manifests and existing result/docs reports. It does not rank by historical score. `candidate_inventory.csv` lists every candidate and its split or explicit exclusion reason; the frozen JSON summarizes exact exclusion-reason strings. In this checkout, 79 candidates were excluded. Reasons include prior exposure, nondeterministic/LLM-judged answer metrics, missing parser dependencies (`openpyxl`), missing or unresolvable files, unsupported formats, non-main workload subsets, and otherwise-eligible tasks not drawn by the seeded selection. Some rows have multiple reasons; consult the inventory for the exact task IDs and combined reasons rather than summing reason counts as disjoint categories.
+
+The compatibility tuning results are **adapted** because they use the reviewed evaluator patch (hash above). They must be reported with `evaluator_mode=compatibility-no-key` and `adapted=true`. Held-out results use `evaluator_mode=official`; any future task/evaluator adaptation must still set `adapted=true`. Use `bench.scope.load_scope.result_reporting_labels()` so summaries separate `standard` and `adapted` outcomes. The scope records the model tag, persona names, agent count, scheduler policy, counterfactual fractions, and current stopping limits. The model digest was not preserved and is intentionally null; capture it from the runtime for each run. No cumulative token cap is configured.
+
+This scope is a reproducible task-selection and provenance freeze, not evidence that the pilot has run or that the local model/evaluator is currently ready. The official evaluator prerequisite remains `OPENAI_API_KEY`; the key is not present in the scope and must never be stored there. Ollama readiness is also checked at run time. Selection only verifies file presence, supported format/dependency, hashes, size limits, and pinned evaluator metrics; it does not promise that every task's prompt can be solved within the current tool budget, parser semantics, wall-clock limit, or model capability. Historical archive records are reported as context, not performance targets. No accuracy, throughput, or counterfactual benefit claim follows from this freeze.
+
+The scope loader exposes separate agent-task and counterfactual-selection views. Both construct explicit allowlisted field sets and exclude `answer`, `gold`, `reference_answer`, reference pipeline, and query fields. Regression tests also inject synthetic reference markers to verify those views cannot pass them through. Existing adapter leakage coverage remains in `tests/test_kramabench_adapter.py`.

@@ -16,7 +16,7 @@ The UI and board tap count prediction/explanation entry text. These totals do no
 
 ## 4. Trial-runner output is not benchmark evidence
 
-`example` and `dry_run` modes are synthetic fixtures/simulations. `pilot` and `full_study` remain disabled pending real trial orchestration and the official KramaBench evaluation path. Parsing canonical tasks does not run the benchmark evaluator or produce official scores (`bench/metrics/trial_runner.py`, `docs/benchmark_scoping_note.md`).
+`example` and `dry_run` modes are synthetic fixtures/simulations and write only under `bench/results/synthetic/` with `SYNTHETIC` labels. They cannot produce evaluator scores. Real paired KramaBench execution is now handled by `bench.orchestrator`; see `docs/orchestrator_design.md` and the frozen scope. Availability of a compatible local model, pinned checkout, and official evaluator credentials still determines whether a genuine run can execute.
 
 ## 5. Missing-record replay fallback can show synthetic content
 

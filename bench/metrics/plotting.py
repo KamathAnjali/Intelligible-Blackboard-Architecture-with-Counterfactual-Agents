@@ -320,7 +320,7 @@ def generate_interactive_html_report(
 def _run_cli(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Benchmark Ablation Plotting Toolkit")
     parser.add_argument("--csv", "-c", default=None, help="Path to single result CSV.")
-    parser.add_argument("--phase-dir", "-p", default="bench/results/week3_pilot", help="Path to phase directory containing result CSVs.")
+    parser.add_argument("--phase-dir", "-p", default="bench/results/synthetic/week3_pilot", help="Path to phase directory containing result CSVs.")
     parser.add_argument("--out-dir", "-o", default=None, help="Output directory for charts.")
     args = parser.parse_args(argv)
 

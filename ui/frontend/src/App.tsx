@@ -1,58 +1,35 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Canvas } from './components/Canvas';
+import { SchedulerStatus } from './components/SchedulerStatus';
 import type { GraphLink, GraphNode, PXPTag } from './components/Canvas';
 import type { TokenTallyReport } from './components/TokenTally';
+import type { BackendEvent, BoardEntryPayload, SessionMode } from './types/sessionEvents';
+import { initialSessionState, reconnectDelayMs, sessionReducer } from './types/sessionReducer';
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
-export type WsStatus = 'connected' | 'connecting' | 'disconnected';
-export type BoardMode = 'LIVE_TAP' | 'LOG_REPLAY' | 'MOCK_STREAM' | null;
-
-/** Raw board_entry payload from the WebSocket stream. */
-interface BoardEntryEvent {
-  entry_id: string;
-  agent_id: string;
-  tag: PXPTag;
-  prediction: string;
-  explanation: string;
-  target_entry_id?: string | null;
-  is_counterfactual_sim?: boolean;
-  timestamp?: string;
-  token_count?: {
-    prediction_tokens: number;
-    explanation_tokens: number;
-    total_tokens: number;
-  };
+interface ScopeTask {
+  task_id: string;
+  workload: string;
+  split: 'tuning' | 'held_out_pilot';
+  evaluator_mode: string;
+  adapted: boolean;
+  answer_type: string;
 }
 
-interface WsEnvelope {
-  type: 'board_entry' | 'session_summary' | 'stream_complete' | 'connection_ack' | 'token_tally' | string;
-  mode?: BoardMode;
-  entry?: BoardEntryEvent;
-  summary?: Record<string, unknown>;
-  token_tally?: TokenTallyReport;
-  message?: string;
+function toCanvasMode(mode: SessionMode | null): 'LIVE_TAP' | 'LOG_REPLAY' | 'MOCK_STREAM' | null {
+  if (mode === 'LIVE') return 'LIVE_TAP';
+  if (mode === 'REPLAY') return 'LOG_REPLAY';
+  if (mode === 'MOCK' || mode === 'SYNTHETIC') return 'MOCK_STREAM';
+  return null;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function entryToNode(entry: BoardEntryEvent): GraphNode {
+function entryToNode(entry: BoardEntryPayload): GraphNode {
   return {
-    id: entry.entry_id,
-    agentId: entry.agent_id,
-    tag: entry.tag,
-    prediction: entry.prediction,
-    explanation: entry.explanation,
+    id: entry.entry_id, agentId: entry.agent_id, tag: entry.tag as PXPTag,
+    prediction: entry.prediction, explanation: entry.explanation,
     targetEntryId: entry.target_entry_id ?? undefined,
     isCounterfactual: entry.is_counterfactual_sim ?? false,
-    timestamp: entry.timestamp,
-    tokenCount: entry.token_count,
+    timestamp: entry.timestamp, tokenCount: entry.token_count,
   };
-}
-
-function estimateEntryTextTokens(text: string): number {
-  if (!text) return 0;
-  return Math.max(1, Math.floor(text.split(/\s+/).length * 1.3));
 }
 
 function nodeToLink(node: GraphNode): GraphLink | null {
@@ -60,211 +37,204 @@ function nodeToLink(node: GraphNode): GraphLink | null {
   return { source: node.id, target: node.targetEntryId, relation: node.tag };
 }
 
-// WebSocket URL — primary live board stream
-const WS_URL = 'ws://localhost:8000/ws';
-
-// ── App Component ─────────────────────────────────────────────────────────────
+const wsUrl = import.meta.env.VITE_WS_URL || (() => {
+  const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${scheme}//${window.location.host}/ws`;
+})();
+const apiRoot = import.meta.env.VITE_API_URL || '';
 
 export const App: React.FC = () => {
-  const [wsStatus, setWsStatus] = useState<WsStatus>('connecting');
-  const [boardMode, setBoardMode] = useState<BoardMode>(null);
+  const [session, dispatch] = useReducer(sessionReducer, initialSessionState);
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [links, setLinks] = useState<GraphLink[]>([]);
-  const [streamDone, setStreamDone] = useState(false);
-  const [tokenTally, setTokenTally] = useState<TokenTallyReport>({
-    total_tokens: 0,
-    turn_count: 0,
-    agents: {},
-  });
+  const [tokenTally, setTokenTally] = useState<TokenTallyReport>({ total_tokens: 0, turn_count: 0, agents: {} });
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
-
+  const [liveScrubIndex, setLiveScrubIndex] = useState<number | null>(null);
+  const [branchScrubIndex, setBranchScrubIndex] = useState<number | null>(null);
+  const [tasks, setTasks] = useState<ScopeTask[]>([]);
+  const [selectedTask, setSelectedTask] = useState('');
+  const [fraction, setFraction] = useState('0');
+  const [taskLoadError, setTaskLoadError] = useState<string | null>(null);
+  const [runPending, setRunPending] = useState(false);
+  const [apiSessionId, setApiSessionId] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
-
-  // Batched incoming queue to prevent race conditions during high-frequency streaming (W2 Day 5)
-  const incomingBufferRef = useRef<WsEnvelope[]>([]);
   const seenNodeIdsRef = useRef<Set<string>>(new Set());
   const seenLinkKeysRef = useRef<Set<string>>(new Set());
-  const frameIdRef = useRef<number | null>(null);
+  const reconnectsRef = useRef(0);
 
-  // Flush buffer on animation frame
-  const flushBuffer = useCallback(() => {
-    if (incomingBufferRef.current.length === 0) return;
-
-    const batch = [...incomingBufferRef.current];
-    incomingBufferRef.current = [];
-
-    const newNodesToAdd: GraphNode[] = [];
-    const newLinksToAdd: GraphLink[] = [];
-    let latestTally: TokenTallyReport | null = null;
-    let isComplete = false;
-    let detectedMode: BoardMode = null;
-
-    batch.forEach((envelope) => {
-      if (envelope.type === 'connection_ack' && envelope.mode) {
-        detectedMode = envelope.mode;
-      }
-      if (envelope.token_tally) {
-        latestTally = envelope.token_tally;
-      }
-      if (envelope.type === 'stream_complete') {
-        isComplete = true;
-      }
-      if (envelope.type === 'board_entry' && envelope.entry) {
-        const eid = envelope.entry.entry_id;
-        if (!seenNodeIdsRef.current.has(eid)) {
-          seenNodeIdsRef.current.add(eid);
-          const newNode = entryToNode(envelope.entry);
-          newNodesToAdd.push(newNode);
-
-          const newLink = nodeToLink(newNode);
-          if (newLink) {
-            const linkKey = `${String(newLink.source)}->${String(newLink.target)}`;
-            if (!seenLinkKeysRef.current.has(linkKey)) {
-              seenLinkKeysRef.current.add(linkKey);
-              newLinksToAdd.push(newLink);
-            }
-          }
+  const acceptEvent = useCallback((event: BackendEvent) => {
+    dispatch({ type: 'backend_event', event });
+    if (event.type === 'board_entry') {
+      const id = event.entry.entry_id;
+      if (seenNodeIdsRef.current.has(id)) return;
+      seenNodeIdsRef.current.add(id);
+      const node = entryToNode(event.entry);
+      setNodes((previous) => [...previous, node]);
+      const link = nodeToLink(node);
+      if (link) {
+        const key = `${String(link.source)}->${String(link.target)}`;
+        if (!seenLinkKeysRef.current.has(key)) {
+          seenLinkKeysRef.current.add(key);
+          setLinks((previous) => [...previous, link]);
         }
       }
-    });
-
-    if (detectedMode) {
-      setBoardMode(detectedMode);
-    }
-    if (newNodesToAdd.length > 0) {
-      setNodes((prev) => [...prev, ...newNodesToAdd]);
-    }
-    if (newLinksToAdd.length > 0) {
-      setLinks((prev) => [...prev, ...newLinksToAdd]);
-    }
-    if (latestTally) {
-      setTokenTally(latestTally);
-    } else if (newNodesToAdd.length > 0) {
-      // Incremental client-side tally calculation
-      setTokenTally((prev) => {
-        let addedTotal = 0;
-        const agentMap = { ...prev.agents };
-
-        newNodesToAdd.forEach((n) => {
-          const predTok = n.tokenCount?.prediction_tokens ?? estimateEntryTextTokens(n.prediction);
-          const explTok = n.tokenCount?.explanation_tokens ?? estimateEntryTextTokens(n.explanation);
-          const totalTok = predTok + explTok;
-          addedTotal += totalTok;
-
-          const currentAgent = agentMap[n.agentId] || {
-            agent_id: n.agentId,
-            turn_count: 0,
-            total_prediction_tokens: 0,
-            total_explanation_tokens: 0,
-            total_tokens: 0,
-            tags_used: {},
-          };
-
-          agentMap[n.agentId] = {
-            ...currentAgent,
-            turn_count: currentAgent.turn_count + 1,
-            total_prediction_tokens: currentAgent.total_prediction_tokens + predTok,
-            total_explanation_tokens: currentAgent.total_explanation_tokens + explTok,
-            total_tokens: currentAgent.total_tokens + totalTok,
-            tags_used: {
-              ...(currentAgent.tags_used || {}),
-              [n.tag]: ((currentAgent.tags_used || {})[n.tag] || 0) + 1,
-            },
-          };
-        });
-
-        return {
-          total_tokens: prev.total_tokens + addedTotal,
-          turn_count: prev.turn_count + newNodesToAdd.length,
-          agents: agentMap,
-        };
-      });
-    }
-    if (isComplete) {
-      setStreamDone(true);
+      if (event.token_tally && typeof event.token_tally === 'object') {
+        setTokenTally(event.token_tally as TokenTallyReport);
+      }
+    } else if (event.type === 'token_tally' && event.token_tally && typeof event.token_tally === 'object') {
+      setTokenTally(event.token_tally as TokenTallyReport);
     }
   }, []);
 
-  const handleMessage = useCallback(
-    (envelope: WsEnvelope) => {
-      // Log for narration
-      if (envelope.type === 'connection_ack') {
-        console.log(`[WS] ✅ Connected — mode: ${envelope.mode}`, envelope.message);
-      } else if (envelope.type === 'board_entry' && envelope.entry) {
-        console.log(
-          `[WS] 📋 board_entry tag=${envelope.entry.tag} agent=${envelope.entry.agent_id} id=${envelope.entry.entry_id}`,
-        );
-      }
-
-      incomingBufferRef.current.push(envelope);
-
-      if (!frameIdRef.current) {
-        frameIdRef.current = requestAnimationFrame(() => {
-          frameIdRef.current = null;
-          flushBuffer();
-        });
-      }
-    },
-    [flushBuffer],
-  );
-
   useEffect(() => {
-    let socket: WebSocket;
-    let reconnectTimer: any = null;
+    let disposed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let socket: WebSocket | null = null;
 
     const connect = () => {
+      if (disposed) return;
+      dispatch({ type: 'socket_connecting' });
       try {
-        socket = new WebSocket(WS_URL);
+        socket = new WebSocket(wsUrl);
         socketRef.current = socket;
-
         socket.onopen = () => {
-          console.log('[WS] Connection open');
-          setWsStatus('connected');
+          if (disposed) return;
+          reconnectsRef.current = 0;
+          dispatch({ type: 'socket_open' });
         };
-
-        socket.onmessage = (event) => {
-          try {
-            handleMessage(JSON.parse(event.data) as WsEnvelope);
-          } catch (e) {
-            console.warn('[WS] Failed to parse message:', event.data, e);
-          }
+        socket.onmessage = (message) => {
+          try { acceptEvent(JSON.parse(message.data) as BackendEvent); }
+          catch (error) { console.error('[WS] Invalid backend event; event was not applied.', error); }
         };
-
-        socket.onerror = () => {
-          setWsStatus('disconnected');
-        };
-
+        socket.onerror = () => { if (!disposed) dispatch({ type: 'socket_closed' }); };
         socket.onclose = () => {
-          setWsStatus('disconnected');
-          // Auto-reconnect after 3s
-          reconnectTimer = setTimeout(connect, 3000);
+          if (disposed) return;
+          dispatch({ type: 'socket_closed' });
+          reconnectsRef.current += 1;
+          reconnectTimer = setTimeout(connect, reconnectDelayMs(reconnectsRef.current));
         };
-      } catch {
-        setWsStatus('disconnected');
-        reconnectTimer = setTimeout(connect, 3000);
+      } catch (error) {
+        console.error('[WS] Could not open the configured WebSocket.', error);
+        dispatch({ type: 'socket_closed' });
+        reconnectsRef.current += 1;
+        reconnectTimer = setTimeout(connect, reconnectDelayMs(reconnectsRef.current));
       }
     };
 
     connect();
-
     return () => {
-      clearTimeout(reconnectTimer);
-      if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
-      socketRef.current?.close();
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      socket?.close();
     };
-  }, [handleMessage]);
+  }, [acceptEvent]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${apiRoot}/api/tasks`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Task list request failed (${response.status}).`);
+        return response.json() as Promise<{ tasks: ScopeTask[] }>;
+      })
+      .then((payload) => {
+        if (cancelled) return;
+        setTasks(payload.tasks);
+        if (payload.tasks.length) setSelectedTask(payload.tasks[0].task_id);
+      })
+      .catch((error: unknown) => { if (!cancelled) setTaskLoadError(String(error)); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!apiSessionId || session.status !== 'running') return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch(`${apiRoot}/api/tasks/${encodeURIComponent(apiSessionId)}/status`);
+        if (!response.ok) throw new Error(`Session status request failed (${response.status}).`);
+        const payload = await response.json();
+        if (cancelled) return;
+        if (payload.status === 'failed' && payload.error) {
+          acceptEvent({ type: 'session_error', session_id: apiSessionId, task_id: payload.task_id, error: payload.error });
+        } else if ((payload.status === 'completed' || payload.status === 'failed') && payload.summary) {
+          acceptEvent({ type: 'session_summary', session_id: apiSessionId, task_id: payload.task_id, summary: payload.summary });
+        }
+      } catch (error) { if (!cancelled) setTaskLoadError(String(error)); }
+    };
+    const timer = setInterval(poll, 2000);
+    void poll();
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [apiSessionId, session.status, acceptEvent]);
+
+  const startTask = async () => {
+    const task = tasks.find((item) => item.task_id === selectedTask);
+    if (!task || runPending) return;
+    if (!window.confirm(`Run ${task.task_id} through the real local model? This starts a genuine KramaBench execution.`)) return;
+    setRunPending(true);
+    setTaskLoadError(null);
+    try {
+      const response = await fetch(`${apiRoot}/api/tasks/run`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: task.task_id, counterfactual_fraction: Number(fraction), mode: 'LIVE' }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || `Run request failed (${response.status}).`);
+      seenNodeIdsRef.current.clear();
+      seenLinkKeysRef.current.clear();
+      setNodes([]); setLinks([]); setTokenTally({ total_tokens: 0, turn_count: 0, agents: {} });
+      setScrubIndex(null); setApiSessionId(payload.session_id);
+      dispatch({ type: 'select_session', session_id: payload.session_id, task_id: task.task_id });
+    } catch (error) { setTaskLoadError(String(error)); }
+    finally { setRunPending(false); }
+  };
+
+  const wsStatus = session.status === 'connecting' ? 'connecting' : session.status === 'disconnected' ? 'disconnected' : 'connected';
+  const branchNodes = Object.values(session.branches).flatMap((branch) => branch.entries.map((entry) => ({
+    ...entryToNode(entry), isCounterfactual: true,
+  })));
+  const branchLinks = branchNodes.map(nodeToLink).filter((link): link is GraphLink => link !== null);
 
   return (
-    <Canvas
-      wsStatus={wsStatus}
-      boardMode={boardMode}
-      nodes={nodes}
-      links={links}
-      streamDone={streamDone}
-      tokenTally={tokenTally}
-      scrubIndex={scrubIndex}
-      onScrub={setScrubIndex}
-    />
+    <div className="app-root">
+      <section className="session-control-panel" aria-label="KramaBench session controls">
+        <div className="session-control-row">
+          <label>Frozen task
+            <select value={selectedTask} onChange={(event) => setSelectedTask(event.target.value)} disabled={runPending || session.status === 'running'}>
+              {tasks.map((task) => <option key={task.task_id} value={task.task_id}>{task.task_id} · {task.split} · {task.evaluator_mode}</option>)}
+            </select>
+          </label>
+          <label>Counterfactual fraction
+            <select value={fraction} onChange={(event) => setFraction(event.target.value)} disabled={runPending || session.status === 'running'}>
+              <option value="0">0%</option><option value="0.33">33%</option><option value="0.66">66%</option><option value="1">100%</option>
+            </select>
+          </label>
+          <button type="button" onClick={() => void startTask()} disabled={!selectedTask || runPending || session.status === 'running'}>
+            {runPending ? 'Starting…' : session.status === 'running' ? 'Run in progress' : 'Run real task'}
+          </button>
+          <span className={`session-mode-pill mode-${(session.mode ?? 'unknown').toLowerCase()}`}>{session.mode ?? 'MODE UNKNOWN'}</span>
+          <span className={`session-status status-${session.status}`}>{session.status.toUpperCase()}</span>
+        </div>
+        {session.taskId && <div className="session-meta">Task: {session.taskId} · Session: {session.sessionId} · Reconnects: {session.reconnectCount}</div>}
+        {session.activeAgentId && <div className="active-turn">Turn {session.turn ?? '—'} active: {session.activeAgentId}</div>}
+        <SchedulerStatus state={session} />
+        {session.consistencyWarning && <div className="parity-warning" role="status">State mismatch: {session.consistencyWarning}</div>}
+        {session.outcome && <div className="outcome-banner">Outcome: {session.outcome}{session.summary?.reason ? ` — ${session.summary.reason}` : ''}</div>}
+        {session.status === 'completed' && session.summary?.evaluator_score_available && <div className="score-banner">Evaluator score: {session.summary.evaluator_score} · {session.summary.evaluator_mode}{session.summary.adapted ? ' · adapted' : ' · standard'}</div>}
+        {session.errorMessage && <div className="session-error-banner" role="alert">Session error: {session.errorMessage}</div>}
+        {taskLoadError && <div className="session-error-banner" role="alert">UI/API error: {taskLoadError}</div>}
+      </section>
+      <Canvas
+        wsStatus={wsStatus}
+        boardMode={toCanvasMode(session.mode)}
+        syntheticStream={session.mode === 'SYNTHETIC'}
+        nodes={[...nodes, ...branchNodes]} links={[...links, ...branchLinks]}
+        streamDone={session.status === 'completed' || session.status === 'failed'}
+        tokenTally={tokenTally} scrubIndex={scrubIndex} onScrub={setScrubIndex}
+        branches={Object.values(session.branches)}
+        liveScrubIndex={liveScrubIndex} onLiveScrub={setLiveScrubIndex}
+        branchScrubIndex={branchScrubIndex} onBranchScrub={setBranchScrubIndex}
+      />
+    </div>
   );
 };
 
