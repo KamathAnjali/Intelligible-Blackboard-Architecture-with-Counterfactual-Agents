@@ -15,6 +15,8 @@
 
 The 18 October six-case local agent check recorded 6/6 correct unanimous outcomes. It was a small synthetic sanity check, not a benchmark. Two controlled deadlock fixtures made no model calls. Compact records are in `results/transcripts/`.
 
-On 14 November, 79 existing agent and adapter checks passed, and a live three-agent deduction reached consensus after the explanation-review fix. Ollama was using the CPU because the discrete GPU was not visible to Windows. The five-task KramaBench checkpoint has not yet been completed.
+On 14 November, 79 existing agent and adapter checks passed, and a live three-agent deduction reached consensus after the explanation-review fix. A five-task KramaBench baseline used the local model and the compatibility evaluator. All five ended without an accepted score: three failed on repeated invalid data requests, one exhausted the data-tool budget, and one reached the six-turn limit without a verified answer.
+
+The data-access prompt was clarified to request compact actions, short search strings, exact categorical column names, and valid aggregate fields. In two retests, the previously blocked tasks reached the agent conversation but both hit the six-turn limit without a verified answer. The fix passed 100 existing focused checks; one dependency-related check was skipped. These runs do not establish benchmark accuracy or completion of the full-pipeline checkpoint. Local run records are under `~/blackboard-day12-20261114/` in WSL.
 
 The Student 4 archive records a KramaBench UI task attempt that timed out using the compatibility evaluator. It does not establish a benchmark score. A real five-task pipeline checkpoint and fixes based on its observed agent failures are still required for Days 12 and 13. Counterfactual replay, scoring, adoption, and the full ablation study remain pending. See the project milestones and benchmark scoping note for scope and evaluator limitations.

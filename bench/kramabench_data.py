@@ -122,8 +122,8 @@ class DataToolRequest(BaseModel):
     rate_outcome_column: str | None = Field(
         default=None,
         description=(
-            "Workflow metadata declaring the categorical outcome column for a rate task. "
-            "May accompany any action; it does not alter that action's operation."
+            "Exact name of a categorical outcome column for a rate task, such as a yes/no column. "
+            "Omit when the task reads an existing numeric percentage."
         ),
     )
 
@@ -225,6 +225,10 @@ def ollama_data_tool_schema() -> dict[str, Any]:
 
 DATA_TOOL_SYSTEM_PROMPT = """You are the data-access step for a benchmark task. Use only the supplied task query and the allowlisted files.
 You cannot write SQL, Python, or shell commands. Request one structured tool action at a time.
+Return a compact JSON object containing only the fields needed for the chosen action. Never copy tool results or explanations into a request.
+Use `summary` only with action `done`, and keep it short. For `search_text`, `text` must be a short search phrase, not the document or search results.
+For `rate_outcome_column`, provide only the exact name of a categorical outcome column, such as a yes/no column; never include its value or an explanation. Omit it when reading an existing numeric percentage.
+For `aggregate`, use no `columns` or `summary` field, provide at least one `measures` item, and use at most three `group_by` columns.
 Scope qualifier: task-selected files define the population supplied for the query. Apply an extra geography filter only when an available field represents that same level; a broader named scope may already be defined by the selected files, and a zero-match filter does not disprove it.
 Available actions: catalog, profile, preview, filter, aggregate, read_text, search_text, json_get, done.
 Use one of these valid request shapes, replacing placeholders with the exact values shown in the catalog:
