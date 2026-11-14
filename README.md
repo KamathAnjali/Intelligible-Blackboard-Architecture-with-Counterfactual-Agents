@@ -13,7 +13,7 @@ This branch combines the four workstreams:
 
 See the [progress report](docs/PROGRESS_REPORT.md) for implemented behavior and the [milestones](docs/PROJECT_MILESTONES.md) for planned work. Counterfactual scoring, live adoption, and official benchmark evaluation remain pending.
 
-`agents.counterfactual.create_sandbox()` prepares an isolated board containing the live history before a selected contribution. Generating an alternative and replaying later turns remain pending.
+`agents.counterfactual.RetrospectiveSandbox` can generate an alternative and replay later turns on an isolated board. Its agreement-progress delta does not measure answer correctness; live deadlock handoff and adoption remain pending.
 
 ## Setup from WSL
 

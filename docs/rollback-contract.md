@@ -4,7 +4,7 @@ Agent-side interface v1, 18 October 2026. Reviewed against `origin/integration-m
 
 ## Inputs
 
-`agents/counterfactual.py` defines `RollbackRequest`, the `CounterfactualSandbox.simulate()` protocol, and `create_sandbox()` for copying the prefix before a selected contribution.
+`agents/counterfactual.py` defines the request, outcome, sandbox preparation, and standalone replay.
 
 | Input | Meaning |
 | --- | --- |
@@ -17,9 +17,9 @@ Agent-side interface v1, 18 October 2026. Reviewed against `origin/integration-m
 | `max_alternatives` | Maximum candidate timelines. Default 1. |
 | `max_retries` | Regeneration budget per turn, shared with explanation checking. Default 2. |
 
-The replay also records model tag/digest, inference options, prompt texts/hashes, agent order, failures, and all generation/review usage for reproducibility. The normal active registration order is retained, and downstream replay starts after the author of the alternative. A future priority-based scheduler must explicitly supply its ordering policy rather than silently substituting one.
+The replay returns generated entries, attempts, usage, and failures. Recording model digest, inference options, and prompt versions with the result remains an integration task. The active registration order is retained, and downstream replay starts after the author of the alternative.
 
-The frozen dataclass protects field assignment, not mutation of nested Pydantic objects. A future implementation must deep-copy the supplied state and entries before editing a sandbox. Expected answers and official evaluator reference data stay outside model context.
+The frozen dataclass protects field assignment, not mutation of nested Pydantic objects. Sandbox creation deep-copies the supplied state and entries. Expected answers and official evaluator reference data stay outside model context.
 
 ## Cutoff and replay semantics
 
@@ -41,10 +41,10 @@ Simulation returns a proposal and never applies it. The later live controller ma
 
 | Area | Current state and required integration |
 | --- | --- |
-| `3-Dhruva` | The integrated board provides history slices, isolated forks and a nullable result score. The agent-side replay remains an interface sketch. |
-| `integration-main` board | History copying/forking exists, but consensus ignores simulation-marked entries. A sandbox evaluation path must evaluate its own alternative timeline without polluting live classification. |
+| `3-Dhruva` | History forks and standalone replay are implemented; a live trigger and adoption remain pending. |
+| Board classification | Forked boards explicitly classify simulated entries. Live boards continue to exclude them from consensus. |
 | Deadlock lifecycle | The board preserves `DEADLOCKED`, and the scheduler stops selecting agents. Recovery needs an explicit handoff and an agreed resume/reset operation. Do not bypass turn enforcement or edit private scheduler/board fields. |
 | Scheduler state | Read access to active agent order, selected turn, and status is sufficient for the interface. A stable public recovery/debug API is still needed for integration. |
 | UI and audit | Live and simulated entries must remain distinguishable. Simulation lineage, usage, and outcome should be available to the event/metrics layer. |
 
-Sandbox preparation is implemented. Replay, evaluator integration, scheduler recovery, and adoption remain pending.
+The standalone replay generates an alternative and follows scheduler turns in the isolated board. Its agreement-progress score is the largest matching RATIFY group divided by active agents; delta compares that score against the live source snapshot. Errors retain partial replay and have no score. The score does not measure correctness. Evaluator integration, live scheduler recovery, and adoption remain pending.

@@ -6,12 +6,15 @@ See docs/rollback-contract.md for cutoff and adoption semantics.
 """
 
 from dataclasses import dataclass
+import json
 from typing import Literal, Protocol
 from uuid import uuid4
 
 from blackboard.core import Blackboard
-from blackboard.models import BlackboardState, BoardEntry
+from blackboard.models import BlackboardState, BoardEntry, IntelligibilityLevel, PXPTag
+from blackboard.scheduler import Scheduler
 from blackboard.store import InMemoryJSONStore
+from agents.llm_client import inference_usage
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,8 @@ class RollbackOutcome:
     delta_score: float | None = None
     score_name: str | None = None
     failure_reason: str | None = None
+    attempts: tuple[dict, ...] = ()
+    usage: dict | None = None
 
 
 class CounterfactualSandbox(Protocol):
@@ -69,3 +74,86 @@ def create_sandbox(request: RollbackRequest) -> Blackboard:
         cutoff_entry_id=previous_id,
         sim_task_id=f"{source.task_id}_sim_{uuid4().hex}",
     )
+
+
+def consensus_progress(state: BlackboardState) -> float:
+    """Largest matching RATIFY group divided by the number of active agents."""
+    active = {agent_id for agent_id, agent in state.agents.items() if agent.active}
+    if len(active) < 2:
+        raise ValueError("consensus progress requires at least two active agents")
+    latest = {entry.agent_id: entry for entry in state.entries if entry.agent_id in active}
+    counts: dict[str, int] = {}
+    for entry in latest.values():
+        if entry.tag == PXPTag.RATIFY:
+            prediction = entry.prediction.strip().casefold()
+            counts[prediction] = counts.get(prediction, 0) + 1
+    return max(counts.values(), default=0) / len(active)
+
+
+class RetrospectiveSandbox:
+    """Generate an altered contribution and replay agents on an isolated board."""
+
+    def __init__(self, client):
+        self.client = client
+
+    def simulate(self, request: RollbackRequest) -> RollbackOutcome:
+        if not request.task.strip() or not request.alternative_instruction.strip():
+            raise ValueError("task and alternative instruction must be nonempty")
+        if (any(type(value) is not int for value in
+                (request.max_replay_turns, request.max_alternatives, request.max_retries))
+                or request.max_replay_turns < 1 or request.max_alternatives < 1 or request.max_retries < 0):
+            raise ValueError("replay budgets must be positive and retries nonnegative")
+        board = create_sandbox(request)
+        baseline = request.source_state.model_copy(deep=True)
+        baseline.entries = [entry for entry in baseline.entries if not entry.is_counterfactual_sim]
+        original = next(entry for entry in baseline.entries if entry.entry_id == request.cutoff_entry_id)
+        baseline_score = consensus_progress(baseline)
+        attempts: list[dict] = []
+        replayed: list[BoardEntry] = []
+        scheduler = Scheduler(board)
+        outcome = "turn_limit"
+        error = None
+        try:
+            scheduler.prioritize_next_turn(request.target_agent_id)
+            for turn in range(request.max_replay_turns):
+                agent = scheduler.next_agent()
+                task = request.task
+                if turn == 0:
+                    prior = json.dumps({"tag": original.tag.value, "prediction": original.prediction,
+                                        "explanation": original.explanation}, ensure_ascii=False)
+                    task += ("\n\nReconsider this earlier contribution as an unverified claim: "
+                             + prior + "\n" + request.alternative_instruction
+                             + "\nProvide an alternative tag or explanation grounded in the original task.")
+                generated = None
+                for _ in range(request.max_alternatives if turn == 0 else 1):
+                    generated = self.client.generate_entry(task, board.get_state(), agent.agent_id,
+                        max_retries=request.max_retries, is_counterfactual_sim=True)
+                    attempts.extend(generated.get("attempts", []))
+                    entry = generated["entry"]
+                    if (entry.agent_id != agent.agent_id or not entry.is_counterfactual_sim
+                            or any(old.entry_id == entry.entry_id for old in baseline.entries + replayed)):
+                        raise ValueError("generated entry has invalid simulation identity or provenance")
+                    if turn or (entry.tag != original.tag or entry.explanation.strip() != original.explanation.strip()):
+                        break
+                else:
+                    raise ValueError("no alternative tag or explanation generated")
+                scheduler.submit_entry(entry)
+                replayed.append(entry.model_copy(deep=True))
+                if board.current_intelligibility in (IntelligibilityLevel.STRONG, IntelligibilityLevel.ULTRA_STRONG):
+                    outcome = "consensus"
+                    break
+                if board.current_intelligibility == IntelligibilityLevel.DEADLOCKED:
+                    outcome = "deadlocked"
+                    break
+        except Exception as exc:
+            attempts.extend(getattr(exc, "attempts", []))
+            outcome, error = "error", f"{type(exc).__name__}: {exc}"
+        finally:
+            scheduler.close()
+        return RollbackOutcome(
+            original_entry_id=original.entry_id, outcome=outcome,
+            candidate_entry=replayed[0] if replayed else None, replayed_entries=tuple(replayed),
+            delta_score=None if error else consensus_progress(board.get_state()) - baseline_score,
+            score_name=None if error else "matching_ratify_fraction_delta",
+            failure_reason=error, attempts=tuple(attempts), usage=inference_usage(attempts),
+        )
