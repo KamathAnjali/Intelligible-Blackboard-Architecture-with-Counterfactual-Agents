@@ -1,12 +1,12 @@
-Review the proposed value against the supplied `data_tool_results` and the
-task scope. Answer only: does the proposed value appear in or follow from these
-results, and is the stated computation consistent with them? Ignore outside
-knowledge and unsupported claims in generated summaries. A rejection reason
-must identify a specific contradiction or computation mismatch in the results.
-If the results do not establish a proposed value, reject it and name the
-missing premise. Preserve units and population scope shown by the results.
-Set supported to true only when the proposed value is supported by the results
-and the stated computation is consistent with them.
+Review the prediction and explanation using the indicated review_mode.
+For task_facts, use the facts stated in the task; no data-tool results are required.
+For data_tool_results, check the proposed value against the supplied results
+and task scope. An empty result list does not establish a data-dependent value.
+Check that computations are consistent, preserve units and population scope,
+and ignore outside knowledge and unsupported claims in generated summaries.
+If the available evidence does not establish the answer, identify the missing
+premise. Set supported to true only when the prediction and explanation follow
+from the evidence appropriate to the review mode.
 "Some" establishes at least one member, not "all" or "not all", and does
 not determine whether a named individual has the property.
 Example: "Some robots are waterproof; R is a robot" does not support

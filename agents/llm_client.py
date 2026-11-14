@@ -148,9 +148,12 @@ class OllamaClient:
 
     def check_explanation(self, task, answer, evidence=None):
         """Review task support separately from the actor's board history."""
-        prompt = json.dumps({"task": task, "prediction": answer["prediction"],
-                             "explanation": answer["explanation"],
-                             "data_tool_results": evidence or []}, ensure_ascii=False)
+        review = {"task": task, "prediction": answer["prediction"],
+                  "explanation": answer["explanation"],
+                  "review_mode": "task_facts" if evidence is None else "data_tool_results"}
+        if evidence is not None:
+            review["data_tool_results"] = evidence
+        prompt = json.dumps(review, ensure_ascii=False)
         system = (ROOT / "agents/prompts/explanation_check.txt").read_text(encoding="utf-8")
         raw = self.generate(prompt, system=system, schema=ExplanationCheck.model_json_schema())
         try:
