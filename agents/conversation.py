@@ -15,7 +15,23 @@ from blackboard.models import AgentRecord, BoardEntry, PXPTag
 from blackboard.scheduler import Scheduler
 from blackboard.store import InMemoryJSONStore
 
-DEFAULT_TASK = "All tulips are plants. This item is a tulip. Is it a plant? Use yes or no as prediction."
+# Model explanations may contain Unicode symbols such as arrows. Escape only
+# characters unavailable in the active Windows console encoding so printing
+# a valid response cannot interrupt the session.
+for _console_stream in (sys.stdout, sys.stderr):
+    try:
+        _console_stream.reconfigure(errors="backslashreplace")
+    except (AttributeError, OSError, ValueError):
+        pass
+
+DEFAULT_TASK = """A philosopher says every simple idea comes from experience, and that we never directly perceive a hidden force
+connecting cause to effect. After seeing the same kind of event repeatedly, we expect it to happen again. Which philosopher would
+explain that expectation as habit rather than proof of a necessary connection?
+A. Kant
+B. Hume
+C. Plato
+D. Descartes
+"""
 
 DEFAULT_AGENTS = (("proposer", "aggressive_proposer"),
                   ("verifier", "cautious_verifier"))
@@ -69,7 +85,7 @@ def attempt_failures(attempt, initial=False):
 
 
 def run_conversation(client, task=None, max_turns=6, max_retries=2,
-                     output_dir=None, scenario="default"):
+                     output_dir=None, scenario="default", agent_count=None):
     """Run a bounded session and checkpoint the transcript after each turn.
 
     No fabricated fallback entries are posted if generation fails. Reports can
@@ -79,6 +95,12 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         raise ValueError("scenario must be default or disagreement")
     if scenario == "disagreement" and task is not None:
         raise ValueError("the disagreement scenario has a fixed task and seed")
+    if agent_count is None:
+        agent_count = 3 if scenario == "disagreement" else 2
+    if type(agent_count) is not int or agent_count not in (2, 3):
+        raise ValueError("agent_count must be 2 or 3")
+    if scenario == "disagreement" and agent_count != 3:
+        raise ValueError("the disagreement scenario requires three agents")
     task = task if task is not None else (
         DISAGREEMENT_TASK if scenario == "disagreement" else DEFAULT_TASK
     )
@@ -97,14 +119,14 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
     store = InMemoryJSONStore(directory)
     board = Blackboard(task_id, store)
     scheduler = Scheduler(board)
-    participants = DISAGREEMENT_AGENTS if scenario == "disagreement" else DEFAULT_AGENTS
+    participants = DISAGREEMENT_AGENTS if agent_count == 3 else DEFAULT_AGENTS
     for agent_id, persona in participants:
         agent = AgentRecord(agent_id=agent_id, persona=persona, model_name=client.model)
         board.register_agent(agent)
         scheduler.register_agent(agent)
     report = {
         "created_at": stamp.isoformat(), "task": task, "task_id": task_id,
-        "scenario": scenario,
+        "scenario": scenario, "agent_count": agent_count,
         "model": client.model, "base_url": client.base_url, "options": dict(OPTIONS),
         "max_turns": max_turns, "max_retries": max_retries, "turns": [],
         "failures": [], "outcome": "running", "explanation_review": "pending",
@@ -235,13 +257,16 @@ def main():
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--scenario", choices=("default", "disagreement"), default="default")
+    parser.add_argument("--agents", type=int, choices=(2, 3), help="Default: two agents, or three for disagreement")
     parser.add_argument("--demo", action="store_true", help="Require a clean REVISE, RATIFY, RATIFY sequence")
     args = parser.parse_args()
     if args.demo and args.scenario != "default":
         parser.error("--demo requires the default scenario")
+    if args.demo and args.agents not in (None, 2):
+        parser.error("--demo requires two agents")
     turns = 3 if args.demo else args.turns
     report, _ = run_conversation(OllamaClient(args.model, args.base_url), args.prompt,
-                                 turns, args.retries, scenario=args.scenario)
+                                 turns, args.retries, scenario=args.scenario, agent_count=args.agents)
     if args.demo:
         passed = is_clean_ratify_demo(report)
         print(f"Demo sequence: {'PASS' if passed else 'FAIL'}", flush=True)

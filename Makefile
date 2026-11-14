@@ -13,9 +13,10 @@ RUNS ?= 3
 PERSONA ?= cautious_verifier
 RETRIES ?= 2
 TURNS ?= 6
+AGENTS ?= 2
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
-.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas test stop
+.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas sessions deadlocks test stop
 
 help:
 	@echo make start                 Start Ollama if needed
@@ -28,6 +29,9 @@ help:
 	@echo make personas              Check all four personas on three tasks each
 	@echo make entry                 Preview one complete BoardEntry without posting
 	@echo make conversation TURNS=6  Run a live two-agent blackboard session
+	@echo make conversation AGENTS=3 Run an unseeded three-agent session
+	@echo make sessions             Run four live three-agent GSM8K and mSCoRe cases
+	@echo make deadlocks            Record two controlled deadlock fixtures, without Ollama
 	@echo make disagreement TURNS=6  Run a seeded three-agent disagreement scenario
 	@echo make demo                  Require a clean three-turn RATIFY demonstration
 	@echo make test                  Run offline tests without requiring Ollama
@@ -46,7 +50,13 @@ entry:
 	@$(RUNNER) entry -Persona "$(PERSONA)" -Retries "$(RETRIES)"
 
 conversation:
-	@$(RUNNER) conversation -Turns "$(TURNS)" -Retries "$(RETRIES)"
+	@$(RUNNER) conversation -Turns "$(TURNS)" -Retries "$(RETRIES)" -Agents "$(AGENTS)"
+
+sessions:
+	@$(RUNNER) sessions -Turns "$(TURNS)" -Retries "$(RETRIES)"
+
+deadlocks:
+	@$(RUNNER) deadlocks
 
 disagreement:
 	@$(RUNNER) disagreement -Turns "$(TURNS)" -Retries "$(RETRIES)"

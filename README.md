@@ -2,7 +2,7 @@
 
 This project studies whether agents that can revisit earlier decisions help a group reach correct, explainable answers. Agents share a blackboard and post a prediction, explanation, and PXP tag: `RATIFY`, `REVISE`, `REFUTE`, or `REJECT`. The planned counterfactual component will test an alternative earlier contribution in an isolated replay before any change reaches the live session.
 
-The `3-Dhruva` branch provides four local Ollama personas, a two-agent demo, and a seeded three-agent disagreement run. Structured answers receive a separate explanation self-check before they can be returned or posted. Counterfactual replay, a connected UI, and benchmark evaluation remain future integration work. See the [progress report](docs/PROGRESS_REPORT.md) and [project milestones](docs/PROJECT_MILESTONES.md).
+The `3-Dhruva` branch provides four local Ollama personas, two- or three-agent sessions, and a seeded three-agent disagreement run. Structured answers receive a separate explanation self-check before they can be returned or posted. A four-case live sanity-check workload adapted from GSM8K and mSCoRe examples and controlled deadlock fixtures support local evaluation. Day 11 adds a counterfactual interface sketch and a frozen prompt library. Counterfactual replay, a connected UI, and benchmark evaluation remain future integration work. See the [progress report](docs/PROGRESS_REPORT.md) and [project milestones](docs/PROJECT_MILESTONES.md).
 
 ## Run from WSL
 
@@ -40,6 +40,7 @@ The demo expects proposer `REVISE`, verifier `RATIFY`, then proposer `RATIFY`, a
 
 ```sh
 make conversation TURNS=6 RETRIES=2
+make conversation AGENTS=3 TURNS=6 RETRIES=2
 make disagreement TURNS=6 RETRIES=2
 ```
 
@@ -61,6 +62,9 @@ Run `make help` to print the available recipes. All recipes and supported variab
 | `make entry` | Generate a complete BoardEntry without posting it. |
 | `make entry PERSONA=cautious_verifier RETRIES=2` | Choose a persona and retry limit for the entry. |
 | `make conversation TURNS=6 RETRIES=2` | Run a bounded two-agent conversation. Turns may be 1-12 and retries 0-5. |
+| `make conversation AGENTS=3 TURNS=6 RETRIES=2` | Run three agents on the default task without a seeded answer. |
+| `make sessions TURNS=6 RETRIES=2` | Run four GSM8K/mSCoRe examples with three agents and report unanimous agreement and expected-answer agreement separately. |
+| `make deadlocks` | Record two labelled negative-tag deadlock fixtures through the real scheduler and board. No Ollama calls. |
 | `make disagreement TURNS=6 RETRIES=2` | Run three agents against a marked incorrect starting claim; require correction and agreement. Turns must be 5-12. |
 | `make demo RETRIES=2` | Run and check the three-turn demo. |
 | `make personas` | Check all four personas on three tasks each, including explanation review. |
@@ -84,10 +88,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1 conversation -
 
 Conversation transcripts and board snapshots are saved under `results/conversations/`. Ollama reports are saved under `results/ollama/`. Both paths are ignored by Git.
 
+The live batch and deadlock fixtures save their reports under `results/sessions/`, also ignored by Git. The batch uses fixed, self-contained tasks rather than the editable default question in `conversation.py`; reference answers are checked after inference. It exits successfully when at least half of the four cases reach unanimous, expected-answer consensus. All cases, including retries and failures, are retained.
+
+For a custom unseeded three-agent task, add `-Agents 3` to the wrapper command above. The [deadlock catalogue](docs/deadlock-scenarios.md), [rollback contract](docs/rollback-contract.md), and [prompt v1 notes](docs/prompt-library-v1-notes.md) record the checkpoint and pending shared interfaces.
+
 ## Code layout
 
 - `blackboard/` contains the PXP contract, synchronized board, JSON snapshot store, and round-robin scheduler.
-- `agents/` contains the Ollama client, PEX/PXP validation, persona prompts, and conversation runner.
+- `agents/` contains the Ollama client, PEX/PXP validation, persona prompts, conversation runner, and small live-session workload. `counterfactual.py` contains interface types only, with no replay implementation.
 - `tests/` contains existing checks. `demo.py` is a board-only example.
 
 The board's agreement label is a prototype heuristic. A successful demo checks the interaction path and tag sequence, not accuracy across tasks. The planned study requires independent evaluation of predictions and explanations.
