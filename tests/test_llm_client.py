@@ -59,6 +59,18 @@ def test_schema_is_sent_to_ollama_and_raw_query_stays_unconstrained():
     assert "format" not in client.request.call_args.args[1]
 
 
+def test_ollama_client_seed_is_configurable_and_keeps_other_defaults():
+    client = OllamaClient(model_seed=73)
+    client.request = Mock(return_value={"response": "ok"})
+    client.generate("seed check")
+    options = client.request.call_args.args[1]["options"]
+    assert options["seed"] == 73
+    assert options["temperature"] == 0
+    assert options["num_ctx"] == 4096
+    assert options["num_predict"] == 768
+    assert OllamaClient().options["seed"] == 42
+
+
 def test_malformed_response_retried_with_feedback_and_history_retained():
     client = OllamaClient()
     client.generate = Mock(side_effect=[response("bad JSON"), response(VALID)])

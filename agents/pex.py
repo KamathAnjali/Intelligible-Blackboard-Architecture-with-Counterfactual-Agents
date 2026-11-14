@@ -16,7 +16,10 @@ class ExplanationCheck(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, str_strip_whitespace=True)
 
     supported: bool
-    reason: str = Field(min_length=1, max_length=300, pattern=r"\S")
+    # Review models sometimes return a short paragraph despite the concise
+    # prompt. Keep it bounded while allowing the boolean decision to be
+    # validated and used by the existing correction loop.
+    reason: str = Field(min_length=1, max_length=1024, pattern=r"\S")
 
 
 class PEXGenerationError(RuntimeError):

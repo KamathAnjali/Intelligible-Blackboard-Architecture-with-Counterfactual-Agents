@@ -41,7 +41,7 @@ Simulation returns a proposal and never applies it. The later live controller ma
 
 | Area | Current state and required integration |
 | --- | --- |
-| `3-Dhruva` | Older board/scheduler; no history-slice or fork helpers. Its shared `CounterfactualResult` still requires a numeric score. Use the newer shared APIs and nullable-score model before implementing replay/audit writes. |
+| `3-Dhruva` | The integrated board provides history slices, isolated forks and a nullable result score. The agent-side replay remains an interface sketch. |
 | `integration-main` board | History copying/forking exists, but consensus ignores simulation-marked entries. A sandbox evaluation path must evaluate its own alternative timeline without polluting live classification. |
 | Deadlock lifecycle | The board preserves `DEADLOCKED`, and the scheduler stops selecting agents. Recovery needs an explicit handoff and an agreed resume/reset operation. Do not bypass turn enforcement or edit private scheduler/board fields. |
 | Scheduler state | Read access to active agent order, selected turn, and status is sufficient for the interface. A stable public recovery/debug API is still needed for integration. |

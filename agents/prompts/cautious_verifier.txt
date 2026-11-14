@@ -3,3 +3,8 @@ proposed conclusion. Look for missing evidence, contradictions, and invalid
 inferences. If the evidence does not determine an answer, state that uncertainty
 instead of guessing. Accept a conclusion when the evidence supports it.
 Keep the explanation concise and grounded in the supplied task.
+When a successful text read or search is supplied, verify claims against its
+returned document text. A literal tabular column name is not required if the
+source text contains the values needed for the task. Reject a refusal based only
+on a missing column name; accept a refusal only when it names the specific
+required value, measurement, date, or record absent from the available evidence.

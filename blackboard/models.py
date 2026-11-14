@@ -2,18 +2,17 @@
 PXP Blackboard — core data models.
 
 This module is the shared contract everyone builds against:
-  - Student 1 (Infra): reads/writes these types in the store + scheduler
-  - Student 2 (Agents): produces BoardEntry objects from LLM output
-  - Student 3 (UI/Bench): serializes these to JSON for the websocket stream
-
-Freeze this file early (Week 1, Day 3-4) — every other module depends on it.
+  - Student 1 (Data Model & Storage): reads/writes these types in the store + core
+  - Student 2 (Protocol & Scheduler): manages agent turns, submissions, and terminal states
+  - Student 3 (Agents & Counterfactual): produces BoardEntry objects and counterfactual replays
+  - Student 4 (UI & Benchmarking): serializes these to JSON for websocket streams and dashboards
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -24,21 +23,46 @@ from pydantic import BaseModel, Field, field_validator
 # ---------------------------------------------------------------------------
 
 class PXPTag(str, Enum):
-    """The four moves an agent can make against the current board hypothesis."""
+    """The four PXP moves plus application-posted evidence facts."""
 
     RATIFY = "RATIFY"   # aligns with both prediction and explanation
     REVISE = "REVISE"   # adjusts own view, writes an updated thesis
     REFUTE = "REFUTE"   # rejects the position, cannot self-correct -> logs roadblock
     REJECT = "REJECT"   # full conflict with prediction and explanation
+    FACT = "FACT"       # verified application evidence visible to every agent
 
 
 class IntelligibilityLevel(str, Enum):
-    """Session-level classification computed by the scheduler from the tag stream."""
+    """Session-level classification computed by the blackboard from the tag stream."""
 
     UNRESOLVED = "UNRESOLVED"
-    STRONG = "STRONG"            # consensus reached, but with REFUTE/REJECT along the way
-    ULTRA_STRONG = "ULTRA_STRONG"  # consensus reached primarily via productive REVISE loops
-    DEADLOCKED = "DEADLOCKED"    # exceeded iteration/patience threshold with no consensus
+    STRONG = "STRONG"              # unanimous consensus reached directly without revisions
+    ULTRA_STRONG = "ULTRA_STRONG"  # unanimous consensus reached via productive REVISE loops
+    DEADLOCKED = "DEADLOCKED"      # exceeded iteration/patience threshold with negative tag loop
+
+
+# ---------------------------------------------------------------------------
+# Board Event Emitter vocabulary (Week 2 live streaming & observability)
+# ---------------------------------------------------------------------------
+
+class BoardEventType(str, Enum):
+    """Event types emitted to notify external observers (e.g. WebSocket layer)."""
+
+    AGENT_REGISTERED = "AGENT_REGISTERED"
+    ENTRY_POSTED = "ENTRY_POSTED"
+    DEADLOCK_DETECTED = "DEADLOCK_DETECTED"
+    INTELLIGIBILITY_CHANGED = "INTELLIGIBILITY_CHANGED"
+    SNAPSHOT_SAVED = "SNAPSHOT_SAVED"
+    ROLLBACK_FORKED = "ROLLBACK_FORKED"
+
+
+class BoardEvent(BaseModel):
+    """Event delta payload emitted when the blackboard state evolves."""
+
+    event_type: BoardEventType
+    task_id: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +75,7 @@ class AgentRecord(BaseModel):
     agent_id: str
     persona: str                       # e.g. "cautious_verifier", "aggressive_proposer"
     counterfactual_capable: bool = False
-    model_name: str = "unspecified"    # e.g. "mistral-7b-instruct"
+    model_name: str = "unspecified"    # e.g. "qwen3:4b-instruct-2507-q4_K_M"
     active: bool = True
 
 
@@ -86,7 +110,7 @@ class BoardEntry(BaseModel):
 
 
 class DeadlockEvent(BaseModel):
-    """Raised by the scheduler when a REFUTE/REJECT loop is detected."""
+    """Raised by the blackboard when a REFUTE/REJECT loop is detected."""
 
     triggered_at_entry_id: str
     loop_length: int
@@ -100,7 +124,7 @@ class CounterfactualResult(BaseModel):
     agent_id: str
     original_entry_id: str            # the historical entry that was rewritten
     simulated_entry: BoardEntry       # the alternate version that was tried
-    delta_score: float                # positive = simulation looked more likely to reach consensus
+    delta_score: Optional[float] = None  # None when no evaluator calculated a score
     applied_to_live: bool             # whether the agent actually adopted this on the live board
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

@@ -18,6 +18,11 @@ answer to offer.
 
 Prediction and explanation must be nonempty strings. Follow any answer vocabulary
 requested by the original task. Do not invent facts when evidence is insufficient.
+When the task context contains a verified deterministic calculation, treat its
+population, outcome mapping, unit, and numeric value as application-validated
+evidence. Use that exact value as the prediction; do not recalculate it, replace
+it with a model-generated estimate, or claim insufficient information when the
+calculation applies.
 In particular, "some" alone does not establish a fact about every member or
 a named individual. Do not RATIFY a claim merely because another agent wrote it.
 For multiple-choice tasks, put only the option and answer in prediction. Keep

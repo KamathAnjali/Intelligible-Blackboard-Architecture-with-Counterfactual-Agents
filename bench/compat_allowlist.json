@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "workload": "environment",
+      "task_id": "environment-easy-1",
+      "workload_git_blob": "32b0a1545819483fcf8e9ea1e9b0423c026075e6",
+      "input_sha256": {
+        "water-body-testing-2013.csv": "911d1ef8bf290494ace9ff1785b5e9789a50de21606aaef8d4b45a7ab695becb"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "archeology",
+      "task_id": "archeology-easy-3",
+      "workload_git_blob": "e80b4e07562b2ca4fae3c69c57aa41b5050b5055",
+      "input_sha256": {
+        "roman_cities.csv": "0cea47b3d090d8e5dcc1a52dcd9064e3398ed18994233e677f74dab4ef2659b2"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "astronomy",
+      "task_id": "astronomy-easy-1",
+      "workload_git_blob": "bf8d2a70affd03fd2fc51cdd1ddd1966cbda9320",
+      "input_sha256": {
+        "geomag_forecast/0309geomag_forecast.txt": "b8baaa583ffda34d7203505fa18c1c64472fc894a8f744eeadb4706a0a185749",
+        "geomag_forecast/0311geomag_forecast.txt": "21d615213abcc15cca372525ea22becf3abf6db69dcd22b2db65b28ef38fbabe",
+        "geomag_forecast/0312geomag_forecast.txt": "edf018c7d9abf5c34e4ae1a9c6cdfb2dda1debcf0a0de39cb634d9e754a86a2f",
+        "geomag_forecast/0313geomag_forecast.txt": "4c51008bf5da58fd75405390d62ab66494f392b8e252e4bbf2260f2abfb7d992"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "environment",
+      "task_id": "environment-easy-5",
+      "workload_git_blob": "32b0a1545819483fcf8e9ea1e9b0423c026075e6",
+      "input_sha256": {
+        "monthly_precipitations_amherst.csv": "b2e3af8ee94dd96d2b1bf0d51102d4d6cc89176194dc8d4f3f63c932cfce9303",
+        "monthly_precipitations_ashburnham.csv": "7fdd0873fd40d7456a8f697a721dea96b180413b90646bfc43543e892a8d05da",
+        "monthly_precipitations_boston.csv": "98f4655efe4e724db7a577c07dd9e3f0f237372ce124e148c3fd5e6bf0c4038d",
+        "monthly_precipitations_chatham.csv": "6f86b1f44983621b54700f360f0528e6af3ee27adefef8a3de3c3adb4282bc4b"
+      },
+      "answer_type": "string_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "legal",
+      "task_id": "legal-easy-4",
+      "workload_git_blob": "af7790b631e1fd31efd77c012d1db5dff54ce99c",
+      "input_sha256": {
+        "csn-data-book-2024-csv/CSVs/2024_CSN_Data_Contributors.csv": "fcdbbdfbfce463f4b34a2797c9ef398cade63cc8c814c110af2d96c3b8f84a16"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "legal",
+      "task_id": "legal-easy-5",
+      "workload_git_blob": "af7790b631e1fd31efd77c012d1db5dff54ce99c",
+      "input_sha256": {
+        "csn-data-book-2024-csv/CSVs/2024_CSN_Fraud_Reports_by_Payment_Method.csv": "ddd02b40fd9e48919de785a3448dcf1f88908ea42a725ec8e2aae5f7d56e7501"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "wildfire",
+      "task_id": "wildfire-easy-1",
+      "workload_git_blob": "8a7a2fe5f420fa3fe00224439b20d1922f8ad040",
+      "input_sha256": {
+        "noaa_wildfires_monthly_stats.csv": "765a3957ab35b2397580fb186be1215dd12101164ea2d6b805056b378a48a8d3"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "archeology",
+      "task_id": "archeology-easy-4",
+      "workload_git_blob": "e80b4e07562b2ca4fae3c69c57aa41b5050b5055",
+      "input_sha256": {
+        "climateMeasurements.xlsx": "a2d8d915cd3eafac99855a07a19208003f62f7d784ce8f4b762ae5ca091334a1"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "biomedical",
+      "task_id": "biomedical-easy-2",
+      "workload_git_blob": "9f038fd6d817d3b650ead5eccc255db12cca4d91",
+      "input_sha256": {
+        "1-s2.0-S0092867420301070-mmc1.xlsx": "cefdda0a26bbf667639f8787f426f046545453cb911252e05f5e3a16dcc9c9d2"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "environment",
+      "task_id": "environment-easy-3",
+      "workload_git_blob": "32b0a1545819483fcf8e9ea1e9b0423c026075e6",
+      "input_sha256": {
+        "water-body-testing-2012.csv": "e98422d708150a37b0265b808d256a052ffa54d0593c1af3ab99d7d10e9d3ff0",
+        "water-body-testing-2013.csv": "911d1ef8bf290494ace9ff1785b5e9789a50de21606aaef8d4b45a7ab695becb"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "legal",
+      "task_id": "legal-easy-9",
+      "workload_git_blob": "af7790b631e1fd31efd77c012d1db5dff54ce99c",
+      "input_sha256": {
+        "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Count.csv": "a726361b1eacd29bcad16b8e35cb96f618421832b3794b36587b4e233951e219"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "legal",
+      "task_id": "legal-easy-12",
+      "workload_git_blob": "af7790b631e1fd31efd77c012d1db5dff54ce99c",
+      "input_sha256": {
+        "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Categories.csv": "9bff1bf397a848d4c14cc4f8192b13d140e0ead40ce519389bf17541427af511"
+      },
+      "answer_type": "numeric_exact",
+      "metric_names": [
+        "success"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    },
+    {
+      "workload": "wildfire",
+      "task_id": "wildfire-easy-9",
+      "workload_git_blob": "8a7a2fe5f420fa3fe00224439b20d1922f8ad040",
+      "input_sha256": {
+        "Fire_Weather_Data_2002-2014_2016.csv": "c51c4409b77e5a1ad26e368ff95f8b5836dd122219d813af1b71a48a21ca658b"
+      },
+      "answer_type": "numeric_approximate",
+      "metric_names": [
+        "mean_absolute_error",
+        "mean_squared_error",
+        "rae_score"
+      ],
+      "evaluator_provenance": {
+        "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "patch_path": "benchmark/evaluator.py",
+        "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+      }
+    }
+  ]
+}

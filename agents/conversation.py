@@ -2,16 +2,24 @@
 
 import argparse
 import json
+import math
+import random
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 from pydantic import ValidationError
 
-from agents.llm_client import BASE_URL, MODEL, OPTIONS, ROOT, OllamaClient, inference_usage, timings
+from bench.evidence import termination_candidate
+from agents.llm_client import (
+    BASE_URL, MODEL, OPTIONS, ROOT, GenerationTransportError, OllamaClient, inference_usage,
+    sanitized_base_url, timings,
+)
 from agents.pxp import InitialPXPResponse, PXPResponse
+from agents.pxp import PXPGenerationError
 from blackboard.core import Blackboard
-from blackboard.models import AgentRecord, BoardEntry, PXPTag
+from blackboard.models import AgentRecord, BoardEntry, CounterfactualResult, IntelligibilityLevel, PXPTag
 from blackboard.scheduler import Scheduler
 from blackboard.store import InMemoryJSONStore
 
@@ -47,6 +55,7 @@ DISAGREEMENT_SEED = {
     "prediction": "A: yes",
     "explanation": "Mira's ticket is valid, so it receives a priority stamp.",
 }
+MAX_TERMINATION_GUARD_RETRIES = 2
 
 
 def attempt_failures(attempt, initial=False):
@@ -85,7 +94,15 @@ def attempt_failures(attempt, initial=False):
 
 
 def run_conversation(client, task=None, max_turns=6, max_retries=2,
-                     output_dir=None, scenario="default", agent_count=None):
+                     output_dir=None, scenario="default", on_board_created: Callable | None = None,
+                     task_id=None, initial_facts: list[str] | None = None,
+                     termination_trace: list[dict] | None = None,
+                     termination_guard: Callable[[list[dict], str], bool] | None = None,
+                     termination_guard_reason: Callable[[list[dict], str], str | None] | None = None,
+                     review_evidence=None, on_rejection: Callable | None = None,
+                     counterfactual_fraction: float = 0.0, counterfactual_seed: int = 42,
+                     counterfactual_streak_threshold: int = 2,
+                     max_counterfactual_simulations: int = 1, agent_count=None):
     """Run a bounded session and checkpoint the transcript after each turn.
 
     No fabricated fallback entries are posted if generation fails. Reports can
@@ -112,35 +129,197 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         raise ValueError("the disagreement scenario needs at least five turns")
     if type(max_retries) is not int or not 0 <= max_retries <= 5:
         raise ValueError("max_retries must be an integer between 0 and 5")
+    if counterfactual_fraction not in (0, 0.33, 0.66, 1.0):
+        raise ValueError("counterfactual_fraction must be one of 0, 0.33, 0.66, or 1.0")
+    if type(counterfactual_seed) is not int:
+        raise ValueError("counterfactual_seed must be an integer")
+    if type(counterfactual_streak_threshold) is not int or counterfactual_streak_threshold < 2:
+        raise ValueError("counterfactual_streak_threshold must be an integer of at least 2")
+    if type(max_counterfactual_simulations) is not int or max_counterfactual_simulations < 0:
+        raise ValueError("max_counterfactual_simulations must be a non-negative integer")
+    if initial_facts is not None and (
+        not isinstance(initial_facts, list)
+        or not all(isinstance(item, str) and item.strip() for item in initial_facts)
+    ):
+        raise ValueError("initial_facts must be a list of nonempty strings")
+    if termination_guard is not None and not callable(termination_guard):
+        raise ValueError("termination_guard must be callable")
     stamp = datetime.now(timezone.utc)
-    task_id = f"conversation-{stamp.strftime('%Y%m%dT%H%M%S%fZ')}"
+    if task_id is None:
+        task_id = f"conversation-{stamp.strftime('%Y%m%dT%H%M%S%fZ')}"
+    elif (not isinstance(task_id, str) or not task_id.strip()
+          or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-" for char in task_id)
+          or ".." in task_id):
+        raise ValueError("task_id must be a nonempty path-safe identifier")
     directory = Path(output_dir) if output_dir is not None else ROOT / "results" / "conversations"
     directory = directory / task_id
     store = InMemoryJSONStore(directory)
     board = Blackboard(task_id, store)
     scheduler = Scheduler(board)
     participants = DISAGREEMENT_AGENTS if agent_count == 3 else DEFAULT_AGENTS
+    participant_ids = [agent_id for agent_id, _ in participants]
+    capability_count = math.ceil(len(participant_ids) * counterfactual_fraction)
+    capable_ids = set(random.Random(counterfactual_seed).sample(participant_ids, capability_count))
     for agent_id, persona in participants:
-        agent = AgentRecord(agent_id=agent_id, persona=persona, model_name=client.model)
+        agent = AgentRecord(agent_id=agent_id, persona=persona, model_name=client.model,
+                            counterfactual_capable=agent_id in capable_ids)
         board.register_agent(agent)
         scheduler.register_agent(agent)
+    if on_board_created is not None:
+        on_board_created(board)
+    initial_facts = list(initial_facts or [])
+    evidence_agent_id = None
+    if initial_facts:
+        evidence_agent_id = "__data_evidence__"
+        suffix = 1
+        registered = board.get_agents()
+        while evidence_agent_id in registered:
+            suffix += 1
+            evidence_agent_id = f"__data_evidence_{suffix}__"
+        evidence_agent = AgentRecord(
+            agent_id=evidence_agent_id,
+            persona="verified_data_evidence",
+            model_name="application",
+            active=False,
+        )
+        board.register_agent(evidence_agent)
+        scheduler.register_agent(evidence_agent)
+        for message in initial_facts:
+            board.post_entry(BoardEntry(
+                agent_id=evidence_agent_id,
+                tag=PXPTag.FACT,
+                prediction=message,
+                explanation="Application-posted structured data evidence; no reference answer supplied.",
+            ))
     report = {
         "created_at": stamp.isoformat(), "task": task, "task_id": task_id,
         "scenario": scenario, "agent_count": agent_count,
-        "model": client.model, "base_url": client.base_url, "options": dict(OPTIONS),
-        "max_turns": max_turns, "max_retries": max_retries, "turns": [],
+        "model": client.model, "base_url": sanitized_base_url(client.base_url),
+        "options": dict(getattr(client, "options", OPTIONS)),
+        "max_turns": max_turns, "effective_max_turns": max_turns,
+        "max_retries": max_retries, "turns": [],
         "failures": [], "outcome": "running", "explanation_review": "pending",
+        "workflow_counters": {
+            "guard_activations": [],
+            "refusal_despite_evidence_retries": 0,
+            "guard_retries": 0,
+            "reviewer_rejections": 0,
+            "counterfactual_triggers": 0,
+            "counterfactual_simulations": 0,
+            "counterfactual_changed_outcome": 0,
+            "max_guard_retries": MAX_TERMINATION_GUARD_RETRIES,
+        },
         "self_check_enabled": True,
+        "counterfactual_fraction": float(counterfactual_fraction),
+        "counterfactual_seed": counterfactual_seed,
+        "counterfactual_capable_agents": sorted(capable_ids),
+        "counterfactual_policy": (
+            "request_live_revision_if_valid_alternative_differs; changed_outcome counts a posted live "
+            "prediction differing from its rejected candidate"
+        ),
+        "counterfactual_attempts": [],
         "prompts": {name: (ROOT / "agents" / "prompts" / f"{name}.txt").read_text(encoding="utf-8")
                     for name in ("pxp_template", "explanation_check", *(persona for _, persona in participants))},
     }
     path = directory / "transcript.json"
 
     def checkpoint():
-        report["scheduler_status"] = scheduler.status
+        status_val = scheduler.status.value if isinstance(scheduler.status, IntelligibilityLevel) else str(scheduler.status)
+        report["scheduler_status"] = status_val
         report["board"] = board.get_state().model_dump(mode="json")
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         store.snapshot_to_disk(task_id)
+
+    rejection_streak_target = None
+    rejection_streak_count = 0
+    rejection_streak_number = 0
+    simulated_streaks = set()
+    counterfactual_simulations = 0
+    pending_counterfactual_revisions = {}
+
+    def maybe_run_counterfactual(rejection_entry, original_candidate, proposer_id, reason):
+        nonlocal rejection_streak_target, rejection_streak_count
+        nonlocal rejection_streak_number, counterfactual_simulations
+        if rejection_entry.tag not in (PXPTag.REJECT, PXPTag.REFUTE):
+            rejection_streak_target = None
+            rejection_streak_count = 0
+            return
+        target_id = rejection_entry.target_entry_id
+        if target_id == rejection_streak_target:
+            rejection_streak_count += 1
+        else:
+            rejection_streak_number += 1
+            rejection_streak_target = target_id
+            rejection_streak_count = 1
+        if (not capable_ids or rejection_streak_count < counterfactual_streak_threshold
+                or counterfactual_simulations >= max_counterfactual_simulations):
+            return
+        streak_key = (rejection_streak_number, target_id)
+        if streak_key in simulated_streaks:
+            return
+        simulated_streaks.add(streak_key)
+        report["workflow_counters"]["counterfactual_triggers"] += 1
+        counterfactual_simulations += 1
+        report["workflow_counters"]["counterfactual_simulations"] = counterfactual_simulations
+        sim_task_id = f"{task_id}-cf-{rejection_streak_number}-{counterfactual_simulations}"
+        try:
+            sim_board = board.fork_simulation_blackboard(
+                cutoff_entry_id=target_id,
+                sim_task_id=sim_task_id,
+            )
+            sim_agent_id = sorted(capable_ids)[0]
+            sim_task = (
+                f"{task}\n\nCounterfactual alternative proposal: the independent reviewer rejected "
+                f"the prior candidate for this reason: {reason}\n"
+                "Propose one alternative candidate. Frame the explanation directly around the "
+                "available evidence and state how that evidence supports the prediction."
+            )
+            generated = client.generate_entry(
+                sim_task, sim_board.get_state(), sim_agent_id,
+                target_entry_id=target_id,
+                max_retries=0,
+                is_counterfactual_sim=True,
+                review_evidence=review_evidence,
+            )
+            simulated_entry = generated["entry"].model_copy(update={"is_counterfactual_sim": True})
+            sim_board.post_entry(simulated_entry)
+            board.record_counterfactual_result(CounterfactualResult(
+                agent_id=sim_agent_id,
+                original_entry_id=rejection_entry.entry_id,
+                simulated_entry=simulated_entry,
+                delta_score=None,
+                applied_to_live=False,
+            ))
+            attempts = generated.get("attempts", [])
+            report["counterfactual_attempts"].append({
+                "streak": rejection_streak_number,
+                "target_entry_id": target_id,
+                "review_reason": reason,
+                "sim_task_id": sim_task_id,
+                "agent_id": sim_agent_id,
+                "attempts": attempts,
+                "simulated_entry": simulated_entry.model_dump(mode="json"),
+                "revision_requested": False,
+            })
+            changed = simulated_entry.prediction.strip().casefold() != original_candidate.prediction.strip().casefold()
+            if changed and scheduler.is_running():
+                scheduler.prioritize_next_turn(proposer_id)
+                report["counterfactual_attempts"][-1]["revision_requested"] = True
+                pending_counterfactual_revisions[proposer_id] = {
+                    "attempt_index": len(report["counterfactual_attempts"]) - 1,
+                    "original_prediction": original_candidate.prediction,
+                }
+            checkpoint()
+        except Exception as exc:
+            report["counterfactual_attempts"].append({
+                "streak": rejection_streak_number,
+                "target_entry_id": target_id,
+                "review_reason": reason,
+                "sim_task_id": sim_task_id,
+                "attempts": getattr(exc, "attempts", []),
+                "error": f"{type(exc).__name__}: {exc}",
+            })
+            checkpoint()
 
     if scenario == "disagreement":
         first_agent = scheduler.next_agent()
@@ -158,7 +337,11 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
     checkpoint()
     try:
         start_turn = 2 if scenario == "disagreement" else 1
-        for number in range(start_turn, max_turns + 1):
+        number = start_turn - 1
+        effective_turn_limit = max_turns
+        guard_retry_count = 0
+        while number < effective_turn_limit:
+            number += 1
             agent = scheduler.next_agent()
             state = board.get_state()
             turn = {"turn": number, "agent_id": agent.agent_id,
@@ -167,14 +350,32 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
             report["turns"].append(turn)
             print(f"Turn {number}: {agent.agent_id} ({agent.persona})...", flush=True)
             try:
-                result = client.generate_entry(task, state, agent.agent_id, max_retries=max_retries)
+                result = client.generate_entry(task, state, agent.agent_id, max_retries=max_retries,
+                                               review_evidence=review_evidence)
                 turn["attempts"] = result["attempts"]
                 entry = result["entry"]
+                if capable_ids and entry.tag in (PXPTag.REJECT, PXPTag.REFUTE) and state.entries:
+                    if state.entries[-1].tag in (PXPTag.REJECT, PXPTag.REFUTE):
+                        entry = entry.model_copy(update={
+                            "target_entry_id": state.entries[-1].target_entry_id,
+                        })
                 turn["entry"] = entry.model_dump(mode="json")
                 scheduler.submit_entry(entry)
                 turn["posted"] = True
                 turn["metrics"] = timings(result["raw"])
                 print(f"  {entry.tag.value}: {entry.prediction}\n  {entry.explanation}", flush=True)
+                pending_revision = pending_counterfactual_revisions.pop(agent.agent_id, None)
+                if pending_revision is not None:
+                    changed_live_prediction = (
+                        entry.prediction.strip().casefold()
+                        != pending_revision["original_prediction"].strip().casefold()
+                    )
+                    if changed_live_prediction:
+                        report["workflow_counters"]["counterfactual_changed_outcome"] += 1
+                    cf_attempt = report["counterfactual_attempts"][pending_revision["attempt_index"]]
+                    cf_attempt["live_revision_prediction"] = entry.prediction
+                    cf_attempt["live_revision_changed_prediction"] = changed_live_prediction
+                maybe_run_counterfactual(entry, entry, agent.agent_id, entry.explanation)
                 # Text differences may be paraphrases, so flag for review rather
                 # than deciding semantic equivalence automatically.
                 if entry.tag == PXPTag.RATIFY and state.entries:
@@ -182,6 +383,51 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                     if entry.prediction.strip().casefold() != target.prediction.strip().casefold():
                         report["failures"].append({"turn": number,
                             "category": "ratify_prediction_text_differs", "review": "pending"})
+            except (PXPGenerationError, GenerationTransportError) as exc:
+                turn["attempts"] = exc.attempts
+                rejected = next((item for item in reversed(exc.attempts)
+                                 if item.get("self_check", {}).get("parsed", {}).get("supported") is False
+                                 and isinstance(item.get("parsed"), dict)), None)
+                if rejected is None:
+                    turn["error"] = str(exc)
+                    report["outcome"] = "error"
+                    report["failures"].append({"turn": number, "category": "turn_error", "error": str(exc)})
+                else:
+                    review = rejected["self_check"]["parsed"]
+                    candidate = rejected["parsed"]
+                    rejection = BoardEntry(
+                        agent_id=agent.agent_id, tag=PXPTag.REJECT,
+                        prediction=candidate["prediction"], explanation=review["reason"],
+                        target_entry_id=(
+                            (state.entries[-1].target_entry_id
+                             if state.entries[-1].tag in (PXPTag.REJECT, PXPTag.REFUTE)
+                             else state.entries[-1].entry_id)
+                            if state.entries and capable_ids
+                            else (state.entries[-1].entry_id if state.entries else None)
+                        ),
+                    )
+                    scheduler.submit_entry(rejection)
+                    turn["entry"] = rejection.model_dump(mode="json")
+                    turn["posted"] = True
+                    turn["review_rejected"] = True
+                    report["workflow_counters"]["reviewer_rejections"] += 1
+                    if on_rejection is not None:
+                        on_rejection(rejection, review)
+                    original_candidate = BoardEntry(
+                        agent_id=agent.agent_id, tag=candidate["tag"],
+                        prediction=candidate["prediction"], explanation=candidate["explanation"],
+                        target_entry_id=rejection.target_entry_id,
+                    )
+                    maybe_run_counterfactual(
+                        rejection, original_candidate, agent.agent_id, review["reason"]
+                    )
+                    report["failures"].append({"turn": number, "category": "reviewer_rejection",
+                                               "reason": review["reason"]})
+                    if isinstance(exc, GenerationTransportError):
+                        turn["error"] = str(exc)
+                        report["outcome"] = "error"
+                        report["failures"].append({"turn": number, "category": "turn_error",
+                                                   "error": str(exc)})
             except (RuntimeError, ValueError, OSError) as exc:
                 turn["attempts"] = getattr(exc, "attempts", turn["attempts"])
                 turn["error"] = str(exc)
@@ -194,7 +440,106 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
             if report["outcome"] == "error":
                 break
             if not scheduler.is_running():
-                report["outcome"] = "deadlocked" if scheduler.status == "DEADLOCKED" else "scheduler_consensus"
+                is_dl = scheduler.status in (IntelligibilityLevel.DEADLOCKED, "DEADLOCKED")
+                report["outcome"] = "deadlocked" if is_dl else "scheduler_consensus"
+                if report["outcome"] == "scheduler_consensus" and termination_guard is not None:
+                    active_ids = set(board.get_agents(active_only=True))
+                    answer_entry = next(
+                        (entry for entry in reversed(board.get_state().entries)
+                         if entry.agent_id in active_ids),
+                        None,
+                    )
+                    answer = answer_entry.prediction if answer_entry is not None else ""
+                    guard_answer = termination_candidate(
+                        answer,
+                        answer_entry.explanation if answer_entry is not None else "",
+                    )
+                    try:
+                        allowed_to_terminate = termination_guard(list(termination_trace or []), guard_answer)
+                    except Exception as exc:
+                        report["outcome"] = "error"
+                        report["failures"].append({
+                            "turn": number,
+                            "category": "termination_guard_error",
+                            "error": f"{type(exc).__name__}: {exc}",
+                        })
+                        break
+                    if not allowed_to_terminate:
+                        reason = (
+                            termination_guard_reason(list(termination_trace or []), guard_answer)
+                            if termination_guard_reason is not None else None
+                        ) or "refusal_despite_evidence"
+                        if guard_retry_count >= MAX_TERMINATION_GUARD_RETRIES:
+                            report["outcome"] = "consensus_needs_review"
+                            report["failures"].append({
+                                "turn": number,
+                                "category": "termination_guard_exhausted",
+                                "reason": reason,
+                                "retry_count": guard_retry_count,
+                            })
+                            checkpoint()
+                            break
+                        if answer_entry is None:
+                            report["outcome"] = "error"
+                            report["failures"].append({
+                                "turn": number,
+                                "category": "termination_guard_missing_answerer",
+                                "reason": reason,
+                            })
+                            break
+                        guard_retry_count += 1
+                        if reason.startswith("refusal_") or reason == "refusal_despite_evidence":
+                            report["workflow_counters"]["refusal_despite_evidence_retries"] += 1
+                        report["workflow_counters"]["guard_retries"] = guard_retry_count
+                        report["workflow_counters"]["guard_activations"].append({
+                            "retry_count": guard_retry_count,
+                            "reason": reason,
+                            "answerer_agent_id": answer_entry.agent_id,
+                            "rejected_answer": answer,
+                            "rejected_explanation": answer_entry.explanation,
+                        })
+                        if not board.reopen_for_review():
+                            report["outcome"] = "error"
+                            report["failures"].append({
+                                "turn": number,
+                                "category": "termination_guard_could_not_reopen_board",
+                                "reason": reason,
+                            })
+                            break
+                        if reason == "refusal_missing_specific_data":
+                            rejection_guidance = (
+                                "State the specific value, measurement, date, or record that is missing and why; "
+                                "a bare refusal is not enough evidence."
+                            )
+                        elif reason == "refusal_ignored_successful_text":
+                            rejection_guidance = (
+                                "A successful text read/search is available. Extract requested values from its "
+                                "returned text; absence of a literal column name does not prove the values are missing. "
+                                "If a required value is truly absent, identify that value and source."
+                            )
+                        else:
+                            rejection_guidance = (
+                                "The application rejected this consensus because verified evidence in the task "
+                                "context supports a different conclusion."
+                            )
+                        rejection = BoardEntry(
+                            agent_id=answer_entry.agent_id,
+                            tag=PXPTag.REJECT,
+                            prediction=answer,
+                            explanation=f"{reason}: {rejection_guidance}",
+                            target_entry_id=answer_entry.entry_id,
+                        )
+                        board.post_entry(rejection)
+                        maybe_run_counterfactual(
+                            rejection, answer_entry, answer_entry.agent_id, rejection.explanation
+                        )
+                        scheduler.prioritize_next_turn(answer_entry.agent_id)
+                        report["workflow_counters"]["guard_activations"][-1]["rejection_entry_id"] = rejection.entry_id
+                        effective_turn_limit += 3
+                        report["effective_max_turns"] = effective_turn_limit
+                        report["outcome"] = "running"
+                        checkpoint()
+                        continue
                 if report["outcome"] == "scheduler_consensus" and any(
                     f["category"] == "ratify_prediction_text_differs" for f in report["failures"]
                 ):

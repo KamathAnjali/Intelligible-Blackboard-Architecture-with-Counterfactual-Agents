@@ -5,6 +5,7 @@ Run from the repository root: python -m agents.llm_client --help
 
 import argparse
 import json
+import inspect
 import platform
 import statistics
 import sys
@@ -13,16 +14,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import ValidationError
 
 from agents.pex import ExplanationCheck, PEXGenerationError, PEXResponse
 from agents.pxp import InitialPXPResponse, PXPGenerationError, PXPResponse
-from blackboard.models import AgentRecord, BlackboardState, BoardEntry
+from blackboard.models import AgentRecord, BlackboardState, BoardEntry, PXPTag
 
 MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 BASE_URL = "http://127.0.0.1:11434"
-OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 256}
+OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 768}
 ROOT = Path(__file__).resolve().parents[1]
 PERSONAS = ("cautious_verifier", "aggressive_proposer",
             "evidence_auditor", "counterexample_challenger")
@@ -36,22 +38,46 @@ class GenerationTransportError(RuntimeError):
         self.attempts = attempts
 
 
+def sanitized_base_url(value):
+    """Return endpoint identity without user information, query, or fragment."""
+    try:
+        parts = urlsplit(value)
+        if not parts.scheme or not parts.hostname:
+            return "local"
+        host = parts.hostname
+        if parts.port:
+            host = f"{host}:{parts.port}"
+        return urlunsplit((parts.scheme, host, parts.path, "", ""))
+    except (TypeError, ValueError):
+        return "local"
+
+
 class OllamaClient:
-    def __init__(self, model=MODEL, base_url=BASE_URL):
+    def __init__(self, model=MODEL, base_url=BASE_URL, model_seed=42):
         self.model = model
         self.base_url = base_url.rstrip("/")
+        self.options = {**OPTIONS, "seed": model_seed}
+        self.task_deadline = None
+
+    def set_task_deadline(self, deadline):
+        self.task_deadline = deadline
 
     def request(self, path, payload=None):
         data = None if payload is None else json.dumps(payload).encode("utf-8")
         request = Request(self.base_url + path, data=data,
                           headers={"Content-Type": "application/json"})
+        timeout = 300
+        if self.task_deadline is not None:
+            timeout = min(timeout, self.task_deadline - time.monotonic())
+            if timeout <= 0:
+                raise RuntimeError("per-task wall-clock cap exceeded")
         try:
-            with urlopen(request, timeout=300) as response:
+            with urlopen(request, timeout=timeout) as response:
                 result = json.load(response)
         except HTTPError as exc:
             raise RuntimeError(f"Ollama HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}") from exc
         except (URLError, TimeoutError) as exc:
-            raise RuntimeError(f"Cannot complete request to {self.base_url}. Open Ollama and check the model is installed: {exc}") from exc
+            raise RuntimeError(f"Cannot complete request to {sanitized_base_url(self.base_url)}. Open Ollama and check the model is installed: {exc}") from exc
         if "error" in result:
             raise RuntimeError(result["error"])
         return result
@@ -61,7 +87,7 @@ class OllamaClient:
         started = time.perf_counter()
         payload = {
             "model": self.model, "prompt": prompt, "system": system,
-            "stream": False, "keep_alive": "10m", "options": OPTIONS,
+            "stream": False, "keep_alive": "10m", "options": self.options,
         }
         if schema is not None:
             payload["format"] = schema
@@ -76,7 +102,8 @@ class OllamaClient:
         )
 
     def generate_entry(self, task, state: BlackboardState, agent_id: str,
-                       target_entry_id=None, max_retries=2, is_counterfactual_sim=False):
+                       target_entry_id=None, max_retries=2, is_counterfactual_sim=False,
+                       review_evidence=None):
         """Build one BoardEntry from a snapshot without posting or mutating it.
 
         The application selects the target (latest entry by default). The model
@@ -104,10 +131,11 @@ class OllamaClient:
             "target_entry_id": target_entry_id,
             "history": [entry.model_dump(mode="json") for entry in snapshot.entries],
         }, ensure_ascii=False)
-        schema = PXPResponse if snapshot.entries else InitialPXPResponse
+        has_prior_agent_entry = any(entry.tag != PXPTag.FACT for entry in snapshot.entries)
+        schema = PXPResponse if has_prior_agent_entry else InitialPXPResponse
         result = self._generate_structured(
             prompt, agent.persona, max_retries, "pxp_template.txt", schema, PXPGenerationError,
-            task=task,
+            task=task, review_evidence=review_evidence,
         )
         # Explicitly copy model-owned fields; never unpack arbitrary model metadata.
         parsed = result["parsed"]
@@ -118,10 +146,11 @@ class OllamaClient:
         )
         return result
 
-    def check_explanation(self, task, answer):
+    def check_explanation(self, task, answer, evidence=None):
         """Review task support separately from the actor's board history."""
         prompt = json.dumps({"task": task, "prediction": answer["prediction"],
-                             "explanation": answer["explanation"]}, ensure_ascii=False)
+                             "explanation": answer["explanation"],
+                             "data_tool_results": evidence or []}, ensure_ascii=False)
         system = (ROOT / "agents/prompts/explanation_check.txt").read_text(encoding="utf-8")
         raw = self.generate(prompt, system=system, schema=ExplanationCheck.model_json_schema())
         try:
@@ -131,7 +160,7 @@ class OllamaClient:
             return {"raw": raw, "error": str(exc)}
 
     def _generate_structured(self, prompt, persona, max_retries, template_name,
-                             response_model, error_class, task=None):
+                             response_model, error_class, task=None, review_evidence=None):
         """Validate and review each candidate within the existing retry budget.
 
         A valid candidate gets one model self-check before it can be returned.
@@ -162,8 +191,17 @@ class OllamaClient:
             except ValueError as exc:
                 attempt["error"] = str(exc)
             if parsed is not None:
+                attempt["parsed"] = parsed
                 try:
-                    check = self.check_explanation(task if task is not None else prompt, parsed)
+                    reviewer = self.check_explanation
+                    if review_evidence is not None and (
+                        "evidence" in inspect.signature(reviewer).parameters
+                        or any(p.kind == inspect.Parameter.VAR_KEYWORD
+                               for p in inspect.signature(reviewer).parameters.values())
+                    ):
+                        check = reviewer(task if task is not None else prompt, parsed, evidence=review_evidence)
+                    else:
+                        check = reviewer(task if task is not None else prompt, parsed)
                 except (RuntimeError, OSError) as exc:
                     attempt["self_check"] = {"raw": None, "error": str(exc)}
                     attempt["error"] = f"Explanation self-check transport error: {exc}"
@@ -172,7 +210,10 @@ class OllamaClient:
                 if check["error"]:
                     attempt["error"] = f"Explanation self-check output invalid: {check['error']}"
                 elif not check["parsed"]["supported"]:
-                    attempt["error"] = f"Unsupported explanation: {check['parsed']['reason']}"
+                    # Keep the reviewer rationale in the persisted self_check
+                    # record, but do not feed a potentially verbose or
+                    # self-contradictory rationale back as instructions.
+                    attempt["error"] = "Independent explanation review rejected this candidate."
             if attempt["error"] is None:
                 return {"parsed": parsed, "raw": raw, "attempts": attempts,
                         "usage": inference_usage(attempts)}
@@ -180,7 +221,9 @@ class OllamaClient:
             feedback = (
                 f"\n\nAttempt {len(attempts)} failed output validation or explanation review: {attempt['error']}\n"
                 f"{previous}"
-                "Answer the original task again. Return only JSON matching the supplied schema."
+                "Re-evaluate the candidate against the authoritative task scope and validated evidence. "
+                "When the task provides a verified deterministic calculation, use its value exactly. "
+                "Correct the rejected candidate and return only JSON matching the supplied schema."
             )
         raise error_class(attempts)
 
@@ -234,7 +277,7 @@ def save_report(kind, client, records):
     path = directory / f"{kind}-{stamp.strftime('%Y%m%dT%H%M%S%fZ')}.json"
     report = {
         "created_at": stamp.isoformat(), "model": client.model,
-        "base_url": client.base_url, "platform": platform.platform(),
+        "base_url": sanitized_base_url(client.base_url), "platform": platform.platform(),
         "options": OPTIONS, "records": records,
     }
     for key, endpoint in (("ollama", "/api/version"), ("loaded_models", "/api/ps")):

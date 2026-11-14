@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "run_id": "run-20261104T111748Z-5515ce2b",
+  "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+  "benchmark_checkout": "/Users/tanishasinghal/kramabench-pinned",
+  "workload": "archeology",
+  "task_id": "archeology-easy-3",
+  "model_provider": "ollama",
+  "evaluator_python": "/Users/tanishasinghal/kramabench-eval-venv/bin/python",
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "base_url": "http://127.0.0.1:11434",
+  "model_options": {
+    "num_ctx": 4096,
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 768
+  },
+  "model_seed": 42,
+  "max_turns": 6,
+  "max_retries": 1,
+  "task_wall_clock_cap_seconds": 900,
+  "counterfactual_fraction": 0.0,
+  "counterfactual_seed": 1,
+  "counterfactual_streak_threshold": 2,
+  "max_counterfactual_simulations": 1,
+  "num_workers": 1,
+  "pipeline_evaluation_enabled": false,
+  "run_subtasks": false,
+  "started_at": "2026-11-04T11:17:48.705133+00:00",
+  "preflight": {
+    "workload_path": "/Users/tanishasinghal/kramabench-pinned/workload/archeology.json",
+    "dataset_directory": "/Users/tanishasinghal/kramabench-pinned/data/archeology/input",
+    "task_count": 1,
+    "requested_task_ids": [
+      "archeology-easy-3"
+    ],
+    "tasks": [
+      {
+        "task_id": "archeology-easy-3",
+        "answer_type": "numeric_exact",
+        "permitted_files": [
+          {
+            "path": "roman_cities.csv",
+            "sha256": "0cea47b3d090d8e5dcc1a52dcd9064e3398ed18994233e677f74dab4ef2659b2",
+            "size_bytes": 225298,
+            "format": "csv",
+            "encoding": "utf-8-sig",
+            "tables": [
+              {
+                "name": "table_0",
+                "row_count": 1388,
+                "columns": [
+                  "Primary Key",
+                  "Ancient Toponym",
+                  "Modern Toponym",
+                  "Province",
+                  "Country",
+                  "Barrington Atlas Rank",
+                  "Barrington Atlas Reference",
+                  "Start Date",
+                  "End Date",
+                  "Longitude (X)",
+                  "Latitude (Y)",
+                  "Select Bibliography"
+                ]
+              }
+            ],
+            "page_count": null,
+            "notes": [
+              "Found 115 ambiguous numeric-looking value(s) in column 'Ancient Toponym'; numeric aggregation will require an unambiguous encoding.",
+              "Found 337 ambiguous numeric-looking value(s) in column 'Province'; numeric aggregation will require an unambiguous encoding."
+            ]
+          }
+        ],
+        "parent_task_id": null
+      }
+    ]
+  },
+  "status": "failed",
+  "run_type": "genuine_kramabench_task",
+  "genuine_run_approved": true,
+  "evaluator_mode": "compatibility-no-key",
+  "result_class": "compatibility_evaluator_output",
+  "evaluator_tree_fingerprint_sha256": "90a34a7eaf1fb12e3fb35efda31f685aa1861d7d0423803f0405ebafe5adbaf3",
+  "evaluator_options": {
+    "num_workers": 1,
+    "use_truth_subset": true,
+    "pipeline_evaluation_enabled": false,
+    "run_subtasks": false,
+    "verbose": false
+  },
+  "answer_type": "numeric_exact",
+  "data_file_hashes": [
+    {
+      "task_id": "archeology-easy-3",
+      "path": "roman_cities.csv",
+      "sha256": "0cea47b3d090d8e5dcc1a52dcd9064e3398ed18994233e677f74dab4ef2659b2"
+    }
+  ],
+  "prompt_version": "9ac3af17dbddf06fd5f53a66468b286c62112dfeb20f784bf3238141b7a97597",
+  "agent_config_sha256": "db0234a165596ddb7a39f5b5cabd999e55e7528950bb408d6b9c65fd72ec9c60",
+  "ollama_readiness": {
+    "endpoint": "http://127.0.0.1:11434",
+    "version": "0.34.4",
+    "model": "qwen3:4b-instruct-2507-q4_K_M"
+  },
+  "evaluator_source_sha256": "b8913ec894c0c3d5b2ad49621ce27d9a6154896b86274d8c1de8d96b23cbc260",
+  "compatibility_patch": {
+    "path": "benchmark/evaluator.py",
+    "sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
+  },
+  "openai_api_key_required": "[REDACTED]",
+  "compatibility_allowlist_entry_sha256": "47082263267d2bf74cebe5d91046bf2cc3e361d58843ce6d02a8024d4c985510",
+  "data_loop_degraded": false,
+  "data_loop_degradation_reason": null,
+  "workflow_counters": {
+    "guard_activations": [],
+    "guard_retries": 0,
+    "max_guard_retries": 2,
+    "refusal_despite_evidence_retries": 0,
+    "aggregate_columns_validation_feedback": 0,
+    "multi_file_coverage_rejections": 0,
+    "repeated_invalid_request_stops": 0,
+    "blocked_done_rejections": 0,
+    "duplicate_filter_rejections": 0,
+    "defaulted_file_selectors": 1,
+    "data_loop_degraded": false,
+    "data_loop_degradation_reason": null,
+    "reviewer_rejections": 0,
+    "counterfactual_triggers": 0,
+    "counterfactual_simulations": 0,
+    "counterfactual_changed_outcome": 0
+  },
+  "evaluator_process": {
+    "exit_status": 1,
+    "stdout_log": "evaluator_stdout.log",
+    "stderr_log": "evaluator_stderr.log",
+    "task_failure_summary": "DataToolWorkflowError: data evidence exceeded 32000 characters; no results were dropped"
+  },
+  "finished_at": "2026-11-04T11:22:08.441968+00:00",
+  "error_type": "OfficialHarnessError",
+  "error": "adapter failed before producing a result for selected task archeology-easy-3 (DataToolWorkflowError: data evidence exceeded 32000 characters; no results were dropped); isolated evaluator exited with status 1. Captured stdout: evaluator_stdout.log; stderr: evaluator_stderr.log. No score is accepted unless evaluator measure and aggregate files are present."
+}
