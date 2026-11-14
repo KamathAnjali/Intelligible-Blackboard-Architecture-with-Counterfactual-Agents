@@ -13,6 +13,8 @@ This branch combines the four workstreams:
 
 See the [progress report](docs/PROGRESS_REPORT.md) for implemented behavior and the [milestones](docs/PROJECT_MILESTONES.md) for planned work. Counterfactual scoring, live adoption, and official benchmark evaluation remain pending.
 
+`agents.counterfactual.create_sandbox()` prepares an isolated board containing the live history before a selected contribution. Generating an alternative and replaying later turns remain pending.
+
 ## Setup from WSL
 
 Use the project checkout. For a new checkout of this branch:

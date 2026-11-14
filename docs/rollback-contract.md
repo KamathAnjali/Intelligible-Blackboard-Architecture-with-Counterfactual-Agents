@@ -4,7 +4,7 @@ Agent-side interface v1, 18 October 2026. Reviewed against `origin/integration-m
 
 ## Inputs
 
-`agents/counterfactual.py` defines `RollbackRequest` and the `CounterfactualSandbox.simulate()` protocol. It contains types and signatures only.
+`agents/counterfactual.py` defines `RollbackRequest`, the `CounterfactualSandbox.simulate()` protocol, and `create_sandbox()` for copying the prefix before a selected contribution.
 
 | Input | Meaning |
 | --- | --- |
@@ -47,4 +47,4 @@ Simulation returns a proposal and never applies it. The later live controller ma
 | Scheduler state | Read access to active agent order, selected turn, and status is sufficient for the interface. A stable public recovery/debug API is still needed for integration. |
 | UI and audit | Live and simulated entries must remain distinguishable. Simulation lineage, usage, and outcome should be available to the event/metrics layer. |
 
-The interface sketch can be consumed now. Replay, evaluator integration, scheduler recovery, and adoption are later deliverables, not implemented by this contract.
+Sandbox preparation is implemented. Replay, evaluator integration, scheduler recovery, and adoption remain pending.
