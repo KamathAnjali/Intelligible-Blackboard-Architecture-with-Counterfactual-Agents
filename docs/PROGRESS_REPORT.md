@@ -9,7 +9,7 @@
 - Explanation review uses the task's facts for ordinary questions and requires supplied data-tool evidence for benchmark tasks. This fixes a regression introduced during integration; the earlier prompt-library freeze is a historical checkpoint.
 - A four-case local sanity workload and two controlled deadlock fixtures are available through `make sessions` and `make deadlocks`. `RetrospectiveSandbox` generates an alternative in an isolated history fork and replays scheduled agent turns. Its delta compares the largest matching RATIFY group as a fraction of active agents; this is agreement progress, not answer correctness.
 - The React/D3 UI and FastAPI backend support board visualization and a scoped KramaBench task endpoint. The benchmark adapter and paired orchestrator are present in the integrated Student 4 work.
-- The integrated conversation runner can generate one alternative proposal in a fork after repeated objections. It does not regenerate the downstream conversation or compute a counterfactual score; the full recovery mechanism remains incomplete.
+- The conversation runner supports both the earlier single-proposal experiment and an opt-in retrospective replay with live guidance after a deadlock. Benchmark and UI integration remain incomplete.
 
 ## Evidence and remaining work
 
@@ -22,3 +22,5 @@ The data-access prompt was clarified to request compact actions, short search st
 The Day 15 sandbox preparation uses the shared board fork API and deep-copies the source state. Focused existing checks and a direct isolation check cover empty and nonempty prefixes and invalid cutoffs. The agent registry reflects the supplied snapshot, since historical registry changes are not available.
 
 The opt-in retrospective recovery path retains the live history, reopens a deadlocked board after a positive-delta consensus replay, and supplies the alternative as unverified guidance to a new scheduled turn. A controlled end-to-end recovery reached consensus; a live Ollama replay on a simple deduction reached consensus with six model calls. These checks do not establish a benchmark improvement. The KramaBench adapter and UI are not yet wired to this recovery mode; the five-task pipeline checkpoint and ablation study remain outstanding.
+
+On 15 November, a paired A/B run injected the same five-entry deadlock in both conditions. Without recovery the board stayed deadlocked. With recovery, the final run reached the expected `insufficient information` consensus in eight live entries, using six simulation calls and seven live model calls. Two earlier enabled runs produced the correct prediction but were flagged for an invalid RATIFY; a bounded retry now rejects changed predictions tagged RATIFY on the recovery turn. The [compact record](../results/transcripts/deadlock-ab-20261115.json) retains all three attempts. This single synthetic case does not establish a general recovery rate or benchmark accuracy.

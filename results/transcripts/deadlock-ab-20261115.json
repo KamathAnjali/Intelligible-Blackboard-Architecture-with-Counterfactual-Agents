@@ -1,0 +1,554 @@
+{
+  "scenario": "missing_premise",
+  "comparison": "same controlled five-entry deadlock, with recovery disabled and enabled",
+  "expected": "insufficient information",
+  "interpretation": "Synthetic controlled case; no benchmark accuracy or general recovery claim.",
+  "created_at": "2026-11-15T11:55:39.063860+00:00",
+  "runs": [
+    {
+      "version": "initial",
+      "condition": "disabled",
+      "outcome": "deadlocked",
+      "correct_consensus": false,
+      "turns": [
+        {
+          "agent": "proposer",
+          "tag": "REVISE",
+          "prediction": "yes",
+          "explanation": "Every member receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        }
+      ],
+      "live_model_calls": 0,
+      "simulation_model_calls": 0,
+      "wall_seconds": 0.031,
+      "failures": [],
+      "counterfactual_attempts": [],
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "options": {
+        "num_ctx": 4096,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      }
+    },
+    {
+      "version": "initial",
+      "condition": "enabled",
+      "outcome": "consensus_needs_review",
+      "correct_consensus": false,
+      "turns": [
+        {
+          "agent": "proposer",
+          "tag": "REVISE",
+          "prediction": "yes",
+          "explanation": "Every member receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "RATIFY",
+          "prediction": "insufficient information",
+          "explanation": "The facts say 'some' members receive a pass, not all. Noor's individual case is not guaranteed.",
+          "source": "model",
+          "recovery_guidance": "An isolated alternative suggested this unverified claim: {\"prediction\": \"insufficient information\", \"explanation\": \"The facts state only that some members receive a pass, not all. Noor's status does not guarantee a pass.\"}. Reconsider it against the original task and evidence; do not assume it is correct."
+        },
+        {
+          "agent": "verifier",
+          "tag": "RATIFY",
+          "prediction": "insufficient information",
+          "explanation": "The facts state 'some' members receive a pass, not all. Noor's individual case is not guaranteed by this.",
+          "source": "model"
+        }
+      ],
+      "live_model_calls": 4,
+      "simulation_model_calls": 6,
+      "wall_seconds": 38.094,
+      "failures": [
+        {
+          "turn": 6,
+          "category": "ratify_prediction_text_differs",
+          "review": "pending"
+        }
+      ],
+      "counterfactual_attempts": [
+        {
+          "outcome": "consensus",
+          "delta_score": 1.0,
+          "accepted": true,
+          "applied_to_live": true,
+          "usage": {
+            "calls": 6,
+            "prompt_tokens": 4241,
+            "output_tokens": 242,
+            "wall_seconds": 22.695
+          },
+          "entries": [
+            {
+              "entry_id": "7f688c8bb46f4a57962ced4ea018cb9a",
+              "agent_id": "proposer",
+              "tag": "REVISE",
+              "prediction": "insufficient information",
+              "explanation": "The facts state only that some members receive a pass, not all. Noor's status does not guarantee a pass.",
+              "target_entry_id": null,
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:52:17.009600Z"
+            },
+            {
+              "entry_id": "c481ebcc6d3b492ea31d6e92685887b8",
+              "agent_id": "verifier",
+              "tag": "RATIFY",
+              "prediction": "insufficient information",
+              "explanation": "The facts say 'some' members receive a pass, not all. Noor's individual case is not specified.",
+              "target_entry_id": "7f688c8bb46f4a57962ced4ea018cb9a",
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:52:21.640800Z"
+            },
+            {
+              "entry_id": "b301d7fab2964078ab31fc6768da9016",
+              "agent_id": "proposer",
+              "tag": "RATIFY",
+              "prediction": "insufficient information",
+              "explanation": "The statement says 'some' members receive a pass, not all. Noor's individual status is not specified.",
+              "target_entry_id": "c481ebcc6d3b492ea31d6e92685887b8",
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:52:25.604150Z"
+            }
+          ]
+        }
+      ],
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "options": {
+        "num_ctx": 4096,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      }
+    },
+    {
+      "version": "guidance_revision",
+      "condition": "disabled",
+      "outcome": "deadlocked",
+      "correct_consensus": false,
+      "turns": [
+        {
+          "agent": "proposer",
+          "tag": "REVISE",
+          "prediction": "yes",
+          "explanation": "Every member receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        }
+      ],
+      "live_model_calls": 0,
+      "simulation_model_calls": 0,
+      "wall_seconds": 0.031,
+      "failures": [],
+      "counterfactual_attempts": [],
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "options": {
+        "num_ctx": 4096,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      }
+    },
+    {
+      "version": "guidance_revision",
+      "condition": "enabled",
+      "outcome": "consensus_needs_review",
+      "correct_consensus": false,
+      "turns": [
+        {
+          "agent": "proposer",
+          "tag": "REVISE",
+          "prediction": "yes",
+          "explanation": "Every member receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "RATIFY",
+          "prediction": "insufficient information",
+          "explanation": "The facts say 'some' members receive a pass, not all. Noor's individual status does not guarantee a pass.",
+          "source": "model",
+          "recovery_guidance": "An isolated alternative suggested this unverified claim: {\"prediction\": \"insufficient information\", \"explanation\": \"The facts state only that some members receive a pass, not all. Noor's status does not guarantee a pass.\"}. Reconsider it against the original task and evidence; do not assume it is correct. The target is the latest live entry, not the simulated entry. Use REVISE if changing its prediction or correcting its reasoning; use RATIFY only if both its prediction and reasoning are supported."
+        },
+        {
+          "agent": "verifier",
+          "tag": "RATIFY",
+          "prediction": "insufficient information",
+          "explanation": "The facts state 'some' members receive a pass, not all. Noor's individual status does not guarantee a pass.",
+          "source": "model"
+        }
+      ],
+      "live_model_calls": 4,
+      "simulation_model_calls": 6,
+      "wall_seconds": 25.281,
+      "failures": [
+        {
+          "turn": 6,
+          "category": "ratify_prediction_text_differs",
+          "review": "pending"
+        }
+      ],
+      "counterfactual_attempts": [
+        {
+          "outcome": "consensus",
+          "delta_score": 1.0,
+          "accepted": true,
+          "applied_to_live": true,
+          "usage": {
+            "calls": 6,
+            "prompt_tokens": 4218,
+            "output_tokens": 247,
+            "wall_seconds": 10.31
+          },
+          "entries": [
+            {
+              "entry_id": "4f248faaab9a413194096d3afc8dca18",
+              "agent_id": "proposer",
+              "tag": "REVISE",
+              "prediction": "insufficient information",
+              "explanation": "The facts state only that some members receive a pass, not all. Noor's status does not guarantee a pass.",
+              "target_entry_id": null,
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:53:11.597314Z"
+            },
+            {
+              "entry_id": "9242cfbff0a447dbbc1e0d96627c67da",
+              "agent_id": "verifier",
+              "tag": "RATIFY",
+              "prediction": "insufficient information",
+              "explanation": "The facts say 'some' members receive a pass, not all. Noor's individual case is not specified.",
+              "target_entry_id": "4f248faaab9a413194096d3afc8dca18",
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:53:14.871489Z"
+            },
+            {
+              "entry_id": "30c7eeb813b74c6ab814a39b1622a85e",
+              "agent_id": "proposer",
+              "tag": "RATIFY",
+              "prediction": "insufficient information",
+              "explanation": "The statement 'some' members receive a pass does not imply all members do. Noor's individual case is not specified.",
+              "target_entry_id": "9242cfbff0a447dbbc1e0d96627c67da",
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:53:18.889484Z"
+            }
+          ]
+        }
+      ],
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "options": {
+        "num_ctx": 4096,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      }
+    },
+    {
+      "version": "bounded_tag_retry",
+      "condition": "disabled",
+      "outcome": "deadlocked",
+      "correct_consensus": false,
+      "turns": [
+        {
+          "agent": "proposer",
+          "tag": "REVISE",
+          "prediction": "yes",
+          "explanation": "Every member receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        }
+      ],
+      "live_model_calls": 0,
+      "simulation_model_calls": 0,
+      "wall_seconds": 0.031,
+      "failures": [],
+      "counterfactual_attempts": [],
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "options": {
+        "num_ctx": 4096,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      }
+    },
+    {
+      "version": "bounded_tag_retry",
+      "condition": "enabled",
+      "outcome": "scheduler_consensus",
+      "correct_consensus": true,
+      "turns": [
+        {
+          "agent": "proposer",
+          "tag": "REVISE",
+          "prediction": "yes",
+          "explanation": "Every member receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "verifier",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The facts do not establish whether Noor receives a pass.",
+          "source": "controlled_injected_entry"
+        },
+        {
+          "agent": "proposer",
+          "tag": "REVISE",
+          "prediction": "insufficient information",
+          "explanation": "The facts state 'some' members receive a pass, not all. Noor's individual status does not guarantee a pass.",
+          "source": "model",
+          "recovery_guidance": "An isolated alternative suggested this unverified claim: {\"prediction\": \"insufficient information\", \"explanation\": \"The facts state only that some members receive a pass, not all. Noor's status does not guarantee a pass.\"}. Reconsider it against the original task and evidence; do not assume it is correct. The target is the latest live entry, not the simulated entry. Use REVISE if changing its prediction or correcting its reasoning; use RATIFY only if both its prediction and reasoning are supported."
+        },
+        {
+          "agent": "verifier",
+          "tag": "RATIFY",
+          "prediction": "insufficient information",
+          "explanation": "The facts say 'some' members receive a pass, not all. Noor's individual status is not guaranteed to include a pass.",
+          "source": "model"
+        },
+        {
+          "agent": "proposer",
+          "tag": "RATIFY",
+          "prediction": "insufficient information",
+          "explanation": "The facts state 'some' members receive a pass, not all. Noor's individual status does not guarantee a pass.",
+          "source": "model"
+        }
+      ],
+      "live_model_calls": 7,
+      "simulation_model_calls": 6,
+      "wall_seconds": 36.563,
+      "failures": [
+        {
+          "turn": 6,
+          "attempt": 1,
+          "category": "validation_error"
+        }
+      ],
+      "counterfactual_attempts": [
+        {
+          "outcome": "consensus",
+          "delta_score": 1.0,
+          "accepted": true,
+          "applied_to_live": true,
+          "usage": {
+            "calls": 6,
+            "prompt_tokens": 4240,
+            "output_tokens": 242,
+            "wall_seconds": 10.321
+          },
+          "entries": [
+            {
+              "entry_id": "fbb86cca1f894948bd9f09dd113255d1",
+              "agent_id": "proposer",
+              "tag": "REVISE",
+              "prediction": "insufficient information",
+              "explanation": "The facts state only that some members receive a pass, not all. Noor's status does not guarantee a pass.",
+              "target_entry_id": null,
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:54:28.581571Z"
+            },
+            {
+              "entry_id": "171d4531b9db44639f0ac5c126880043",
+              "agent_id": "verifier",
+              "tag": "RATIFY",
+              "prediction": "insufficient information",
+              "explanation": "The facts say 'some' members receive a pass, not all. Noor's individual case is not specified.",
+              "target_entry_id": "fbb86cca1f894948bd9f09dd113255d1",
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:54:31.861189Z"
+            },
+            {
+              "entry_id": "d4cdf94c62fa412982b7a7c0309e02be",
+              "agent_id": "proposer",
+              "tag": "RATIFY",
+              "prediction": "insufficient information",
+              "explanation": "The statement says 'some' members receive a pass, not all. Noor's individual status is not specified.",
+              "target_entry_id": "171d4531b9db44639f0ac5c126880043",
+              "is_counterfactual_sim": true,
+              "timestamp": "2026-11-15T11:54:35.859615Z"
+            }
+          ]
+        }
+      ],
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "options": {
+        "num_ctx": 4096,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      }
+    }
+  ],
+  "prompt_sha256": {
+    "aggressive_proposer.txt": "1e53179d96dbba0c11ca6695920cb2fc4f3bd4c1c02e8dcb9d96bb3313cad475",
+    "cautious_verifier.txt": "0d31006d9e2e752b02e8c2c42489fc2e5e3cdcf08d5fb16711f048db5322153a",
+    "counterexample_challenger.txt": "843b02f8c609a07b2cdc9d4ed765478b3f0755ae1484fbc5b5e5f32590b7ad4b",
+    "evidence_auditor.txt": "3b9ef87b43b5907edb3d153b8cd0c7410e07cd06f19e6ebba24c53dc1015fac3",
+    "explanation_check.txt": "5751f52e985bb686d20a38d3d38c9d8e3547949e56d971983b726335751a2ad2",
+    "pex_template.txt": "b0691354e3d9d238670233f61f3d9611b5c563b8d3b7fee75f459a713155daec",
+    "pxp_template.txt": "e1516799e198d8e0f50e4b6c0944e7814bf7804240dca016c6919cd35c1a84c2",
+    "rollback.txt": "3e96198dee584badbd4ef02a791b7a360b1ea48441cffd07a383edb66a44d859"
+  }
+}

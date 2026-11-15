@@ -68,6 +68,7 @@ Recovery requires a deadlock, an eligible earlier proposal, and an isolated repl
 | `make conversation AGENTS=3 TURNS=6 RETRIES=2` | Run an unseeded three-agent session. |
 | `make sessions TURNS=6 RETRIES=2` | Run the four-case three-agent sanity workload. |
 | `make deadlocks` | Produce two controlled deadlock fixtures without model calls. |
+| `make deadlock-ab AB_TURNS=10 RETRIES=1` | Compare the same injected deadlock with recovery off and on; save transcripts and a summary under `results/sessions/`. |
 | `make disagreement TURNS=6 RETRIES=2` | Run the three-agent scenario; turns must be 5-12. |
 | `make demo` | Check the existing three-turn live sequence. |
 | `make personas` / `make test` | Run existing live persona checks / offline checks. |

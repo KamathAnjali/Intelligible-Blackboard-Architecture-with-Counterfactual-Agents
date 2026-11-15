@@ -103,7 +103,7 @@ class OllamaClient:
 
     def generate_entry(self, task, state: BlackboardState, agent_id: str,
                        target_entry_id=None, max_retries=2, is_counterfactual_sim=False,
-                       review_evidence=None, guidance=None):
+                       review_evidence=None, guidance=None, enforce_target_agreement=False):
         """Build one BoardEntry from a snapshot without posting or mutating it.
 
         The application selects the target (latest entry by default). The model
@@ -138,9 +138,17 @@ class OllamaClient:
         prompt = json.dumps(payload, ensure_ascii=False)
         has_prior_agent_entry = any(entry.tag != PXPTag.FACT for entry in snapshot.entries)
         schema = PXPResponse if has_prior_agent_entry else InitialPXPResponse
+        target = next((entry for entry in snapshot.entries if entry.entry_id == target_entry_id), None)
+
+        def validate_target(parsed):
+            if (enforce_target_agreement and target is not None and parsed["tag"] == "RATIFY"
+                    and parsed["prediction"].strip().casefold() != target.prediction.strip().casefold()):
+                return "RATIFY changes the live target prediction; use REVISE for a changed answer."
+            return None
+
         result = self._generate_structured(
             prompt, agent.persona, max_retries, "pxp_template.txt", schema, PXPGenerationError,
-            task=task, review_evidence=review_evidence,
+            task=task, review_evidence=review_evidence, candidate_validator=validate_target,
         )
         # Explicitly copy model-owned fields; never unpack arbitrary model metadata.
         parsed = result["parsed"]
@@ -168,7 +176,8 @@ class OllamaClient:
             return {"raw": raw, "error": str(exc)}
 
     def _generate_structured(self, prompt, persona, max_retries, template_name,
-                             response_model, error_class, task=None, review_evidence=None):
+                             response_model, error_class, task=None, review_evidence=None,
+                             candidate_validator=None):
         """Validate and review each candidate within the existing retry budget.
 
         A valid candidate gets one model self-check before it can be returned.
@@ -198,7 +207,9 @@ class OllamaClient:
                 parsed = parse_response(raw, response_model).model_dump(mode="json")
             except ValueError as exc:
                 attempt["error"] = str(exc)
-            if parsed is not None:
+            if parsed is not None and candidate_validator is not None:
+                attempt["error"] = candidate_validator(parsed)
+            if parsed is not None and attempt["error"] is None:
                 attempt["parsed"] = parsed
                 try:
                     reviewer = self.check_explanation

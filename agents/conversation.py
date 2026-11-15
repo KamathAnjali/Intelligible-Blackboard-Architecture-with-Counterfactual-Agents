@@ -364,6 +364,7 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                 call_options = {"max_retries": max_retries, "review_evidence": review_evidence}
                 if pending_recovery is not None:
                     call_options["guidance"] = pending_recovery["guidance"]
+                    call_options["enforce_target_agreement"] = True
                     turn["recovery_guidance"] = pending_recovery["guidance"]
                 result = client.generate_entry(task, state, agent.agent_id, **call_options)
                 turn["attempts"] = result["attempts"]
@@ -513,7 +514,10 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                                     "guidance": "An isolated alternative suggested this unverified claim: "
                                     + json.dumps({"prediction": replay.candidate_entry.prediction,
                                                   "explanation": replay.candidate_entry.explanation}, ensure_ascii=False)
-                                    + ". Reconsider it against the original task and evidence; do not assume it is correct."}
+                                    + ". Reconsider it against the original task and evidence; do not assume it is correct. "
+                                    + "The target is the latest live entry, not the simulated entry. "
+                                    + "Use REVISE if changing its prediction or correcting its reasoning; "
+                                    + "use RATIFY only if both its prediction and reasoning are supported."}
                                 report["outcome"] = "running"
                                 checkpoint()
                                 continue
