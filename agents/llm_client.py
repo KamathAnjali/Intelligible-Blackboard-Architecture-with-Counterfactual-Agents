@@ -103,7 +103,7 @@ class OllamaClient:
 
     def generate_entry(self, task, state: BlackboardState, agent_id: str,
                        target_entry_id=None, max_retries=2, is_counterfactual_sim=False,
-                       review_evidence=None):
+                       review_evidence=None, guidance=None):
         """Build one BoardEntry from a snapshot without posting or mutating it.
 
         The application selects the target (latest entry by default). The model
@@ -126,11 +126,16 @@ class OllamaClient:
             entry.entry_id == target_entry_id for entry in snapshot.entries
         ):
             raise ValueError("target_entry_id must exist in the supplied board snapshot")
-        prompt = json.dumps({
+        payload = {
             "task": task, "task_id": snapshot.task_id, "acting_agent_id": agent_id,
             "target_entry_id": target_entry_id,
             "history": [entry.model_dump(mode="json") for entry in snapshot.entries],
-        }, ensure_ascii=False)
+        }
+        if guidance is not None:
+            if not isinstance(guidance, str) or not guidance.strip():
+                raise ValueError("guidance must be a nonempty string")
+            payload["guidance"] = guidance
+        prompt = json.dumps(payload, ensure_ascii=False)
         has_prior_agent_entry = any(entry.tag != PXPTag.FACT for entry in snapshot.entries)
         schema = PXPResponse if has_prior_agent_entry else InitialPXPResponse
         result = self._generate_structured(

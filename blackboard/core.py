@@ -182,6 +182,21 @@ class Blackboard:
         })
         return True
 
+    def reopen_after_deadlock(self, expected_state: BlackboardState | None = None) -> bool:
+        """Resume after an accepted recovery while retaining the deadlock record."""
+        with self._lock:
+            if (self._state.intelligibility != IntelligibilityLevel.DEADLOCKED
+                    or (expected_state is not None and self._state != expected_state)):
+                return False
+            self._recent_tags.clear()
+            self._state.intelligibility = IntelligibilityLevel.UNRESOLVED
+            self._store.save(self._state)
+        self._emit(BoardEventType.INTELLIGIBILITY_CHANGED, {
+            "previous": IntelligibilityLevel.DEADLOCKED.value,
+            "current": IntelligibilityLevel.UNRESOLVED.value,
+        })
+        return True
+
     # -- persistence & snapshot hooks (Week 2) -----------------------------
 
     def save_snapshot(self, tag: str | None = None):

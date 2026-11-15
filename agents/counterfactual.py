@@ -27,6 +27,7 @@ class RollbackRequest:
     max_replay_turns: int = 6
     max_alternatives: int = 1
     max_retries: int = 2
+    review_evidence: list | None = None
 
 
 @dataclass(frozen=True)
@@ -117,17 +118,21 @@ class RetrospectiveSandbox:
             scheduler.prioritize_next_turn(request.target_agent_id)
             for turn in range(request.max_replay_turns):
                 agent = scheduler.next_agent()
-                task = request.task
+                guidance = None
                 if turn == 0:
                     prior = json.dumps({"tag": original.tag.value, "prediction": original.prediction,
                                         "explanation": original.explanation}, ensure_ascii=False)
-                    task += ("\n\nReconsider this earlier contribution as an unverified claim: "
-                             + prior + "\n" + request.alternative_instruction
-                             + "\nProvide an alternative tag or explanation grounded in the original task.")
+                    guidance = ("Reconsider this unverified earlier contribution: " + prior + "\n"
+                                + request.alternative_instruction + "\n"
+                                + "Propose an alternative tag or explanation using only supported facts.")
                 generated = None
                 for _ in range(request.max_alternatives if turn == 0 else 1):
-                    generated = self.client.generate_entry(task, board.get_state(), agent.agent_id,
-                        max_retries=request.max_retries, is_counterfactual_sim=True)
+                    kwargs = {"max_retries": request.max_retries, "is_counterfactual_sim": True}
+                    if request.review_evidence is not None:
+                        kwargs["review_evidence"] = request.review_evidence
+                    if guidance is not None:
+                        kwargs["guidance"] = guidance
+                    generated = self.client.generate_entry(request.task, board.get_state(), agent.agent_id, **kwargs)
                     attempts.extend(generated.get("attempts", []))
                     entry = generated["entry"]
                     if (entry.agent_id != agent.agent_id or not entry.is_counterfactual_sim

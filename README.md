@@ -11,9 +11,9 @@ This branch combines the four workstreams:
 | `3-Dhruva` | Local Ollama inference, four personas, structured output validation, retries, explanation self-checks, conversations, and published run records. |
 | `4-Tanisha` | FastAPI/WebSocket backend, React/D3 interface, replay, task ingestion, token estimates, and benchmark infrastructure. |
 
-See the [progress report](docs/PROGRESS_REPORT.md) for implemented behavior and the [milestones](docs/PROJECT_MILESTONES.md) for planned work. Counterfactual scoring, live adoption, and official benchmark evaluation remain pending.
+See the [progress report](docs/PROGRESS_REPORT.md) for implemented behavior and the [milestones](docs/PROJECT_MILESTONES.md) for planned work. Official benchmark evaluation remains pending.
 
-`agents.counterfactual.RetrospectiveSandbox` can generate an alternative and replay later turns on an isolated board. Its agreement-progress delta does not measure answer correctness; live deadlock handoff and adoption remain pending.
+`agents.counterfactual.RetrospectiveSandbox` can generate an alternative and replay later turns on an isolated board. Its agreement-progress delta does not measure answer correctness. The opt-in conversation recovery path provides an accepted alternative as unverified guidance on a new live turn.
 
 ## Setup from WSL
 
@@ -43,6 +43,14 @@ make start
 make conversation TURNS=6 RETRIES=2
 make disagreement TURNS=6 RETRIES=2
 ```
+
+To enable retrospective recovery during a conversation from WSL, run:
+
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '& .\.venv\Scripts\python.exe -m agents.conversation --turns 12 --counterfactual-fraction 1 --retrospective-recovery'
+```
+
+Recovery requires a deadlock, an eligible earlier proposal, and an isolated replay that reaches consensus with a positive agreement delta. It is opt-in and is not yet enabled by the KramaBench adapter.
 
 `conversation` runs two agents on the default task. `disagreement` registers a proposer, evidence auditor, and counterexample challenger against a marked synthetic incorrect claim; subsequent responses come from the model. Its check requires correction to the expected answer and agreement by all three agents.
 

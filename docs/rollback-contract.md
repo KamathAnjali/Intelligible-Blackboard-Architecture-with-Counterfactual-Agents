@@ -41,10 +41,10 @@ Simulation returns a proposal and never applies it. The later live controller ma
 
 | Area | Current state and required integration |
 | --- | --- |
-| `3-Dhruva` | History forks and standalone replay are implemented; a live trigger and adoption remain pending. |
+| `3-Dhruva` | History forks, replay, and opt-in deadlock recovery through live prompt guidance are implemented. |
 | Board classification | Forked boards explicitly classify simulated entries. Live boards continue to exclude them from consensus. |
-| Deadlock lifecycle | The board preserves `DEADLOCKED`, and the scheduler stops selecting agents. Recovery needs an explicit handoff and an agreed resume/reset operation. Do not bypass turn enforcement or edit private scheduler/board fields. |
+| Deadlock lifecycle | Opt-in recovery reopens the board only if its saved state still matches the replay input, preserves deadlock records, and resumes through the scheduler. |
 | Scheduler state | Read access to active agent order, selected turn, and status is sufficient for the interface. A stable public recovery/debug API is still needed for integration. |
 | UI and audit | Live and simulated entries must remain distinguishable. Simulation lineage, usage, and outcome should be available to the event/metrics layer. |
 
-The standalone replay generates an alternative and follows scheduler turns in the isolated board. Its agreement-progress score is the largest matching RATIFY group divided by active agents; delta compares that score against the live source snapshot. Errors retain partial replay and have no score. The score does not measure correctness. Evaluator integration, live scheduler recovery, and adoption remain pending.
+The replay generates an alternative and follows scheduler turns in the isolated board. Its agreement-progress score is the largest matching RATIFY group divided by active agents; delta compares that score against the live source snapshot. Errors retain partial replay and have no score. The score does not measure correctness. On acceptance, the original agent receives the alternative as guidance to assess against the original task and evidence. Evaluator and UI integration remain pending.
