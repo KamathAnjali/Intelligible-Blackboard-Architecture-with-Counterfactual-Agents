@@ -10,7 +10,7 @@
 
 The Data Model and Storage layer (`1-Anjali`) has completed its **Week 1 foundation** and **Week 2 core deliverables**. The repository now features thread-safe Blackboard state management with reentrant locking, strict PXP grammatical validation, event emitter hooks for real-time WebSocket consumption, refined unanimous intelligibility classification (differentiating Strong vs Ultra-Strong and preventing single-agent impersonation), enhanced snapshot persistence with replay trace export, and an isolated sandbox forking mechanism supporting Student 3's counterfactual rollback contract.
 
-The automated test suite contains **34 passing tests** (`.venv/bin/pytest`) verifying schema validation, multi-agent consensus, deadlock detection, event dispatch, thread-safe high-concurrency writes, and sandbox isolation.
+The automated test suite covers schema validation, multi-agent consensus, deadlock detection, event dispatch, thread-safe high-concurrency writes, sandbox isolation, and scheduler lifecycle events.
 
 ---
 
@@ -19,7 +19,7 @@ The automated test suite contains **34 passing tests** (`.venv/bin/pytest`) veri
 | Branch | Owner | Main responsibility | Implemented | Status |
 |---|---|---|---|---|
 | `1-Anjali` | Anjali | Blackboard models, core, storage, events, rollback contract | Models, validation, snapshots, event emitter hooks, refined consensus, rollback sandbox, tests | Week 1 & Week 2 complete (34 tests passing) |
-| `2-Lopez` | Lopez | Protocol and scheduler | Round-robin turn selection, turn enforcement, registration synchronization, terminal status handling | Integrated with Blackboard |
+| `2-Lopez` | Lopez | Protocol and scheduler | Round-robin turn selection, turn enforcement, registration synchronization, terminal status handling, session-scoped scheduler lifecycle events | Integrated with Blackboard |
 | `3-Dhruva` | Dhruva | Agents, prompts, local Ollama, PXP mapping | Strict PEX/PXP validation, retries, `BoardEntry` mapping, counterfactual persona prompts | Ready for counterfactual sandbox integration |
 | `4-Tanisha` | Tanisha | UI, WebSocket, ingestion, metrics | UI server, WebSocket scaffolding, React/D3 graph, token counter, KramaBench parser | Connected via BoardEvent emitter hooks |
 
@@ -86,6 +86,7 @@ Task Ingestion -> Scheduler selects agent turn (next_agent)
    The `Scheduler` queries active agents from `Blackboard.get_agents(active_only=True)` and enforces strict round-robin sequencing. Out-of-turn submissions are rejected with `ValueError`.
 2. **Event Publication**:
    WebSocket listeners subscribe via `board.subscribe(callback)`. Any state mutation immediately emits a structured `BoardEvent` payload containing the task ID, timestamp, and JSON delta.
+   The scheduler also emits `turn_started`, `turn_finished`, and `scheduler_status` events with a session ID and task ID. The runner reports `no_entry` and `error` outcomes through `Scheduler.finish_turn()`; successful posts finish with `posted`. The event contract is in `docs/contracts/scheduler_turn_events.md`.
 3. **Consensus & Intelligibility**:
    The classifier evaluates the latest entry from every active agent. If all active agents have submitted `RATIFY` with matching predictions, consensus is established. If `REVISE` was used earlier in the trace, the session is classified as `ULTRA_STRONG`; otherwise `STRONG`. A streak of 4 negative tags (`REFUTE`/`REJECT`) triggers a `DeadlockEvent` and sets status to `DEADLOCKED`.
 4. **Counterfactual Forking**:
@@ -95,7 +96,7 @@ Task Ingestion -> Scheduler selects agent turn (next_agent)
 
 ## 5. Testing status
 
-All 34 automated tests pass cleanly:
+The last recorded full-suite run had 34 passing tests. Five scheduler lifecycle cases have since been added for event order, terminal outcomes, and runner completion outcomes. Those new cases still need a full-suite run in a Linux-compatible project environment.
 
 ```text
 ============================= test session starts ==============================

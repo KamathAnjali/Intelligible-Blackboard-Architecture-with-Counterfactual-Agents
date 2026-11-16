@@ -263,3 +263,118 @@ def test_submit_entry_callback_does_not_deadlock_on_scheduler_lock():
     assert errors == []
     scheduler.close()
 
+
+@pytest.mark.parametrize("terminal_case", ["consensus", "deadlock", "limit"])
+def test_scheduler_lifecycle_events_report_order_and_terminal_state(terminal_case):
+    task_id = f"lifecycle-{terminal_case}"
+    board = Blackboard(task_id=task_id)
+    board.register_agent(AgentRecord(agent_id="a", persona="proposer"))
+    board.register_agent(AgentRecord(agent_id="b", persona="verifier"))
+    events = []
+    board.subscribe(events.append)
+    scheduler = Scheduler(
+        board,
+        session_id="session-1",
+        max_turns=1 if terminal_case == "limit" else None,
+    )
+
+    if terminal_case == "consensus":
+        first = scheduler.next_agent()
+        scheduler.submit_entry(BoardEntry(
+            agent_id=first.agent_id,
+            tag=PXPTag.RATIFY,
+            prediction="42",
+            explanation="Agreed.",
+        ))
+        second = scheduler.next_agent()
+        scheduler.submit_entry(BoardEntry(
+            agent_id=second.agent_id,
+            tag=PXPTag.RATIFY,
+            prediction="42",
+            explanation="Agreed too.",
+            target_entry_id=board.get_history()[0].entry_id,
+        ))
+    elif terminal_case == "deadlock":
+        for index in range(4):
+            agent = scheduler.next_agent()
+            scheduler.submit_entry(BoardEntry(
+                agent_id=agent.agent_id,
+                tag=PXPTag.REFUTE if index % 2 == 0 else PXPTag.REJECT,
+                prediction="42",
+                explanation="Disagreement persists.",
+            ))
+    else:
+        agent = scheduler.next_agent()
+        scheduler.submit_entry(BoardEntry(
+            agent_id=agent.agent_id,
+            tag=PXPTag.REVISE,
+            prediction="42",
+            explanation="Refined proposal.",
+        ))
+
+    lifecycle = [
+        event for event in events
+        if event.event_type in {
+            BoardEventType.TURN_STARTED,
+            BoardEventType.TURN_FINISHED,
+            BoardEventType.SCHEDULER_STATUS,
+        }
+    ]
+    assert lifecycle[0].event_type is BoardEventType.SCHEDULER_STATUS
+    assert lifecycle[0].state == "running"
+    assert lifecycle[0].session_id == "session-1"
+    assert lifecycle[0].task_id == task_id
+    assert lifecycle[0].type == "scheduler_status"
+
+    turns = [event for event in lifecycle if event.event_type is BoardEventType.TURN_STARTED]
+    expected_sequence = [BoardEventType.SCHEDULER_STATUS]
+    for _ in turns:
+        expected_sequence.extend([BoardEventType.TURN_STARTED, BoardEventType.TURN_FINISHED])
+    expected_sequence.append(BoardEventType.SCHEDULER_STATUS)
+    assert [event.event_type for event in lifecycle] == expected_sequence
+
+    finishes = [event for event in lifecycle if event.event_type is BoardEventType.TURN_FINISHED]
+    assert [(event.agent_id, event.turn) for event in turns] == [
+        (event.agent_id, event.turn) for event in finishes
+    ]
+    assert [event.outcome for event in finishes] == ["posted"] * len(turns)
+    assert all(event.session_id == "session-1" and event.task_id == task_id for event in events)
+
+    terminal_statuses = [
+        event for event in lifecycle
+        if event.event_type is BoardEventType.SCHEDULER_STATUS
+        and event.state != "running"
+    ]
+    assert [event.state for event in terminal_statuses] == [terminal_case]
+    assert terminal_statuses[0].agents == [
+        {"agent_id": "a", "persona": "proposer"},
+        {"agent_id": "b", "persona": "verifier"},
+    ]
+    assert lifecycle.index(finishes[-1]) < lifecycle.index(terminal_statuses[0])
+    assert not scheduler.is_running()
+    scheduler.close()
+
+
+@pytest.mark.parametrize("outcome", ["no_entry", "error"])
+def test_finish_turn_emits_runner_outcome(outcome):
+    board = Blackboard(task_id=f"finish-{outcome}")
+    board.register_agent(AgentRecord(agent_id="a", persona="proposer"))
+    events = []
+    board.subscribe(events.append)
+    scheduler = Scheduler(board, session_id="session-finish")
+
+    agent = scheduler.next_agent()
+    scheduler.finish_turn(outcome)
+
+    lifecycle = [
+        event for event in events
+        if event.event_type in {BoardEventType.TURN_STARTED, BoardEventType.TURN_FINISHED}
+    ]
+    assert [(event.event_type, event.agent_id, event.turn) for event in lifecycle] == [
+        (BoardEventType.TURN_STARTED, agent.agent_id, 1),
+        (BoardEventType.TURN_FINISHED, agent.agent_id, 1),
+    ]
+    assert lifecycle[-1].outcome == outcome
+    assert all(event.session_id == "session-finish" for event in lifecycle)
+    scheduler.close()
+

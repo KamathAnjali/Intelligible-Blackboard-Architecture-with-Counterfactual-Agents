@@ -37,6 +37,7 @@ class Blackboard:
 
     def __init__(self, task_id: str, store: BackingStore | None = None):
         self.task_id = task_id
+        self.session_id: str | None = None
         self._store = store or InMemoryJSONStore()
         self._lock = threading.RLock()
         self._subscribers: list[Callable[[BoardEvent], None]] = []
@@ -70,8 +71,13 @@ class Blackboard:
         event = BoardEvent(
             event_type=event_type,
             task_id=self.task_id,
+            session_id=self.session_id,
             payload=payload,
         )
+        self._dispatch_event(event)
+
+    def _dispatch_event(self, event: BoardEvent) -> None:
+        """Dispatch a prepared event to subscribers without changing board state."""
         for listener in list(self._subscribers):
             try:
                 listener(event)
