@@ -36,6 +36,8 @@ DEFAULT_SEED = 20261110
 HELD_OUT_COUNT = 25
 TUNING_COUNT = 5
 MODEL_TAG = "qwen3:4b-instruct-2507-q4_K_M"
+SCOPE_VERSION = "v2"
+MODEL_OPTIONS = {"num_ctx": 8192, "temperature": 0, "num_predict": 2048, "seed": 42}
 COMPAT_PATCH_SHA256 = "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
 
 
@@ -326,7 +328,7 @@ def build_scope(benchmark_root: Path, repository_root: Path, allowlist_path: Pat
     exclusion_counts = dict(sorted(Counter(item["reason"] for item in excluded).items()))
     scope: dict[str, Any] = {
         "schema_version": 1,
-        "scope_id": "kramabench_pilot_v1",
+        "scope_id": f"kramabench_pilot_{SCOPE_VERSION}",
         "status": "frozen",
         "benchmark": {"repository_url": PINNED_URL, "revision": revision, "version": revision},
         "evaluators": {
@@ -341,15 +343,15 @@ def build_scope(benchmark_root: Path, repository_root: Path, allowlist_path: Pat
         },
         "model": {"provider": "ollama", "name": MODEL_TAG, "version": MODEL_TAG,
                   "tag_digest": None, "digest_note": "Unavailable in archived manifests; capture /api/show digest on every later run."},
-        "model_options": {"num_ctx": 4096, "temperature": 0, "num_predict": 768, "seed": 42},
+        "model_options": dict(MODEL_OPTIONS),
         "personas": ["aggressive_proposer", "cautious_verifier"],
         "model_agent_count": 2,
         "scheduler_policy": "Round-robin proposer/verifier; consensus requires matching RATIFY predictions from all active agents.",
         "stopping_rules": {
             "max_turns": 6, "max_retries_per_generation": 1,
             "task_wall_clock_cap_seconds": 900, "data_operation_timeout_seconds": 120,
-            "data_tool_invocation_cap": 12, "model_context_tokens": 4096,
-            "max_output_tokens_per_generation": 768, "total_token_budget": None,
+            "data_tool_invocation_cap": 12, "model_context_tokens": MODEL_OPTIONS["num_ctx"],
+            "max_output_tokens_per_generation": MODEL_OPTIONS["num_predict"], "total_token_budget": None,
             "total_token_budget_note": "No cumulative task token cap is configured; runs must report actual provider usage.",
             "max_counterfactual_simulations_per_task": 1,
             "counterfactual_streak_threshold": 2,
@@ -376,10 +378,15 @@ def build_scope(benchmark_root: Path, repository_root: Path, allowlist_path: Pat
     return scope, candidates
 
 
-def write_outputs(scope: dict[str, Any], candidates: list[dict[str, Any]], output_dir: Path) -> None:
+def write_outputs(scope: dict[str, Any], candidates: list[dict[str, Any]], output_dir: Path,
+                  scope_filename: str | None = None) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    scope_path = output_dir / "pilot_scope_v1.json"
-    inventory_path = output_dir / "candidate_inventory.csv"
+    if scope_filename is None:
+        suffix = str(scope.get("scope_id", "kramabench_pilot_v1")).rsplit("_", 1)[-1]
+        scope_filename = f"pilot_scope_{suffix}.json"
+    scope_path = output_dir / scope_filename
+    inventory_name = "candidate_inventory.csv" if scope_filename == "pilot_scope_v1.json" else "candidate_inventory_v2.csv"
+    inventory_path = output_dir / inventory_name
     if scope_path.exists() or inventory_path.exists():
         raise FileExistsError(f"scope outputs already exist under {output_dir}; refusing to overwrite")
     tuning = [task for task in scope["tasks"] if task["split"] == "tuning"]
@@ -399,16 +406,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repository-root", type=Path, default=REPOSITORY_ROOT)
     parser.add_argument("--allowlist", type=Path, default=REPOSITORY_ROOT / "bench" / "compat_allowlist.json")
     parser.add_argument("--output-dir", type=Path, default=REPOSITORY_ROOT / "bench" / "scope")
+    parser.add_argument("--scope-filename", default="pilot_scope_v2.json")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     args = parser.parse_args(argv)
     scope, candidates = build_scope(args.benchmark_root.expanduser().resolve(),
                                     args.repository_root.resolve(), args.allowlist.resolve(), args.seed)
-    write_outputs(scope, candidates, args.output_dir.resolve())
+    write_outputs(scope, candidates, args.output_dir.resolve(), args.scope_filename)
     print(f"Candidates: {len(candidates)}; tuning: {scope['selection']['tuning_count']}; "
           f"held-out: {scope['selection']['held_out_count']}; excluded: {len(scope['excluded_tasks'])}")
     print(f"Scope SHA-256: {scope['content_sha256']}")
-    print(f"Inventory: {args.output_dir / 'candidate_inventory.csv'}")
-    print(f"Frozen scope: {args.output_dir / 'pilot_scope_v1.json'}")
+    inventory_name = "candidate_inventory.csv" if args.scope_filename == "pilot_scope_v1.json" else "candidate_inventory_v2.csv"
+    print(f"Inventory: {args.output_dir / inventory_name}")
+    print(f"Frozen scope: {args.output_dir / args.scope_filename}")
     return 0
 
 

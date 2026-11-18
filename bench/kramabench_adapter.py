@@ -373,6 +373,7 @@ def _publish_ui_board_events(board: Any) -> None:
     branch_event_types = {
         "branch_created", "branch_entry_posted", "counterfactual_result", "live_adjustment_applied",
     }
+    scheduler_event_types = {"turn_started", "turn_finished", "scheduler_status"}
 
     def on_event(board_event: Any) -> None:
         nonlocal event_count
@@ -383,6 +384,28 @@ def _publish_ui_board_events(board: Any) -> None:
                 raw_kind = getattr(event_type, "name", "")
             kind = raw_kind.lower()
             payload = getattr(board_event, "payload", {})
+            if kind in scheduler_event_types:
+                scheduler_session_id = getattr(board_event, "session_id", None)
+                envelope = {
+                    "type": kind, "source": "LIVE",
+                    "session_id": session_id or scheduler_session_id,
+                    "task_id": board.task_id,
+                }
+                if session_id and scheduler_session_id and session_id != scheduler_session_id:
+                    envelope["scheduler_session_id"] = scheduler_session_id
+                for field in ("agent_id", "turn", "reason", "priority_score", "outcome", "state", "agents"):
+                    value = getattr(board_event, field, None)
+                    if value is not None:
+                        envelope[field] = value
+                try:
+                    target = Path(event_path)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with lock, target.open("a", encoding="utf-8") as stream:
+                        stream.write(json.dumps(envelope, ensure_ascii=False, default=str) + "\n")
+                        stream.flush()
+                except OSError:
+                    logger.exception("Could not write UI scheduler-event bridge file")
+                return
             if kind not in branch_event_types or not isinstance(payload, dict) or not payload.get("branch_id"):
                 return
             envelope = {
@@ -577,7 +600,7 @@ class KramaBenchSystem:
             "provider": "ollama",
             "model": getattr(self.client, "model", MODEL),
             "base_url": sanitized_base_url(getattr(self.client, "base_url", "local")),
-            "model_options": dict(OPTIONS),
+            "model_options": dict(getattr(self.client, "options", OPTIONS)),
             "model_seed": int(getattr(self.client, "options", OPTIONS).get("seed", OPTIONS["seed"])),
             "prompt_version": _prompt_version(),
             "pipeline_evaluation_enabled": self.pipeline_evaluation_enabled,

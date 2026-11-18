@@ -27,7 +27,7 @@ from bench.scope.load_scope import ScopeError, load_scope, result_reporting_labe
 from bench.metrics.token_counter import UsageLedger, UsageRecord, count_tokens_for_entry
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SCOPE = REPO_ROOT / "bench" / "scope" / "pilot_scope_v1.json"
+DEFAULT_SCOPE = REPO_ROOT / "bench" / "scope" / "pilot_scope_v2.json"
 CONFIGURATIONS = (0.0, 0.33, 0.66, 1.0)
 
 RESULT_FIELDS = [
@@ -44,7 +44,7 @@ RESULT_FIELDS = [
     "result_kind", "official_metric", "official_score", "ground_truth_used", "timestamp",
     "return_code", "timed_out", "runner_manifest_path", "task_record_path", "measure_csv_paths",
     "synthetic", "mainline_tokens", "dry_run", "notes", "assignment_seed", "model_seed",
-    "result_partition",
+    "result_partition", "num_ctx", "num_predict",
 ]
 
 
@@ -85,6 +85,7 @@ class RunRequest:
     command: tuple[str, ...]
     cwd: Path
     timeout_seconds: int
+    model_options: dict[str, int] | None = None
 
 
 def _utc_now() -> str:
@@ -505,6 +506,8 @@ def _attempt_row(run_id: str, request: RunRequest, process: ProcessResult,
         "attempt_status": attempt_status,
         "model_seed": model_seed, "mainline_tokens": live_tokens, "dry_run": False,
         "notes": reason or "", "assignment_seed": assignment_seed,
+        "num_ctx": (request.model_options or {}).get("num_ctx", ""),
+        "num_predict": (request.model_options or {}).get("num_predict", ""),
     }
 
 
@@ -571,6 +574,9 @@ def _runner_command(spec: RunSpec, runner_output: Path, benchmark_root: Path,
         "--output-directory", str(runner_output), "--evaluator-python", evaluator_python,
         "--evaluator-mode", spec.task["evaluator_mode"],
         "--model", scope["model"]["name"], "--base-url", base_url,
+        "--num-ctx", str(scope["model_options"]["num_ctx"]),
+        "--required-num-ctx", str(scope["model_options"]["num_ctx"]),
+        "--num-predict", str(scope["model_options"]["num_predict"]),
         "--model-seed", str(model_seed), "--max-turns", str(limits["max_turns"]),
         "--max-retries", str(limits["max_retries_per_generation"]),
         "--task-wall-clock-cap-seconds", str(limits["task_wall_clock_cap_seconds"]),
@@ -624,15 +630,17 @@ def run_experiment(
             "model_seed": model_seed, "evaluator_python": evaluator_python,
             "base_url": base_url, "repetitions": repetitions, "order_seed": order_seed,
             "assignment_seed": assignment_seed, "matrix_sha256": matrix_signature,
+        "model_options": {**scope["model_options"], "seed": model_seed},
             "process_timeout_seconds": timeout, "started_at": _utc_now(), "synthetic": synthetic,
         }
         _write_json(manifest_path, manifest)
     else:
         expected = (manifest.get("scope_sha256"), manifest.get("model"), manifest.get("model_seed"),
                     manifest.get("order_seed"), manifest.get("assignment_seed"), manifest.get("repetitions"),
-                    manifest.get("matrix_sha256"), manifest.get("process_timeout_seconds"))
+                    manifest.get("matrix_sha256"), manifest.get("process_timeout_seconds"),
+                    manifest.get("model_options"))
         actual = (scope_hash, model, model_seed, order_seed, assignment_seed, repetitions,
-                  matrix_signature, timeout)
+                  matrix_signature, timeout, {**scope["model_options"], "seed": model_seed})
         if manifest.get("run_id") != run_id or expected != actual:
             raise ValueError("cannot resume: run id, scope, model seed, ordering seed, assignment seed, or repetitions differ")
 
@@ -651,7 +659,8 @@ def run_experiment(
             command = _runner_command(spec, runner_output_dir, benchmark_root, evaluator_python,
                                       base_url, model_seed, scope)
             request = RunRequest(spec, attempt_number, attempt_dir, runner_output_dir,
-                                 command, REPO_ROOT, timeout)
+                                 command, REPO_ROOT, timeout,
+                                 model_options={**scope["model_options"], "seed": model_seed})
             try:
                 process = runner(request)
             except KeyboardInterrupt:
@@ -826,9 +835,23 @@ def aggregate_run(run_dir: Path) -> dict[str, Any]:
     summary = aggregate_rows(rows)
     summary["run_id"] = run_dir.name
     summary["attempt_rows"] = len(rows)
+    run_manifest = _read_json(run_dir / "results_manifest.json") or {}
+    old_options = run_manifest.get("model_options", {})
+    is_pre_context_fix = (
+        run_manifest.get("scope_id") == "kramabench_pilot_v1"
+        or int(old_options.get("num_ctx", 0) or 0) < 8192
+        or int(old_options.get("num_predict", 0) or 0) < 2048
+    )
+    summary["context_fix_label"] = "pre-context-fix" if is_pre_context_fix else "context-v2"
+    summary["context_fix_note"] = (
+        "Historical run retained its original records; it used the v1 scope before the context/output limit increase."
+        if is_pre_context_fix else "Run used context-v2 scope settings."
+    )
     summary_name = "SYNTHETIC_aggregate_summary" if synthetic else "aggregate_summary"
     _write_json(run_dir / f"{summary_name}.json", summary)
-    lines = [f"# {'SYNTHETIC ' if synthetic else ''}Ablation aggregate — {run_dir.name}", "", "Rows are attempt-level; failures remain in denominators. Correctness is based only on evaluator pass rules. Wilson intervals are 95%.", "",
+    lines = [f"# {'SYNTHETIC ' if synthetic else ''}Ablation aggregate — {run_dir.name}", "",
+             f"**Context configuration: {summary['context_fix_label']}** — {summary['context_fix_note']}", "",
+             "Rows are attempt-level; failures remain in denominators. Correctness is based only on evaluator pass rules. Wilson intervals are 95%.", "",
              "| CF | Attempted | Scored | Failed before score | Correct / attempted | Correct / scored | Wilson 95% (attempted) | Wilson 95% (scored) | Deadlock | Recovery attempt | Recovery success / trigger | Mean / median iterations | Mean provider / estimated tokens | Estimated share | Mean live / simulation tokens | Mean live / simulation seconds |",
              "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for pct, item in summary["by_config_pct"].items():

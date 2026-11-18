@@ -324,6 +324,12 @@ async def _execute_scope_task(session: dict, task: dict, scope: dict) -> dict:
                         event = board_tap.process_counterfactual_event(event)
                         if event is None:
                             continue
+                    elif event.get("type") in board_tap.SCHEDULER_EVENT_TYPES:
+                        event = board_tap.process_scheduler_event(
+                            event, session_id=session["session_id"], task_id=task["task_id"],
+                        )
+                        if event is None:
+                            continue
                     session["entry_count"] += int(event.get("type") == "board_entry")
                     session["last_entry_id"] = event.get("last_entry_id", session["last_entry_id"])
                     await bus.publish(event)
@@ -360,6 +366,12 @@ async def _execute_scope_task(session: dict, task: dict, scope: dict) -> dict:
                 event = board_tap.process_board_entry_event(event)
             elif event.get("type") in board_tap.COUNTERFACTUAL_EVENT_TYPES:
                 event = board_tap.process_counterfactual_event(event)
+                if event is None:
+                    continue
+            elif event.get("type") in board_tap.SCHEDULER_EVENT_TYPES:
+                event = board_tap.process_scheduler_event(
+                    event, session_id=session["session_id"], task_id=task["task_id"],
+                )
                 if event is None:
                     continue
             session["entry_count"] += int(event.get("type") == "board_entry")

@@ -590,7 +590,8 @@ def _run_provenance_metadata(summary: Any, task_id: str, evaluator_source_sha256
                             evaluator_mode: str = OFFICIAL_EVALUATOR_MODE,
                             compatibility_info: dict[str, str] | None = None,
                             compatibility_allowlist_entry: dict[str, Any] | None = None,
-                            model_seed: int = 42) -> dict[str, Any]:
+                            model_seed: int = 42, num_ctx: int = OPTIONS["num_ctx"],
+                            num_predict: int = OPTIONS["num_predict"]) -> dict[str, Any]:
     if evaluator_mode not in EVALUATOR_MODES:
         raise OfficialHarnessError(f"unsupported evaluator mode: {evaluator_mode}")
     if len(evaluator_source_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in evaluator_source_sha256):
@@ -612,7 +613,7 @@ def _run_provenance_metadata(summary: Any, task_id: str, evaluator_source_sha256
     prompt_version = _prompt_version()
     agent_config = {
         "model": model,
-        "model_options": {**OPTIONS, "seed": model_seed},
+        "model_options": {**OPTIONS, "num_ctx": num_ctx, "num_predict": num_predict, "seed": model_seed},
         "max_turns": max_turns,
         "max_retries": max_retries,
         "pipeline_evaluation_enabled": pipeline_evaluation_enabled,
@@ -751,7 +752,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
                  max_counterfactual_simulations: int = 1,
                  archive_label: str | None = None,
                  archive_driver_log: str | Path | None = None,
-                 model_seed: int = 42) -> Path:
+                 model_seed: int = 42, num_ctx: int = OPTIONS["num_ctx"],
+                 num_predict: int = OPTIONS["num_predict"], required_num_ctx: int | None = None) -> Path:
     """Run one task through the explicitly selected, provenance-checked evaluator."""
     if approve_genuine_run is not True:
         raise OfficialHarnessError(
@@ -767,6 +769,17 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         raise OfficialHarnessError("counterfactual_seed must be an integer")
     if type(model_seed) is not int:
         raise OfficialHarnessError("model_seed must be an integer")
+    if type(num_ctx) is not int or num_ctx <= 0:
+        raise OfficialHarnessError("num_ctx must be a positive integer")
+    if type(num_predict) is not int or num_predict <= 0 or num_predict > num_ctx:
+        raise OfficialHarnessError("num_predict must be a positive integer no greater than num_ctx")
+    required_num_ctx = num_ctx if required_num_ctx is None else required_num_ctx
+    if type(required_num_ctx) is not int or required_num_ctx <= 0:
+        raise OfficialHarnessError("required_num_ctx must be a positive integer")
+    if num_ctx < required_num_ctx:
+        raise OfficialHarnessError(
+            f"effective Ollama num_ctx={num_ctx} is smaller than scope requirement {required_num_ctx}"
+        )
     if type(counterfactual_streak_threshold) is not int or counterfactual_streak_threshold < 2:
         raise OfficialHarnessError("counterfactual_streak_threshold must be at least 2")
     if type(max_counterfactual_simulations) is not int or max_counterfactual_simulations < 0:
@@ -853,6 +866,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             evaluator_mode=evaluator_mode, compatibility_info=compatibility_info,
             compatibility_allowlist_entry=compatibility_allowlist_entry,
             model_seed=model_seed,
+            num_ctx=num_ctx, num_predict=num_predict,
         )
     except BaseException:
         if compatibility_temp is not None:
@@ -884,7 +898,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         "evaluator_python": evaluator_python,
         "model": model,
         "base_url": sanitized_base_url(base_url),
-        "model_options": {**OPTIONS, "seed": model_seed},
+        "model_options": {**OPTIONS, "num_ctx": num_ctx, "num_predict": num_predict, "seed": model_seed},
+        "required_num_ctx": required_num_ctx,
         "model_seed": model_seed,
         "max_turns": max_turns,
         "max_retries": max_retries,
@@ -953,6 +968,9 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             "KRAMABENCH_TASK_ID": task_id,
             "KRAMABENCH_MODEL": model,
             "KRAMABENCH_MODEL_SEED": str(model_seed),
+            "KRAMABENCH_NUM_CTX": str(num_ctx),
+            "KRAMABENCH_NUM_PREDICT": str(num_predict),
+            "KRAMABENCH_REQUIRED_NUM_CTX": str(required_num_ctx),
             "KRAMABENCH_BASE_URL": base_url,
             "KRAMABENCH_MAX_TURNS": str(max_turns),
             "KRAMABENCH_MAX_RETRIES": str(max_retries),
@@ -977,6 +995,23 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         driver_log_dir.mkdir(parents=True, exist_ok=True)
         (driver_log_dir / "evaluator.stdout.log").write_text(completed.stdout or "", encoding="utf-8")
         (driver_log_dir / "evaluator.stderr.log").write_text(completed.stderr or "", encoding="utf-8")
+        runtime_preflight_path = run_root / "model_runtime_preflight.json"
+        if runtime_preflight_path.is_file():
+            try:
+                runtime_preflight = json.loads(runtime_preflight_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                runtime_preflight = {"status": "unreadable"}
+            manifest["model_runtime_preflight"] = runtime_preflight
+            effective_options = runtime_preflight.get("effective_options", {})
+            if runtime_preflight.get("status") == "passed" and (
+                not isinstance(effective_options, dict)
+                or effective_options.get("num_ctx", 0) < required_num_ctx
+            ):
+                raise OfficialHarnessError(
+                    "effective Ollama context reported by subprocess is below frozen-scope requirement"
+                )
+        else:
+            manifest["model_runtime_preflight"] = {"status": "not_reached"}
         record_dir = run_root / "system_scratch" / SYSTEM_NAME / "krama_task_records"
         for record_path in record_dir.glob("*.json") if record_dir.is_dir() else []:
             try:
@@ -984,6 +1019,13 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             except (OSError, json.JSONDecodeError):
                 continue
             if task_record.get("task_id") == task_id:
+                actual_options = task_record.get("model_options")
+                if isinstance(actual_options, dict):
+                    manifest["effective_model_options"] = actual_options
+                    if actual_options.get("num_ctx", 0) < required_num_ctx:
+                        raise OfficialHarnessError(
+                            "task record reports an effective Ollama context below frozen-scope requirement"
+                        )
                 manifest["data_loop_degraded"] = bool(task_record.get("data_loop_degraded", False))
                 manifest["data_loop_degradation_reason"] = task_record.get("data_loop_degradation_reason")
                 manifest["workflow_counters"] = task_record.get("workflow_counters", {})
@@ -1068,6 +1110,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--model-seed", type=int, default=42,
                         help="Ollama generation seed; defaults to the existing seed (42).")
+    parser.add_argument("--num-ctx", type=int, default=OPTIONS["num_ctx"],
+                        help="Ollama context-window option.")
+    parser.add_argument("--num-predict", type=int, default=OPTIONS["num_predict"],
+                        help="Ollama maximum output tokens per generation.")
+    parser.add_argument("--required-num-ctx", type=int,
+                        help="Fail before generation if effective num_ctx is below this scope requirement.")
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--max-turns", type=int, default=6)
     parser.add_argument("--max-retries", type=int, default=1)
@@ -1112,6 +1160,9 @@ def main(argv: list[str] | None = None) -> int:
             dataset_directory=args.dataset_directory,
             model=args.model,
             model_seed=args.model_seed,
+            num_ctx=args.num_ctx,
+            num_predict=args.num_predict,
+            required_num_ctx=args.required_num_ctx,
             base_url=args.base_url,
             max_turns=args.max_turns,
             max_retries=args.max_retries,

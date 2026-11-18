@@ -36,6 +36,20 @@ def load_scope(path: str | Path) -> dict[str, Any]:
     if not isinstance(recorded_hash, str) or recorded_hash != scope_sha256(scope):
         raise ScopeError("frozen scope content hash mismatch; refusing to use modified scope")
 
+    options = scope.get("model_options")
+    limits = scope.get("stopping_rules")
+    if not isinstance(options, dict) or not isinstance(limits, dict):
+        raise ScopeError("scope must define model_options and stopping_rules")
+    for key in ("num_ctx", "num_predict"):
+        if type(options.get(key)) is not int or options[key] <= 0:
+            raise ScopeError(f"scope model_options.{key} must be a positive integer")
+    if options["num_predict"] > options["num_ctx"]:
+        raise ScopeError("scope num_predict cannot exceed num_ctx")
+    if limits.get("model_context_tokens") != options["num_ctx"]:
+        raise ScopeError("scope model context limit does not match model_options.num_ctx")
+    if limits.get("max_output_tokens_per_generation") != options["num_predict"]:
+        raise ScopeError("scope output-token limit does not match model_options.num_predict")
+
     tasks = scope.get("tasks")
     if not isinstance(tasks, list) or not tasks:
         raise ScopeError("frozen scope has no task list")

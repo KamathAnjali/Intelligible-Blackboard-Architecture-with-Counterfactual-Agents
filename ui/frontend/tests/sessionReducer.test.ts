@@ -105,6 +105,33 @@ test('scheduler status component renders explicit unavailable state and active r
   assert.match(rendered, /agent-chip active[^>]*data-active="true"[^>]*>verifier/);
 });
 
+test('real scheduler event sequence takes precedence over entry-derived roster and ends terminally', () => {
+  let state = sessionReducer(initialSessionState, { type: 'select_session', session_id: 'ui-s1', task_id: 'task-1' });
+  const events: BackendEvent[] = [
+    { type: 'scheduler_status', session_id: 'ui-s1', state: 'running', agents: [
+      { agent_id: 'proposer', persona: 'proposer' }, { agent_id: 'verifier', persona: 'verifier' },
+    ] },
+    { type: 'turn_started', session_id: 'ui-s1', agent_id: 'proposer', turn: 1 },
+    { type: 'board_entry', session_id: 'ui-s1', entry: {
+      entry_id: 'entry-1', agent_id: 'other', tag: 'REVISE', prediction: 'answer', explanation: 'evidence',
+    }, entry_count: 1, last_entry_id: 'entry-1' },
+    { type: 'turn_finished', session_id: 'ui-s1', agent_id: 'proposer', turn: 1, outcome: 'posted' },
+    { type: 'scheduler_status', session_id: 'ui-s1', state: 'consensus', agents: [
+      { agent_id: 'proposer', persona: 'proposer' }, { agent_id: 'verifier', persona: 'verifier' },
+    ] },
+  ];
+  for (const event of events) state = sessionReducer(state, { type: 'backend_event', event });
+  assert.equal(state.schedulerState, 'consensus');
+  assert.equal(state.turn, 1);
+  assert.equal(state.activeAgentId, null);
+  assert.deepEqual(state.agentIds, ['proposer', 'verifier'], 'scheduler roster overrides inferred board agents');
+  assert.equal(state.entryIds.length, 1);
+  const stale = sessionReducer(state, { type: 'backend_event', event: {
+    type: 'turn_started', session_id: 'other-session', agent_id: 'stale', turn: 9,
+  } });
+  assert.equal(stale.activeAgentId, null, 'events from another session are ignored');
+});
+
 test('token tally UI labels show estimates and keep provider totals separate', () => {
   const estimated = tokenTallyLabels({ providerTokens: 0, estimatedTokens: 23,
     estimatedSharePct: 100, measurementLabel: 'estimated, entry text only' });

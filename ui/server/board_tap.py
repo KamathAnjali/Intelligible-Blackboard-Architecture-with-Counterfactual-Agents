@@ -77,6 +77,61 @@ _usage_task_id: str | None = None
 COUNTERFACTUAL_EVENT_TYPES = {
     "branch_created", "branch_entry_posted", "counterfactual_result", "live_adjustment_applied",
 }
+SCHEDULER_EVENT_TYPES = {"turn_started", "turn_finished", "scheduler_status"}
+
+
+def process_scheduler_event(event: dict[str, Any], *, session_id: str | None = None,
+                            task_id: str | None = None) -> dict[str, Any] | None:
+    """Validate and normalize a scheduler lifecycle event for the WebSocket."""
+    kind = event.get("type")
+    if not isinstance(kind, str) or kind not in SCHEDULER_EVENT_TYPES:
+        return None
+    normalized = dict(event)
+    normalized["type"] = kind
+    scheduler_session_id = normalized.get("session_id")
+    ui_session_id = session_id or _usage_session_id
+    normalized["session_id"] = ui_session_id or scheduler_session_id
+    normalized["task_id"] = task_id or normalized.get("task_id") or _usage_task_id
+    normalized.setdefault("source", "LIVE")
+    if kind in {"turn_started", "turn_finished"}:
+        turn = normalized.get("turn")
+        if not isinstance(normalized.get("agent_id"), str) or type(turn) is not int or turn < 1:
+            return None
+    if kind == "turn_finished" and normalized.get("outcome") not in {"posted", "no_entry", "error"}:
+        return None
+    if kind == "scheduler_status":
+        if normalized.get("state") not in {"running", "consensus", "deadlock", "limit"}:
+            return None
+        agents = normalized.get("agents")
+        if not isinstance(agents, list) or not all(
+            isinstance(agent, dict)
+            and isinstance(agent.get("agent_id"), str)
+            and isinstance(agent.get("persona"), str)
+            for agent in agents
+        ):
+            return None
+    if ui_session_id and scheduler_session_id and scheduler_session_id != ui_session_id:
+        normalized["scheduler_session_id"] = scheduler_session_id
+    return normalized
+
+
+def process_board_scheduler_event(board_event: Any, *, session_id: str | None = None,
+                                  task_id: str | None = None) -> dict[str, Any] | None:
+    """Convert a real BoardEvent's top-level scheduler fields to the wire schema."""
+    event_type = getattr(board_event, "type", None)
+    if not isinstance(event_type, str):
+        event_type = getattr(board_event, "event_type", "")
+        event_type = getattr(event_type, "value", event_type)
+        if not isinstance(event_type, str):
+            event_type = getattr(getattr(board_event, "event_type", None), "name", "")
+    event = {"type": event_type}
+    for field in ("agent_id", "turn", "reason", "priority_score", "outcome", "state", "agents"):
+        value = getattr(board_event, field, None)
+        if value is not None:
+            event[field] = value
+    event["session_id"] = getattr(board_event, "session_id", None)
+    event["task_id"] = getattr(board_event, "task_id", None)
+    return process_scheduler_event(event, session_id=session_id, task_id=task_id)
 
 
 def process_counterfactual_event(event: dict[str, Any]) -> dict[str, Any] | None:
@@ -247,6 +302,14 @@ def attach_live_board(board: Blackboard, loop: asyncio.AbstractEventLoop | None 
 
     def on_board_event(board_event) -> None:
         if board_event.event_type is not BoardEventType.ENTRY_POSTED:
+            scheduler_event = process_board_scheduler_event(
+                board_event, session_id=_usage_session_id, task_id=board.task_id,
+            )
+            if scheduler_event:
+                try:
+                    asyncio.run_coroutine_threadsafe(bus.publish(scheduler_event), event_loop)
+                except RuntimeError:
+                    logger.exception("[LIVE_TAP] Could not publish scheduler lifecycle event")
             branch_event = process_board_counterfactual_event(
                 board_event, session_id=_usage_session_id, task_id=board.task_id,
             )
@@ -260,6 +323,11 @@ def attach_live_board(board: Blackboard, loop: asyncio.AbstractEventLoop | None 
         if not entry:
             return
         event = _entry_to_event(entry)
+        event["session_id"] = (
+            _usage_session_id or getattr(board_event, "session_id", None)
+            or getattr(board, "session_id", None)
+        )
+        event["task_id"] = board.task_id
         try:
             asyncio.run_coroutine_threadsafe(bus.publish(event), event_loop)
             asyncio.run_coroutine_threadsafe(bus.publish({

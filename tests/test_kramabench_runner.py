@@ -113,6 +113,9 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
         assert kwargs["env"]["KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD"] == "2"
         assert kwargs["env"]["KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS"] == "1"
         assert kwargs["env"]["KRAMABENCH_MODEL_SEED"] == "73"
+        assert kwargs["env"]["KRAMABENCH_NUM_CTX"] == "4096"
+        assert kwargs["env"]["KRAMABENCH_NUM_PREDICT"] == "768"
+        assert kwargs["env"]["KRAMABENCH_REQUIRED_NUM_CTX"] == "4096"
         record_directory = Path(kwargs["cwd"]) / "system_scratch" / runner.SYSTEM_NAME / "krama_task_records"
         record_directory.mkdir(parents=True)
         (record_directory / "failed-task.json").write_text(json.dumps({
@@ -147,6 +150,9 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
     assert manifest["max_counterfactual_simulations"] == 1
     assert manifest["model_seed"] == 73
     assert manifest["model_options"]["seed"] == 73
+    assert manifest["model_options"]["num_ctx"] == 4096
+    assert manifest["model_options"]["num_predict"] == 768
+    assert manifest["required_num_ctx"] == 4096
     assert manifest["evaluator_process"] == {
         "exit_status": 1,
         "stdout_log": "evaluator_stdout.log",
@@ -155,6 +161,33 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
             "DataToolWorkflowError: agent returned an invalid structured data request after bounded retries"
         ),
     }
+
+
+def test_runner_fails_before_preflight_when_context_is_below_scope_requirement(tmp_path):
+    with pytest.raises(OfficialHarnessError, match="smaller than scope requirement 16384"):
+        run_one_task(
+            tmp_path / "pinned", "environment", "environment-easy-1", tmp_path / "results",
+            approve_genuine_run=True, num_ctx=8192, num_predict=2048,
+            required_num_ctx=16384,
+        )
+
+
+def test_subprocess_effective_ollama_options_are_guarded_and_recorded():
+    from types import SimpleNamespace
+    from bench.kramabench_subprocess import apply_effective_model_options
+
+    client = SimpleNamespace(options={"temperature": 0, "seed": 42})
+    options = apply_effective_model_options(
+        client, num_ctx=8192, num_predict=2048, required_num_ctx=8192,
+    )
+    assert client.options == options
+    assert options["num_ctx"] == 8192
+    assert options["num_predict"] == 2048
+
+    with pytest.raises(RuntimeError, match="below frozen-scope requirement 8192"):
+        apply_effective_model_options(
+            client, num_ctx=4096, num_predict=2048, required_num_ctx=8192,
+        )
 
 
 def test_missing_task_record_returns_no_result_without_workload_keyerror(monkeypatch, tmp_path):

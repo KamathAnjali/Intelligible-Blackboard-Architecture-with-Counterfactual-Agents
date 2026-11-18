@@ -233,6 +233,7 @@ export const App: React.FC = () => {
         branches={Object.values(session.branches)}
         liveScrubIndex={liveScrubIndex} onLiveScrub={setLiveScrubIndex}
         branchScrubIndex={branchScrubIndex} onBranchScrub={setBranchScrubIndex}
+        schedulerState={session.schedulerState}
       />
     </div>
   );
