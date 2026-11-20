@@ -103,6 +103,7 @@ def main() -> None:
     ))
     task_wall_clock_cap_seconds = int(os.environ.get("KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS", "900"))
     counterfactual_fraction = float(os.environ.get("KRAMABENCH_COUNTERFACTUAL_FRACTION", "0"))
+    retrospective_recovery = os.environ.get("KRAMABENCH_RETROSPECTIVE_RECOVERY", "0") == "1"
     counterfactual_seed = int(os.environ.get("KRAMABENCH_COUNTERFACTUAL_SEED", "42"))
     counterfactual_streak_threshold = int(os.environ.get("KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD", "2"))
     max_counterfactual_simulations = int(os.environ.get("KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS", "1"))
@@ -118,6 +119,7 @@ def main() -> None:
                 data_tool_invocation_cap=data_tool_invocation_cap,
                 task_wall_clock_cap_seconds=task_wall_clock_cap_seconds,
                 counterfactual_fraction=counterfactual_fraction,
+                retrospective_recovery=retrospective_recovery,
                 counterfactual_seed=counterfactual_seed,
                 counterfactual_streak_threshold=counterfactual_streak_threshold,
                 max_counterfactual_simulations=max_counterfactual_simulations,

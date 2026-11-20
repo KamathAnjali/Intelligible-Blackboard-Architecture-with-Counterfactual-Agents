@@ -36,7 +36,7 @@ from bench.kramabench_data import DEFAULT_DATA_TOOL_INVOCATION_CAP
 SYSTEM_NAME = "KramaBenchPXPSystem"
 OFFICIAL_EVALUATOR_MODE = "official"
 COMPATIBILITY_EVALUATOR_MODE = "compatibility-no-key"
-COMPATIBILITY_LOCAL_MODELS = (MODEL, "qwen3:8b")
+COMPATIBILITY_LOCAL_MODELS = (MODEL, "qwen3:8b", "qwen3:14b-q4_K_M")
 EVALUATOR_MODES = (OFFICIAL_EVALUATOR_MODE, COMPATIBILITY_EVALUATOR_MODE)
 COMPATIBILITY_PATCH_SHA256 = "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897"
 COMPATIBILITY_EVALUATOR_PATH = "benchmark/evaluator.py"
@@ -758,6 +758,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
                  evaluator_mode: str = OFFICIAL_EVALUATOR_MODE,
                  task_wall_clock_cap_seconds: int = DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS,
                  counterfactual_fraction: float = 0.0,
+                 retrospective_recovery: bool = False,
                  counterfactual_seed: int = 42,
                  counterfactual_streak_threshold: int = 2,
                  max_counterfactual_simulations: int = 1,
@@ -913,6 +914,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         "ollama_request_timeout_seconds": ollama_request_timeout_seconds,
         "task_wall_clock_cap_seconds": task_wall_clock_cap_seconds,
         "counterfactual_fraction": float(counterfactual_fraction),
+        "retrospective_recovery": retrospective_recovery,
         "counterfactual_seed": counterfactual_seed,
         "counterfactual_streak_threshold": counterfactual_streak_threshold,
         "max_counterfactual_simulations": max_counterfactual_simulations,
@@ -983,6 +985,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             "KRAMABENCH_OLLAMA_REQUEST_TIMEOUT_SECONDS": str(ollama_request_timeout_seconds),
             "KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS": str(task_wall_clock_cap_seconds),
             "KRAMABENCH_COUNTERFACTUAL_FRACTION": str(counterfactual_fraction),
+            "KRAMABENCH_RETROSPECTIVE_RECOVERY": "1" if retrospective_recovery else "0",
             "KRAMABENCH_COUNTERFACTUAL_SEED": str(counterfactual_seed),
             "KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD": str(counterfactual_streak_threshold),
             "KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS": str(max_counterfactual_simulations),
@@ -1124,6 +1127,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Seeded share of active agents enabled for counterfactual simulations.")
     parser.add_argument("--counterfactual-seed", type=int, default=42,
                         help="Seed used to choose counterfactually capable agents.")
+    parser.add_argument("--retrospective-recovery", action="store_true",
+                        help="Use isolated retrospective replay for deadlock recovery.")
     parser.add_argument("--counterfactual-streak-threshold", type=int, default=2,
                         help="Consecutive same-target REJECT/REFUTE events needed to trigger a simulation.")
     parser.add_argument("--max-counterfactual-simulations", type=int, default=1,
@@ -1172,6 +1177,7 @@ def main(argv: list[str] | None = None) -> int:
             evaluator_mode=args.evaluator_mode,
             task_wall_clock_cap_seconds=args.task_wall_clock_cap_seconds,
             counterfactual_fraction=args.counterfactual_fraction,
+            retrospective_recovery=args.retrospective_recovery,
             counterfactual_seed=args.counterfactual_seed,
             counterfactual_streak_threshold=args.counterfactual_streak_threshold,
             max_counterfactual_simulations=args.max_counterfactual_simulations,

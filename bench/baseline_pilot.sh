@@ -16,6 +16,7 @@ for entry in _load_compatibility_allowlist():
     exit $?
 fi
 turns="${TURNS:-6}"
+model="${PILOT_MODEL:-qwen3:4b-instruct-2507-q4_K_M}"
 tool_calls="${PILOT_TOOL_CALLS:-12}"
 request_timeout="${PILOT_REQUEST_TIMEOUT_SECONDS:-300}"
 results="${PILOT_RESULTS:-$HOME/blackboard-baseline-$(date -u +%Y%m%dT%H%M%SZ)}"
@@ -72,7 +73,7 @@ for item in "$@"; do
     "$task_python" -m bench.kramabench_runner \
         --kramabench-root "$krama_root" --workload "$workload" --task-id "$task_id" \
         --output-directory "$results/$task_id" --evaluator-python "$eval_python" \
-        --evaluator-mode compatibility-no-key --max-turns "$turns" \
+        --evaluator-mode compatibility-no-key --model "$model" --max-turns "$turns" \
         --data-tool-invocation-cap "$tool_calls" --ollama-request-timeout-seconds "$request_timeout" \
         --counterfactual-fraction 0 --approve-genuine-run
     status=$?

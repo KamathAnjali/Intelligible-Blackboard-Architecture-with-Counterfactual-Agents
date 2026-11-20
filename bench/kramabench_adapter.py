@@ -512,6 +512,7 @@ class KramaBenchSystem:
                  counterfactual_seed: int = 42,
                  counterfactual_streak_threshold: int = 2,
                  max_counterfactual_simulations: int = 1,
+                 retrospective_recovery: bool = False,
                  data_tool_invocation_cap: int = DEFAULT_DATA_TOOL_INVOCATION_CAP):
         if type(task_wall_clock_cap_seconds) is not int or task_wall_clock_cap_seconds <= 0:
             raise ValueError("task_wall_clock_cap_seconds must be a positive integer")
@@ -534,6 +535,7 @@ class KramaBenchSystem:
         if type(counterfactual_seed) is not int:
             raise ValueError("counterfactual_seed must be an integer")
         self.counterfactual_fraction = float(counterfactual_fraction)
+        self.retrospective_recovery = bool(retrospective_recovery)
         self.counterfactual_seed = counterfactual_seed
         if type(counterfactual_streak_threshold) is not int or counterfactual_streak_threshold < 2:
             raise ValueError("counterfactual_streak_threshold must be at least 2")
@@ -593,6 +595,7 @@ class KramaBenchSystem:
             "prompt_version": _prompt_version(),
             "pipeline_evaluation_enabled": self.pipeline_evaluation_enabled,
             "counterfactual_fraction": self.counterfactual_fraction,
+            "retrospective_recovery": self.retrospective_recovery,
             "counterfactual_seed": self.counterfactual_seed,
             "counterfactual_streak_threshold": self.counterfactual_streak_threshold,
             "max_counterfactual_simulations": self.max_counterfactual_simulations,
@@ -747,6 +750,7 @@ class KramaBenchSystem:
                     "entry": entry.model_dump(mode="json"), "review": dict(review),
                 }),
                 counterfactual_fraction=self.counterfactual_fraction,
+                retrospective_recovery=self.retrospective_recovery,
                 counterfactual_seed=self.counterfactual_seed,
                 counterfactual_streak_threshold=self.counterfactual_streak_threshold,
                 max_counterfactual_simulations=self.max_counterfactual_simulations,

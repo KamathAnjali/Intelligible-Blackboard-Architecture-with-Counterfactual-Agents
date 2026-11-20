@@ -26,7 +26,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from bench.evidence import empty_filter_hint
+from bench.evidence import compute_rate, empty_filter_hint
 
 
 MAX_DATA_FILES = 2048
@@ -1862,6 +1862,8 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
     empty_predicates: dict[str, list[dict[str, Any]]] = {}
     repeated_empty_predicates: dict[str, int] = {}
     empty_text_searches: set[tuple[str | None, str]] = set()
+    successful_searches: set[tuple[str | None, str, int, int]] = set()
+    successful_aggregates: set[str] = set()
     oversized_aggregates: set[str] = set()
     inspected_files: set[str] = set()
     guard_activations: list[dict[str, Any]] = []
@@ -2456,15 +2458,22 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
             break
 
         search_key = None
+        search_page = None
         aggregate_key = None
         duplicate_feedback = ""
         if request.action == "search_text" and request.text:
             file_path = request.file or (request.files[0] if len(request.files) == 1 else None)
             search_key = (file_path, request.text.casefold())
+            search_page = (*search_key, request.offset, request.limit)
             if search_key in empty_text_searches:
                 duplicate_feedback = (
                     "This literal search already found zero hits in this file. Use read_text to inspect the "
                     "source values or search for a different phrase."
+                )
+            elif search_page in successful_searches:
+                duplicate_feedback = (
+                    "This search page already succeeded. Use the matches in previous_tool_results. "
+                    "Inspect a different source, use next_offset if there are more hits, or finish if evidence is sufficient."
                 )
         elif request.action == "aggregate":
             # Presentation fields do not narrow the number of groups or matching input rows.
@@ -2479,6 +2488,11 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                     "a lower-cardinality grouping, or only the measures needed for the answer. "
                     "Changing limit or offset does not paginate aggregate groups."
                 )
+            elif aggregate_key in successful_aggregates:
+                duplicate_feedback = (
+                    "This aggregation already succeeded. Use the result in previous_tool_results "
+                    "or request a different calculation."
+                )
         if duplicate_feedback:
             history.append({
                 "action": "workflow_validation", "request": params, "result": {"error": duplicate_feedback},
@@ -2490,6 +2504,12 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
             activate_guard("duplicate_no_progress_request", duplicate_feedback, {"action": request.action})
             if aggregate_key is not None and rate_query:
                 _recover_missing_category_counts()
+                if (
+                    aggregate_key in successful_aggregates
+                    and inspected_files == set(toolbox.files)
+                    and compute_rate(audit, query, population_files=list(toolbox.files)) is not None
+                ):
+                    return _degraded_result("repeated_request_after_verified_rate", duplicate_feedback)
             continue
         if tool_invocations >= max_calls:
             message = (
@@ -2535,6 +2555,10 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
 
         try:
             result = toolbox.execute(request)
+            if search_page is not None:
+                successful_searches.add(search_page)
+            if aggregate_key is not None:
+                successful_aggregates.add(aggregate_key)
             if search_key is not None and result.get("total_hits") == 0:
                 empty_text_searches.add(search_key)
                 result = {

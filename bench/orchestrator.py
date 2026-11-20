@@ -27,7 +27,7 @@ from bench.scope.load_scope import ScopeError, load_scope, result_reporting_labe
 from bench.metrics.token_counter import UsageLedger, UsageRecord, count_tokens_for_entry
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SCOPE = REPO_ROOT / "bench" / "scope" / "pilot_scope_v1.json"
+DEFAULT_SCOPE = REPO_ROOT / "bench" / "scope" / "pilot_scope_v2_16k.json"
 CONFIGURATIONS = (0.0, 0.33, 0.66, 1.0)
 
 RESULT_FIELDS = [
@@ -575,6 +575,7 @@ def _runner_command(spec: RunSpec, runner_output: Path, benchmark_root: Path,
         "--max-retries", str(limits["max_retries_per_generation"]),
         "--task-wall-clock-cap-seconds", str(limits["task_wall_clock_cap_seconds"]),
         "--counterfactual-fraction", str(spec.fraction),
+        "--retrospective-recovery",
         "--counterfactual-seed", str(spec.counterfactual_seed),
         "--counterfactual-streak-threshold", str(limits["counterfactual_streak_threshold"]),
         "--max-counterfactual-simulations", str(limits["max_counterfactual_simulations_per_task"]),
@@ -886,6 +887,11 @@ def _resolve_setting(flag_value: str | None, env_name: str, name: str) -> str:
 def _experiment_cli(args: argparse.Namespace, scope: dict[str, Any]) -> int:
     if not args.approve_genuine_run:
         raise ValueError("real model execution requires --approve-genuine-run")
+    from agents.llm_client import OPTIONS
+    frozen = scope["model_options"]
+    for name in ("num_ctx", "num_predict", "temperature"):
+        if OPTIONS.get(name) != frozen.get(name):
+            raise ValueError(f"frozen scope {name}={frozen.get(name)!r} differs from runtime {OPTIONS.get(name)!r}; create a new scope before running")
     benchmark_root = Path(_resolve_setting(args.benchmark_root, "KRAMABENCH_ROOT", "--benchmark-root")).expanduser().resolve()
     evaluator_python = _resolve_setting(args.evaluator_python, "KRAMABENCH_EVALUATOR_PYTHON", "--evaluator-python")
     base_url = _resolve_setting(args.base_url, "OLLAMA_BASE_URL", "--base-url")

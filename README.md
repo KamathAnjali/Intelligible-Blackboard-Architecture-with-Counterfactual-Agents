@@ -137,5 +137,28 @@ to the launcher when ready to run them.
 
 The local client requests a 16,384-token context. Oversized prompts may still
 be truncated by Ollama; run manifests record the actual model settings.
-The frozen pilot scope retains its earlier 4,096-token setting and must be
-revised before treating new runs as part of that frozen study.
+The default pilot scope uses a 16,384-token context. The original 4,096-token
+scope remains available for reference; results from the two settings are separate.
+
+`python -m bench.monitor_runs <results-directory>` reports task outcomes,
+answer scores, errors, and counterfactual activity from saved manifests and
+transcripts. The paired orchestrator uses retrospective recovery and refuses
+to run if its frozen model settings differ from the local client.
+
+### Colab model comparison
+
+Select an NVIDIA GPU runtime in Colab. Clone the `3-Dhruva` branch, then
+run these commands from the repository root in separate notebook cells:
+
+```sh
+bash bench/colab_pilot.sh setup
+bash bench/colab_pilot.sh run qwen3:8b
+bash bench/colab_pilot.sh run qwen3:14b-q4_K_M
+```
+
+Setup checks the pinned data and runs offline checks without model weights.
+Each run downloads its model into the Colab VM, verifies full GPU placement
+at the 16,384-token context, and runs the same five tuning tasks with
+counterfactual recovery disabled. Each result folder under
+`/content/blackboard-results` includes `summary.jsonl`, model and GPU
+metadata, and task records. Download the results before resetting the VM.

@@ -92,6 +92,8 @@ class OllamaClient:
             "model": self.model, "prompt": prompt, "system": system,
             "stream": False, "keep_alive": "10m", "options": self.options,
         }
+        if self.model in {"qwen3:8b", "qwen3:14b-q4_K_M"}:
+            payload["think"] = False
         if schema is not None:
             payload["format"] = schema
         result = self.request("/api/generate", payload)

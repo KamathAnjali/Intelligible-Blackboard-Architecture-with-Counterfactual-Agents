@@ -21,7 +21,7 @@ The data-access prompt was clarified to request compact actions, short search st
 
 The Day 15 sandbox preparation uses the shared board fork API and deep-copies the source state. Focused existing checks and a direct isolation check cover empty and nonempty prefixes and invalid cutoffs. The agent registry reflects the supplied snapshot, since historical registry changes are not available.
 
-The opt-in retrospective recovery path retains the live history, reopens a deadlocked board after a positive-delta consensus replay, and supplies the alternative as unverified guidance to a new scheduled turn. A controlled end-to-end recovery reached consensus; a live Ollama replay on a simple deduction reached consensus with six model calls. These checks do not establish a benchmark improvement. The KramaBench adapter and UI are not yet wired to this recovery mode; the five-task pipeline checkpoint and ablation study remain outstanding.
+The opt-in retrospective recovery path retains the live history, reopens a deadlocked board after a positive-delta consensus replay, and supplies the alternative as unverified guidance to a new scheduled turn. A controlled end-to-end recovery reached consensus; a live Ollama replay on a simple deduction reached consensus with six model calls. These checks do not establish a benchmark improvement. The KramaBench runner now accepts retrospective recovery and the paired orchestrator enables it; UI integration and ablation evidence remain outstanding.
 
 On 15 November, a paired A/B run injected the same five-entry deadlock in both conditions. Without recovery the board stayed deadlocked. With recovery, the final run reached the expected `insufficient information` consensus in eight live entries, using six simulation calls and seven live model calls. Two earlier enabled runs produced the correct prediction but were flagged for an invalid RATIFY; a bounded retry now rejects changed predictions tagged RATIFY on the recovery turn. The [compact record](../results/transcripts/deadlock-ab-20261115.json) retains all three attempts. This single synthetic case does not establish a general recovery rate or benchmark accuracy.
 
@@ -31,3 +31,9 @@ On 20 November, the no-key allowlist grew from 13 to 76 tasks after offline inpu
 - `biomedical-hard-1`: its large XLSX workbook exceeded the 120-second data-operation limit.
 - `wildfire-easy-2`: the adapter lacks GeoPackage support.
 - `wildfire-hard-19`: the specified WeatherEvents CSV is absent from the pinned revision.
+
+The 18 November five-task baseline with a 16,384-token context produced one correct and one incorrect compatibility-evaluator score. Two tasks exhausted the data-tool budget and one encountered a review request timeout. The v2 scope uses the same task selection and a 16,384-token context. The 20 November dry run stopped during data access in all 12 attempts, before counterfactual recovery could run. `bench.monitor_runs` summarizes saved attempts.
+
+The data workflow skips repeated successful searches and aggregates. For repeated rate requests, it can collect the declared category counts within the existing budget. In the 21 November four-configuration rerun, environment-easy-1 scored correctly in all four settings. The other eight attempts ended without scores, and no counterfactual simulations ran. The full batch remains pending.
+
+The Colab launcher compares Qwen3 8B and 14B on the same five tuning tasks at 0% recovery with a 16,384-token context. Offline checks cover both model configurations, pinned task preflight and evaluator integration. The live launcher checks GPU placement before running tasks.
