@@ -24,7 +24,8 @@ from blackboard.models import AgentRecord, BlackboardState, BoardEntry, PXPTag
 
 MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 BASE_URL = "http://127.0.0.1:11434"
-OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 768}
+OPTIONS = {"num_ctx": 16384, "temperature": 0, "seed": 42, "num_predict": 768}
+DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS = 300
 ROOT = Path(__file__).resolve().parents[1]
 PERSONAS = ("cautious_verifier", "aggressive_proposer",
             "evidence_auditor", "counterexample_challenger")
@@ -53,10 +54,12 @@ def sanitized_base_url(value):
 
 
 class OllamaClient:
-    def __init__(self, model=MODEL, base_url=BASE_URL, model_seed=42):
+    def __init__(self, model=MODEL, base_url=BASE_URL, model_seed=42,
+                 request_timeout_seconds=DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS):
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.options = {**OPTIONS, "seed": model_seed}
+        self.request_timeout_seconds = request_timeout_seconds
         self.task_deadline = None
 
     def set_task_deadline(self, deadline):
@@ -66,7 +69,7 @@ class OllamaClient:
         data = None if payload is None else json.dumps(payload).encode("utf-8")
         request = Request(self.base_url + path, data=data,
                           headers={"Content-Type": "application/json"})
-        timeout = 300
+        timeout = self.request_timeout_seconds
         if self.task_deadline is not None:
             timeout = min(timeout, self.task_deadline - time.monotonic())
             if timeout <= 0:
@@ -92,6 +95,8 @@ class OllamaClient:
         if schema is not None:
             payload["format"] = schema
         result = self.request("/api/generate", payload)
+        # Board history is sent as text; Ollama's token IDs are not reused.
+        result.pop("context", None)
         result["wall_seconds"] = time.perf_counter() - started
         return result
 

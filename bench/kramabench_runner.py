@@ -10,6 +10,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -22,11 +23,14 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from agents.llm_client import MODEL, BASE_URL, OPTIONS, sanitized_base_url
+from agents.llm_client import (
+    MODEL, BASE_URL, OPTIONS, DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS, sanitized_base_url,
+)
 from bench.kramabench_adapter import (
     DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS, KRAMABENCH_REVISION, _prompt_version,
 )
 from bench.kramabench_preflight import WorkloadPreflightError, preflight_kramabench
+from bench.kramabench_data import DEFAULT_DATA_TOOL_INVOCATION_CAP
 
 
 SYSTEM_NAME = "KramaBenchPXPSystem"
@@ -125,25 +129,28 @@ def _git_blob_hash(benchmark_root: Path, relative_path: str) -> str:
 
 def _verify_compatibility_checkout(compatibility_root: Path) -> dict[str, str]:
     """Accept only the reviewed one-line patch on the exact pinned revision."""
+    # WSL can synthesize executable bits after moving the checkout onto a
+    # Windows drive. Compare working-tree contents and check the index separately.
+    git = ["git", "-C", str(compatibility_root), "-c", "core.filemode=false"]
     try:
         revision = subprocess.run(
-            ["git", "-C", str(compatibility_root), "rev-parse", "HEAD"],
+            [*git, "rev-parse", "HEAD"],
             check=True, capture_output=True, text=True, timeout=10,
         ).stdout.strip()
         diff = subprocess.run(
-            ["git", "-C", str(compatibility_root), "diff", "--binary", "--", COMPATIBILITY_EVALUATOR_PATH],
+            [*git, "diff", "--binary", "--", COMPATIBILITY_EVALUATOR_PATH],
             check=True, capture_output=True, timeout=10,
         ).stdout
         changed = subprocess.run(
-            ["git", "-C", str(compatibility_root), "diff", "--name-only"],
+            [*git, "diff", "--name-only"],
             check=True, capture_output=True, text=True, timeout=10,
         ).stdout.splitlines()
         status = subprocess.run(
-            ["git", "-C", str(compatibility_root), "status", "--porcelain", "--untracked-files=all"],
+            [*git, "status", "--porcelain", "--untracked-files=all"],
             check=True, capture_output=True, text=True, timeout=10,
         ).stdout.splitlines()
         staged = subprocess.run(
-            ["git", "-C", str(compatibility_root), "diff", "--cached", "--quiet"],
+            [*git, "diff", "--cached", "--quiet"],
             capture_output=True, timeout=10,
         )
     except (OSError, subprocess.SubprocessError) as exc:
@@ -590,7 +597,10 @@ def _run_provenance_metadata(summary: Any, task_id: str, evaluator_source_sha256
                             evaluator_mode: str = OFFICIAL_EVALUATOR_MODE,
                             compatibility_info: dict[str, str] | None = None,
                             compatibility_allowlist_entry: dict[str, Any] | None = None,
-                            model_seed: int = 42) -> dict[str, Any]:
+                            model_seed: int = 42,
+                            data_tool_invocation_cap: int = DEFAULT_DATA_TOOL_INVOCATION_CAP,
+                            ollama_request_timeout_seconds: int = DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS,
+                            ) -> dict[str, Any]:
     if evaluator_mode not in EVALUATOR_MODES:
         raise OfficialHarnessError(f"unsupported evaluator mode: {evaluator_mode}")
     if len(evaluator_source_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in evaluator_source_sha256):
@@ -615,6 +625,8 @@ def _run_provenance_metadata(summary: Any, task_id: str, evaluator_source_sha256
         "model_options": {**OPTIONS, "seed": model_seed},
         "max_turns": max_turns,
         "max_retries": max_retries,
+        "data_tool_invocation_cap": data_tool_invocation_cap,
+        "ollama_request_timeout_seconds": ollama_request_timeout_seconds,
         "pipeline_evaluation_enabled": pipeline_evaluation_enabled,
         "run_subtasks": run_subtasks,
     }
@@ -751,7 +763,10 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
                  max_counterfactual_simulations: int = 1,
                  archive_label: str | None = None,
                  archive_driver_log: str | Path | None = None,
-                 model_seed: int = 42) -> Path:
+                 model_seed: int = 42,
+                 data_tool_invocation_cap: int = DEFAULT_DATA_TOOL_INVOCATION_CAP,
+                 ollama_request_timeout_seconds: int = DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS,
+                 ) -> Path:
     """Run one task through the explicitly selected, provenance-checked evaluator."""
     if approve_genuine_run is not True:
         raise OfficialHarnessError(
@@ -761,6 +776,10 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         raise OfficialHarnessError(f"unsupported evaluator mode: {evaluator_mode}")
     if type(task_wall_clock_cap_seconds) is not int or task_wall_clock_cap_seconds <= 0:
         raise OfficialHarnessError("task_wall_clock_cap_seconds must be a positive integer")
+    if type(data_tool_invocation_cap) is not int or not 2 <= data_tool_invocation_cap <= 24:
+        raise OfficialHarnessError("data_tool_invocation_cap must be an integer between 2 and 24")
+    if type(ollama_request_timeout_seconds) is not int or ollama_request_timeout_seconds <= 0:
+        raise OfficialHarnessError("ollama_request_timeout_seconds must be a positive integer")
     if counterfactual_fraction not in (0, 0.33, 0.66, 1.0):
         raise OfficialHarnessError("counterfactual_fraction must be one of 0, 0.33, 0.66, or 1.0")
     if type(counterfactual_seed) is not int:
@@ -853,6 +872,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             evaluator_mode=evaluator_mode, compatibility_info=compatibility_info,
             compatibility_allowlist_entry=compatibility_allowlist_entry,
             model_seed=model_seed,
+            data_tool_invocation_cap=data_tool_invocation_cap,
+            ollama_request_timeout_seconds=ollama_request_timeout_seconds,
         )
     except BaseException:
         if compatibility_temp is not None:
@@ -888,6 +909,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
         "model_seed": model_seed,
         "max_turns": max_turns,
         "max_retries": max_retries,
+        "data_tool_invocation_cap": data_tool_invocation_cap,
+        "ollama_request_timeout_seconds": ollama_request_timeout_seconds,
         "task_wall_clock_cap_seconds": task_wall_clock_cap_seconds,
         "counterfactual_fraction": float(counterfactual_fraction),
         "counterfactual_seed": counterfactual_seed,
@@ -956,6 +979,8 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             "KRAMABENCH_BASE_URL": base_url,
             "KRAMABENCH_MAX_TURNS": str(max_turns),
             "KRAMABENCH_MAX_RETRIES": str(max_retries),
+            "KRAMABENCH_DATA_TOOL_INVOCATION_CAP": str(data_tool_invocation_cap),
+            "KRAMABENCH_OLLAMA_REQUEST_TIMEOUT_SECONDS": str(ollama_request_timeout_seconds),
             "KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS": str(task_wall_clock_cap_seconds),
             "KRAMABENCH_COUNTERFACTUAL_FRACTION": str(counterfactual_fraction),
             "KRAMABENCH_COUNTERFACTUAL_SEED": str(counterfactual_seed),
@@ -995,8 +1020,10 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             if task_failure:
                 process_failure["task_failure_summary"] = task_failure
                 failure_detail = f"adapter failed before producing a result for selected task {task_id} ({task_failure})"
+                manifest["failure_stage"] = "task_execution"
             else:
                 failure_detail = f"selected task {task_id} produced no evaluator result"
+                manifest["failure_stage"] = "evaluator"
             manifest["evaluator_process"] = process_failure
             if not task_failure:
                 manifest.update({"status": "no_result", "finished_at": datetime.now(timezone.utc).isoformat(),
@@ -1010,9 +1037,25 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
                 "No score is accepted unless evaluator measure and aggregate files are present."
             )
 
+        manifest["failure_stage"] = "evaluator"
         measures_path, aggregate_path, evaluator_rows = _read_evaluator_measures(run_root, workload)
         if task_id not in evaluator_rows:
             raise OfficialHarnessError(f"selected evaluator output has no row for selected task {task_id}")
+        if compatibility_allowlist_entry is not None:
+            if set(evaluator_rows) != {task_id}:
+                raise OfficialHarnessError("compatibility evaluator produced rows for an unexpected task")
+            if "failed to compute metric" in completed.stdout or "failed to parse system response" in completed.stderr:
+                raise OfficialHarnessError("compatibility evaluator reported an error while scoring the task")
+            for metric in compatibility_allowlist_entry["metric_names"]:
+                values = [row["value"] for row in evaluator_rows[task_id] if row.get("metric") == metric]
+                try:
+                    valid = len(values) == 1 and math.isfinite(float(values[0]))
+                except (TypeError, ValueError):
+                    valid = False
+                if not valid:
+                    raise OfficialHarnessError(
+                        f"compatibility evaluator did not emit one finite value for {metric!r}"
+                    )
 
         record_directory = run_root / "system_scratch" / SYSTEM_NAME / "krama_task_records"
         internal_records = []
@@ -1028,6 +1071,7 @@ def run_one_task(benchmark_root: str | Path, workload: str, task_id: str,
             "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in internal_records),
             encoding="utf-8",
         )
+        manifest.pop("failure_stage")
         manifest.update({
             "status": "success",
             "finished_at": datetime.now(timezone.utc).isoformat(),
@@ -1071,6 +1115,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--max-turns", type=int, default=6)
     parser.add_argument("--max-retries", type=int, default=1)
+    parser.add_argument("--data-tool-invocation-cap", type=int, default=DEFAULT_DATA_TOOL_INVOCATION_CAP)
+    parser.add_argument("--ollama-request-timeout-seconds", type=int,
+                        default=DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS)
     parser.add_argument("--task-wall-clock-cap-seconds", type=int,
                         default=DEFAULT_TASK_WALL_CLOCK_CAP_SECONDS)
     parser.add_argument("--counterfactual-fraction", type=float, choices=(0, 0.33, 0.66, 1.0), default=0.0,
@@ -1115,6 +1162,8 @@ def main(argv: list[str] | None = None) -> int:
             base_url=args.base_url,
             max_turns=args.max_turns,
             max_retries=args.max_retries,
+            data_tool_invocation_cap=args.data_tool_invocation_cap,
+            ollama_request_timeout_seconds=args.ollama_request_timeout_seconds,
             run_subtasks=args.run_subtasks,
             enable_pipeline_evaluation=args.enable_pipeline_evaluation,
             verbose=args.verbose,
@@ -1131,6 +1180,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     except Exception as exc:
         print(f"KramaBench run failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    manifest = json.loads((run_root / "run_manifest.json").read_text(encoding="utf-8"))
+    if manifest["status"] != "success":
+        print(f"KramaBench produced no score. Records: {run_root}", file=sys.stderr)
         return 1
     if args.evaluator_mode == COMPATIBILITY_EVALUATOR_MODE:
         print(f"KramaBench compatibility-no-key output (not an unmodified official Evaluator result): {run_root}")

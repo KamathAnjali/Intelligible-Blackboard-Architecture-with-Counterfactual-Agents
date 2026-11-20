@@ -42,6 +42,7 @@ from bench.evidence import (
 from bench.metrics.token_counter import UsageLedger, UsageRecord, count_tokens_for_entry
 from bench.kramabench_data import (
     DATA_TOOL_SYSTEM_PROMPT,
+    DEFAULT_DATA_TOOL_INVOCATION_CAP,
     DEFAULT_TIMEOUT_SECONDS,
     DataAccessError,
     DataToolWorkflowError,
@@ -138,6 +139,11 @@ def resolve_subset_files(dataset_directory: str | os.PathLike,
                         for actual, expected in zip(suffix_parts, pattern_parts)
                     ):
                         matches.append(candidate)
+        if not matches and relative.suffix.casefold() == ".txt" and not glob.has_magic(pattern):
+            # The OMNI2 documentation is named .text in the pinned data.
+            text_variant = (root / relative).with_suffix(".text")
+            if text_variant.is_file():
+                matches.append(text_variant)
         expanded: list[Path] = []
         for match in matches:
             if match.is_dir():
@@ -301,6 +307,7 @@ def _prompt_version() -> str:
         digest.update(name.encode("utf-8"))
         digest.update((prompts_dir / name).read_bytes())
     digest.update(DATA_TOOL_SYSTEM_PROMPT.encode("utf-8"))
+    digest.update(inspect.getsource(gather_dataset_evidence).encode("utf-8"))
     digest.update((ROOT / "bench" / "evidence.py").read_bytes())
     digest.update(inspect.getsource(build_agent_task).encode("utf-8"))
     return digest.hexdigest()
@@ -504,9 +511,12 @@ class KramaBenchSystem:
                  counterfactual_fraction: float = 0.0,
                  counterfactual_seed: int = 42,
                  counterfactual_streak_threshold: int = 2,
-                 max_counterfactual_simulations: int = 1):
+                 max_counterfactual_simulations: int = 1,
+                 data_tool_invocation_cap: int = DEFAULT_DATA_TOOL_INVOCATION_CAP):
         if type(task_wall_clock_cap_seconds) is not int or task_wall_clock_cap_seconds <= 0:
             raise ValueError("task_wall_clock_cap_seconds must be a positive integer")
+        if type(data_tool_invocation_cap) is not int or not 2 <= data_tool_invocation_cap <= 24:
+            raise ValueError("data_tool_invocation_cap must be an integer between 2 and 24")
         self.name = "KramaBenchPXPSystem"
         self.dataset_directory: Path | None = None
         self.verbose = bool(verbose)
@@ -516,6 +526,7 @@ class KramaBenchSystem:
         self.pipeline_generator = pipeline_generator
         self.max_turns = max_turns
         self.max_retries = max_retries
+        self.data_tool_invocation_cap = data_tool_invocation_cap
         self.pipeline_evaluation_enabled = bool(pipeline_evaluation_enabled)
         self.task_wall_clock_cap_seconds = task_wall_clock_cap_seconds
         if counterfactual_fraction not in (0, 0.33, 0.66, 1.0):
@@ -587,6 +598,7 @@ class KramaBenchSystem:
             "max_counterfactual_simulations": self.max_counterfactual_simulations,
             "max_turns": self.max_turns,
             "max_retries": self.max_retries,
+            "data_tool_invocation_cap": self.data_tool_invocation_cap,
             "data_operation_timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
             "task_wall_clock_cap_seconds": self.task_wall_clock_cap_seconds,
             "started_at": started_at.isoformat(),
@@ -659,6 +671,7 @@ class KramaBenchSystem:
             record["precomputed_file_profiles"] = toolbox.precomputed_profiles()
             prepared = gather_dataset_evidence(
                 data_usage_client, query, toolbox,
+                max_calls=self.data_tool_invocation_cap,
                 precomputed_profiles=record["precomputed_file_profiles"],
             )
             data_attempts = prepared["attempts"]

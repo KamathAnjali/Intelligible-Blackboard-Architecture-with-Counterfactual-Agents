@@ -86,14 +86,21 @@ def main() -> None:
         # The no-key path removes inherited credentials instead of inspecting them.
         os.environ.pop("OPENAI_API_KEY", None)
 
-    from agents.llm_client import MODEL, BASE_URL, OllamaClient
+    from agents.llm_client import MODEL, BASE_URL, DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS, OllamaClient
     from bench.kramabench_adapter import KramaBenchSystem
+    from bench.kramabench_data import DEFAULT_DATA_TOOL_INVOCATION_CAP
 
     model = os.environ.get("KRAMABENCH_MODEL", MODEL)
     model_seed = int(os.environ.get("KRAMABENCH_MODEL_SEED", "42"))
     base_url = os.environ.get("KRAMABENCH_BASE_URL", BASE_URL)
     max_turns = int(os.environ.get("KRAMABENCH_MAX_TURNS", "6"))
     max_retries = int(os.environ.get("KRAMABENCH_MAX_RETRIES", "1"))
+    data_tool_invocation_cap = int(os.environ.get(
+        "KRAMABENCH_DATA_TOOL_INVOCATION_CAP", str(DEFAULT_DATA_TOOL_INVOCATION_CAP)
+    ))
+    ollama_request_timeout_seconds = int(os.environ.get(
+        "KRAMABENCH_OLLAMA_REQUEST_TIMEOUT_SECONDS", str(DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS)
+    ))
     task_wall_clock_cap_seconds = int(os.environ.get("KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS", "900"))
     counterfactual_fraction = float(os.environ.get("KRAMABENCH_COUNTERFACTUAL_FRACTION", "0"))
     counterfactual_seed = int(os.environ.get("KRAMABENCH_COUNTERFACTUAL_SEED", "42"))
@@ -104,9 +111,11 @@ def main() -> None:
             super().__init__(
                 verbose=verbose,
                 output_dir=output_dir or run_root / "system_scratch" / "KramaBenchPXPSystem",
-                client=OllamaClient(model=model, base_url=base_url, model_seed=model_seed),
+                client=OllamaClient(model=model, base_url=base_url, model_seed=model_seed,
+                                    request_timeout_seconds=ollama_request_timeout_seconds),
                 max_turns=max_turns,
                 max_retries=max_retries,
+                data_tool_invocation_cap=data_tool_invocation_cap,
                 task_wall_clock_cap_seconds=task_wall_clock_cap_seconds,
                 counterfactual_fraction=counterfactual_fraction,
                 counterfactual_seed=counterfactual_seed,

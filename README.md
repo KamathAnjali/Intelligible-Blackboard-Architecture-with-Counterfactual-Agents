@@ -120,3 +120,22 @@ all allowlisted input hashes, and leaves the checkout clean. The reviewed
 compatibility evaluator patch is stored in `bench/kramabench_runner.py` and is
 applied automatically to an isolated staged copy for each compatibility run;
 the pinned checkout is not patched.
+
+For a standard blackboard baseline on the five KramaBench tuning tasks, start
+Windows Ollama, then in WSL run `bash bench/baseline_pilot.sh` (optional:
+`TURNS=12 bash bench/baseline_pilot.sh`). This uses the no-key compatibility
+evaluator, disables counterfactuals and saves individual run records under
+`~/blackboard-baseline-*`. The launcher uses the evaluator environment above for
+preflight so XLSX and PDF parsers are available. Results can include
+unfinished tasks; they are not full official benchmark scores. Run `make stop`
+afterwards to unload the model.
+
+The no-key runner accepts 76 tasks whose pinned inputs passed preflight.
+`bash bench/baseline_pilot.sh --list-tasks` prints their `workload:task-id`
+pairs without connecting to Ollama. Pass selected pairs as positional arguments
+to the launcher when ready to run them.
+
+The local client requests a 16,384-token context. Oversized prompts may still
+be truncated by Ollama; run manifests record the actual model settings.
+The frozen pilot scope retains its earlier 4,096-token setting and must be
+revised before treating new runs as part of that frozen study.

@@ -41,6 +41,7 @@ MAX_EMPTY_FILTER_VALUES = 8
 MAX_EMPTY_FILTER_VALUE_CHARS = 120
 MAX_REQUEST_DIAGNOSTIC_CHARS = 2_000
 DEFAULT_TIMEOUT_SECONDS = 120
+DEFAULT_DATA_TOOL_INVOCATION_CAP = 12
 MAX_BLOCKED_COMPLETION_RETRIES = 1
 _NUMBER = re.compile(r"^[+-]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?(?:[eE][+-]?\d+)?$")
 _RATE_QUERY = re.compile(r"\b(percent(?:age)?|rate|proportion|fraction|share)\b", re.IGNORECASE)
@@ -56,6 +57,10 @@ _SENSITIVE_DIAGNOSTIC_KEY = re.compile(
 
 class DataAccessError(RuntimeError):
     """Invalid or unsupported data operation; never silently returns partial data."""
+
+
+class DataToolOutputTooLarge(DataAccessError):
+    """The result could not fit in a single tool response."""
 
 
 class DataOperationTimeout(DataAccessError):
@@ -252,6 +257,7 @@ Categorical indicators such as `Violation` may contain values like `yes` and `no
 An empty filter result includes a bounded preview of observed values for each filtered column and the attempted filter value. Do not repeat the same unsuccessful filter unless you change the hypothesis. An empty result does not prove that an outcome category is absent or that a rate is zero. For a task-relevant empty filter, inspect unfiltered category counts for the filter column, then separately inspect unfiltered counts for the rate outcome column. Use those observations to decide whether the filter used the wrong geographic level, the dataset already represents the requested geography, or the requested subset cannot be identified from available columns. Do not require category inspection for an unrelated exploratory empty filter. If an empty result is valid, explain why using the observed categories.
 If `done` is rejected because required category evidence is missing, the workflow may run the exact unfiltered `aggregate` requests needed for those columns using the same bounded tool budget. Review the returned `aggregate_recovery` results in `previous_tool_results`; do not repeat those aggregates unless the request or evidence shows a specific problem.
 Use preview/filter only when specific example rows are needed. Use read_text with successive offsets only for text documents, with each response bounded by `max_chars`.
+Read short text files directly. If a task asks for a calculated statistic, collect its inputs from the source; the statistic's name may never appear there.
 If an operation reports malformed data, missing values, or a limit, report that accurately and refine the request where possible.
 Do not guess values from a preview when a calculation over the full dataset is required. Do not request or invent reference answers, reference subtasks, or expected pipeline code.
 Finish with action=done only after collecting enough evidence for the task; give a concise evidence summary.
@@ -672,8 +678,10 @@ class DatasetToolbox:
             self._load_jsonl(path, descriptor, f"table_{index}")
         elif suffix in {".html", ".htm"}:
             self._load_html(path, descriptor)
-        elif suffix in {".txt", ".md", ".xml", ".sql", ".log"}:
+        elif suffix in {".txt", ".text", ".md", ".xml", ".sql", ".log", ".tle", ".dat"}:
             text, encoding = _decode_bytes(path.read_bytes())
+            if suffix == ".dat" and re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", text):
+                raise DataAccessError(f"binary DAT file is not supported: {relative}")
             descriptor["encoding"] = encoding
             self.text_pages[relative] = [text]
         elif suffix == ".xlsx":
@@ -751,6 +759,19 @@ class DatasetToolbox:
     def _load_delimited(self, path: Path, descriptor: dict[str, Any], table_name: str, delimiter: str) -> None:
         text, encoding = _decode_bytes(path.read_bytes())
         descriptor["encoding"] = encoding
+        if delimiter == ",":
+            # Some source exports use a CSV extension for tab-separated data.
+            sample = []
+            for line in io.StringIO(text, newline=""):
+                if line.strip():
+                    sample.append(line)
+                    if len(sample) == 3:
+                        break
+            if len(sample) == 3 and "\t" in sample[0] and "," not in sample[0]:
+                widths = {len(row) for row in csv.reader(sample, delimiter="\t")}
+                if len(widths) == 1 and next(iter(widths)) > 1:
+                    delimiter = "\t"
+                    descriptor["notes"].append("Detected tab-delimited content in a CSV file.")
         try:
             def records():
                 reader = csv.reader(io.StringIO(text, newline=""), delimiter=delimiter, strict=True)
@@ -1290,7 +1311,7 @@ class DatasetToolbox:
                     raise DataAccessError(f"unsupported data action: {action}")
         encoded = json.dumps(result, ensure_ascii=False, default=str)
         if len(encoded) > MAX_TOOL_OUTPUT_CHARS:
-            raise DataAccessError(
+            raise DataToolOutputTooLarge(
                 f"tool result exceeds {MAX_TOOL_OUTPUT_CHARS} characters; request fewer rows, columns, or a narrower JSON path"
             )
         return result
@@ -1817,7 +1838,7 @@ def _verified_category_rate_evidence(observations: list[dict[str, Any]]) -> list
 
 
 def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
-                            *, max_calls: int = 12, max_evidence_chars: int = 32_000,
+                            *, max_calls: int = DEFAULT_DATA_TOOL_INVOCATION_CAP, max_evidence_chars: int = 32_000,
                             max_response_retries: int = 2,
                             precomputed_profiles: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Gather bounded data evidence; max_calls caps tool dispatches, not finalization."""
@@ -1840,6 +1861,8 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
     pending_outcome_categories: set[tuple[str, str, str]] = set()
     empty_predicates: dict[str, list[dict[str, Any]]] = {}
     repeated_empty_predicates: dict[str, int] = {}
+    empty_text_searches: set[tuple[str | None, str]] = set()
+    oversized_aggregates: set[str] = set()
     inspected_files: set[str] = set()
     guard_activations: list[dict[str, Any]] = []
     aggregate_columns_feedback_count = 0
@@ -2228,6 +2251,11 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                 + ", ".join(uninspected_files)
                 + ". Use each exact catalog path; do not infer its contents from another file."
             )
+        if empty_text_searches:
+            retry_system += (
+                "\nIf a literal search returned zero hits, use read_text to collect the source values. "
+                "Once you have the values, use done with the evidence required for the calculation."
+            )
         unresolved_filter_categories = pending_filter_categories - category_counts_inspected
         if unresolved_filter_categories:
             retry_system += (
@@ -2426,6 +2454,43 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
                 raise workflow_error("agent finished without inspecting or querying any permitted data")
             summary = (request.summary or "").strip()
             break
+
+        search_key = None
+        aggregate_key = None
+        duplicate_feedback = ""
+        if request.action == "search_text" and request.text:
+            file_path = request.file or (request.files[0] if len(request.files) == 1 else None)
+            search_key = (file_path, request.text.casefold())
+            if search_key in empty_text_searches:
+                duplicate_feedback = (
+                    "This literal search already found zero hits in this file. Use read_text to inspect the "
+                    "source values or search for a different phrase."
+                )
+        elif request.action == "aggregate":
+            # Presentation fields do not narrow the number of groups or matching input rows.
+            aggregate_key = json.dumps({
+                "files": request.files or [request.file], "table": request.table,
+                "filters": params["filters"], "group_by": request.group_by,
+                "measures": [(m.function, m.column) for m in request.measures],
+            }, sort_keys=True, ensure_ascii=False)
+            if aggregate_key in oversized_aggregates:
+                duplicate_feedback = (
+                    "This aggregation already exceeded the output limit. Use a selective filter, "
+                    "a lower-cardinality grouping, or only the measures needed for the answer. "
+                    "Changing limit or offset does not paginate aggregate groups."
+                )
+        if duplicate_feedback:
+            history.append({
+                "action": "workflow_validation", "request": params, "result": {"error": duplicate_feedback},
+            })
+            audit.append({
+                "action": request.action, "request": params, "status": "skipped_duplicate",
+                "error": duplicate_feedback, "selector_defaulted": selector_defaulted,
+            })
+            activate_guard("duplicate_no_progress_request", duplicate_feedback, {"action": request.action})
+            if aggregate_key is not None and rate_query:
+                _recover_missing_category_counts()
+            continue
         if tool_invocations >= max_calls:
             message = (
                 f"data agent reached the {max_calls}-tool-invocation limit after {workflow_iterations} "
@@ -2470,6 +2535,12 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
 
         try:
             result = toolbox.execute(request)
+            if search_key is not None and result.get("total_hits") == 0:
+                empty_text_searches.add(search_key)
+                result = {
+                    **result,
+                    "guidance": "No literal hits. Use read_text to inspect the source or search a different phrase.",
+                }
             if request.action != "catalog":
                 useful_actions += 1
                 inspected_files.update(_request_files(request, result))
@@ -2565,6 +2636,12 @@ def gather_dataset_evidence(client: Any, query: str, toolbox: DatasetToolbox,
             raise workflow_error(str(exc)) from exc
         except DataAccessError as exc:
             error = {"error": str(exc)}
+            if aggregate_key is not None and isinstance(exc, DataToolOutputTooLarge):
+                oversized_aggregates.add(aggregate_key)
+                error["guidance"] = (
+                    "Narrow filters, group by fewer categories, or use fewer measures. "
+                    "Changing limit or offset does not paginate aggregate groups."
+                )
             history.append({"action": request.action, "request": params, "result": error})
             audit.append({
                 "action": request.action, "request": params, "status": "error",
