@@ -93,7 +93,12 @@ print(f"Verified {checked} allowlisted input file hash(es).")
 PY
 
 if [[ ! -x "${EVALUATOR_VENV}/bin/python" ]]; then
-  "${PYTHON}" -m venv "${EVALUATOR_VENV}"
+  "${PYTHON}" -m venv --without-pip "${EVALUATOR_VENV}"
+fi
+# Colab's Python can leave a valid venv interpreter behind when ensurepip fails.
+# Use the host pip to bootstrap that environment, including on a setup retry.
+if ! "${EVALUATOR_VENV}/bin/python" -I -m pip --version >/dev/null 2>&1; then
+  "${PYTHON}" -m pip --python "${EVALUATOR_VENV}/bin/python" install pip
 fi
 "${EVALUATOR_VENV}/bin/python" -m pip install \
   "pandas==3.0.6" \
