@@ -26,6 +26,7 @@ AGENT_COUNT = 6
 TURNS = 12
 RETRIES = 2
 CONDITIONS = {"solo": None, "cf-00": 0.0, "cf-33": 0.33, "cf-50": 0.50, "cf-66": 0.66}
+CONSENSUS_OUTCOMES = {"scheduler_consensus", "consensus_needs_review"}
 ANSWER_INSTRUCTION = (
     "\n\nPut only the final integer in the prediction field, with no units or Markdown. "
     "Use the explanation field for the main calculation or reasoning step."
@@ -42,6 +43,19 @@ def integer_answer(text):
     if re.fullmatch(r"[+-]?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)", text):
         return int(text.replace(",", ""))
     return None
+
+
+def final_board_prediction(report):
+    # An earlier tag warning does not undo the board's final unanimous agreement.
+    if (report["outcome"] in CONSENSUS_OUTCOMES
+            and report["scheduler_status"] in {"STRONG", "ULTRA_STRONG"}):
+        return report["board"]["entries"][-1]["prediction"]
+    return None
+
+
+def score_answer(prediction, expected):
+    parsed = integer_answer(prediction) if prediction is not None else None
+    return {"parsed_answer": parsed, "correct": parsed is not None and parsed == expected}
 
 
 def load_cases(path):
@@ -92,13 +106,11 @@ def run_board(client, task, directory, task_id, fraction, seed):
         client, task, TURNS, RETRIES, directory, task_id=task_id, agent_count=AGENT_COUNT,
         counterfactual_fraction=fraction, counterfactual_seed=seed, retrospective_recovery=True,
     )
-    entries = report["board"]["entries"]
-    consensus = report["outcome"] == "scheduler_consensus"
     replays = report["counterfactual_attempts"]
     usage = [turn["usage"] for turn in report["turns"] if "usage" in turn]
     usage.extend(attempt.get("usage", {}) for attempt in replays)
     return {
-        "outcome": report["outcome"], "prediction": entries[-1]["prediction"] if consensus else None,
+        "outcome": report["outcome"], "prediction": final_board_prediction(report),
         "trace": str(trace), "turns": len(report["turns"]),
         "eligible_agents": report["counterfactual_capable_agents"], "eligibility_seed": seed,
         "deadlocks": len(report["board"]["deadlocks"]),
@@ -127,11 +139,11 @@ def run_pilot(client, cases, output):
                     run = run_solo(client, task, output / condition / task_id)
                 else:
                     run = run_board(client, task, output / condition, task_id, fraction, 42 + index)
-                parsed = integer_answer(run["prediction"]) if run["prediction"] is not None else None
                 record = {
                     "task_id": case["unique_id"], "level": case["level"], "condition": condition,
-                    "requested_fraction": fraction, "expected": expected, "parsed_answer": parsed,
-                    "correct": parsed == expected, "wall_seconds": round(time.monotonic() - started, 3),
+                    "requested_fraction": fraction, "expected": expected,
+                    **score_answer(run["prediction"], expected),
+                    "wall_seconds": round(time.monotonic() - started, 3),
                     **run,
                 }
                 records.append(record)
@@ -141,6 +153,19 @@ def run_pilot(client, cases, output):
                 if record["outcome"] == "interrupted":
                     return records
     return records
+
+
+def rescore_saved_run(directory):
+    records = []
+    with (directory / "summary.jsonl").open(encoding="utf-8") as log:
+        for line in log:
+            row = json.loads(line)
+            if row["outcome"] == "consensus_needs_review":
+                trace = Path(row["trace"])
+                row["prediction"] = final_board_prediction(json.loads(trace.read_text(encoding="utf-8")))
+            row.update(score_answer(row["prediction"], row["expected"]))
+            records.append(row)
+    return summarize(records)
 
 
 def summarize(records):
@@ -153,9 +178,11 @@ def summarize(records):
             "runs": len(runs),
             "correct": sum(row["correct"] for row in runs),
             "accuracy": sum(row["correct"] for row in runs) / len(runs) if runs else None,
-            "wrong_consensus": sum(row["outcome"] == "scheduler_consensus"
+            "correct_needs_review": sum(row["outcome"] == "consensus_needs_review"
+                                        and row["correct"] for row in runs),
+            "wrong_consensus": sum(row["outcome"] in CONSENSUS_OUTCOMES
                                    and row["parsed_answer"] is not None and not row["correct"] for row in runs),
-            "invalid_final_answers": sum(row["outcome"] in {"answered", "scheduler_consensus"}
+            "invalid_final_answers": sum((row["outcome"] == "answered" or row["outcome"] in CONSENSUS_OUTCOMES)
                                          and row["parsed_answer"] is None for row in runs),
             "outcomes": {outcome: sum(row["outcome"] == outcome for row in runs)
                          for outcome in sorted({row["outcome"] for row in runs})},
@@ -173,13 +200,21 @@ def summarize(records):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--dataset", type=Path)
+    source.add_argument("--rescore", type=Path, help="Regrade a saved pilot directory without inference")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--tasks", type=int, choices=range(1, len(TASK_IDS) + 1), default=len(TASK_IDS))
     parser.add_argument("--check", action="store_true", help="Verify the pinned dataset and list cases without inference")
     args = parser.parse_args()
+    if args.rescore:
+        try:
+            print(json.dumps(rescore_saved_run(args.rescore), indent=2))
+        except (OSError, ValueError, KeyError) as exc:
+            parser.error(str(exc))
+        return 0
     if not args.check and args.output is None:
         parser.error("--output is required when running the pilot")
     try:

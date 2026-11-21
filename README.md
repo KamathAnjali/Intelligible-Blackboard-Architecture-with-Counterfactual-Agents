@@ -174,4 +174,6 @@ bash bench/colab_pilot.sh math-run qwen3:8b
 bash bench/colab_pilot.sh math-run qwen3:14b-q4_K_M
 ```
 
-Setup verifies the dataset and runs offline checks. To see live output in a Colab cell, use `!env MATH_TASKS=3 bash /content/blackboard/bench/colab_pilot.sh math-run qwen3:8b`. Results under `/content/blackboard-results/math500` include `progress.log` from startup onward, per-run scores in `summary.jsonl`, `summary.json`, and transcripts. Accuracy counts unresolved attempts as incorrect. The summaries report natural deadlocks, replays, incorrect consensus, and model usage.
+Setup verifies the dataset and runs offline checks. To see live output in a Colab cell, use `!env MATH_TASKS=3 bash /content/blackboard/bench/colab_pilot.sh math-run qwen3:8b`. Results under `/content/blackboard-results/math500` include `progress.log`, per-run scores in `summary.jsonl`, `summary.json`, and transcripts.
+
+Accuracy uses the final unanimous prediction, counts unresolved attempts as incorrect, and tracks earlier PXP tag warnings separately. To regrade a saved run with its transcripts, use `python -m bench.math_pilot --rescore <run-directory>` from the repository root with the math environment active.
