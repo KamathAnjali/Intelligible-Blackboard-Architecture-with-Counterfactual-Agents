@@ -112,6 +112,7 @@ def run_board(client, task, directory, task_id, fraction, seed):
 
 def run_pilot(client, cases, output):
     records = []
+    total_runs = len(cases) * len(CONDITIONS)
     output.mkdir(parents=True, exist_ok=True)
     with (output / "summary.jsonl").open("x", encoding="utf-8") as log:
         for index, case in enumerate(cases):
@@ -119,7 +120,8 @@ def run_pilot(client, cases, output):
             task_id = "math500-" + case["unique_id"].removeprefix("test/").removesuffix(".json").replace("/", "-")
             expected = integer_answer(case["answer"])
             for condition, fraction in CONDITIONS.items():
-                print(f"\n{case['unique_id']} (level {case['level']}) | {condition}", flush=True)
+                print(f"\n[{len(records) + 1}/{total_runs}] {case['unique_id']} "
+                      f"(level {case['level']}) | {condition}", flush=True)
                 started = time.monotonic()
                 if fraction is None:
                     run = run_solo(client, task, output / condition / task_id)

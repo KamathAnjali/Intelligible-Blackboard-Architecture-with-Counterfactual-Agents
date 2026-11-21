@@ -77,11 +77,26 @@ case "$mode:$#" in
     *) echo "Usage: bash bench/colab_pilot.sh {setup|check|run MODEL|math-setup|math-check|math-run MODEL}" >&2; exit 2 ;;
 esac
 
-if [[ ! -d /content || "$(uname -m)" != x86_64 ]] || ! nvidia-smi -L; then
+results_root="${COLAB_PILOT_RESULTS:-/content/blackboard-results}"
+if [[ "$mode" == math-run ]]; then
+    results_root="$results_root/math500"
+fi
+mkdir -p "$results_root"
+PILOT_RESULTS="$(mktemp -d "$results_root/${PILOT_MODEL//:/-}.XXXXXX")"
+export PILOT_RESULTS TURNS=6 PILOT_TOOL_CALLS=12 PILOT_REQUEST_TIMEOUT_SECONDS=300
+if [[ "$mode" == math-run ]]; then
+    exec > >(tee "$PILOT_RESULTS/progress.log") 2>&1
+fi
+echo "Results: $PILOT_RESULTS"
+git rev-parse HEAD > "$PILOT_RESULTS/git_commit.txt"
+
+echo "Checking the NVIDIA GPU..."
+if [[ ! -d /content || "$(uname -m)" != x86_64 ]] || ! timeout 15s nvidia-smi -L; then
     echo "Choose an NVIDIA GPU in the Colab runtime before running a model." >&2
     exit 1
 fi
 if [[ "$mode" == math-run ]]; then
+    echo "Checking the pinned math problems and conversation runner..."
     math_checks
 else
     offline_checks
@@ -91,13 +106,14 @@ ollama_version=0.35.0
 ollama_dir="$runtime/ollama-$ollama_version"
 ollama="$ollama_dir/bin/ollama"
 if [[ ! -f "$ollama_dir/.ready" ]]; then
+    echo "Installing Ollama $ollama_version..."
     if ! command -v zstd >/dev/null; then
         apt-get update -qq
         apt-get install -y -qq zstd
     fi
     mkdir -p "$ollama_dir"
     archive="$runtime/ollama-linux-amd64.tar.zst"
-    curl -fL --retry 3 -o "$archive" \
+    curl -fL --connect-timeout 20 --retry 3 -o "$archive" \
         "https://github.com/ollama/ollama/releases/download/v$ollama_version/ollama-linux-amd64.tar.zst"
     printf '%s  %s\n' '1c114a6b220c5efca2ef2b1e5f01d1e535e26f6cd6d1678c8489325d2835e525' "$archive" | sha256sum -c -
     tar --zstd -xf "$archive" -C "$ollama_dir"
@@ -113,15 +129,7 @@ if curl -fsS --max-time 2 "$url/api/version" >/dev/null 2>&1; then
     echo "Port 11434 already has an Ollama server. Stop it before starting this run." >&2
     exit 1
 fi
-results_root="${COLAB_PILOT_RESULTS:-/content/blackboard-results}"
-if [[ "$mode" == math-run ]]; then
-    results_root="$results_root/math500"
-fi
-mkdir -p "$results_root"
-PILOT_RESULTS="$(mktemp -d "$results_root/${PILOT_MODEL//:/-}.XXXXXX")"
-export PILOT_RESULTS TURNS=6 PILOT_TOOL_CALLS=12 PILOT_REQUEST_TIMEOUT_SECONDS=300
-echo "Results: $PILOT_RESULTS"
-git rev-parse HEAD > "$PILOT_RESULTS/git_commit.txt"
+echo "Starting Ollama..."
 "$ollama" serve > "$PILOT_RESULTS/ollama.log" 2>&1 &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
@@ -131,8 +139,10 @@ for attempt in {1..30}; do
     sleep 1
 done
 curl -fsS --max-time 3 "$url/api/version" > "$PILOT_RESULTS/ollama_version.json"
+echo "Checking or downloading the $PILOT_MODEL weights..."
 "$ollama" pull "$PILOT_MODEL"
 
+echo "Loading $PILOT_MODEL and checking GPU placement..."
 "$python" - "$PILOT_MODEL" "$PILOT_RESULTS/gpu.json" <<'PY'
 import json
 import sys
