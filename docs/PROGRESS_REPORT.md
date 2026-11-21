@@ -37,3 +37,5 @@ The 18 November five-task baseline with a 16,384-token context produced one corr
 The data workflow skips repeated successful searches and aggregates. For repeated rate requests, it can collect the declared category counts within the existing budget. In the 21 November four-configuration rerun, environment-easy-1 scored correctly in all four settings. The other eight attempts ended without scores, and no counterfactual simulations ran. The full batch remains pending.
 
 The Colab launcher compares Qwen3 8B and 14B on the same five tuning tasks at 0% recovery with a 16,384-token context. Offline checks cover both model configurations, pinned task preflight and evaluator integration. The live launcher checks GPU placement before running tasks.
+
+The MATH-500 pilot bypasses model-driven data access with 12 pinned, self-contained problems across levels 3 to 5. It grades integer answers after inference and reports a solo baseline plus paired six-agent runs at 0%, 33%, 50%, and 66% recovery eligibility. Live Colab results are pending.

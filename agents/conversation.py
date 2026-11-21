@@ -47,6 +47,13 @@ DEFAULT_AGENTS = (("proposer", "aggressive_proposer"),
 DISAGREEMENT_AGENTS = (("proposer", "aggressive_proposer"),
                        ("auditor", "evidence_auditor"),
                        ("challenger", "counterexample_challenger"))
+AGENT_ROSTERS = {
+    2: DEFAULT_AGENTS,
+    3: DISAGREEMENT_AGENTS,
+    6: (*DEFAULT_AGENTS, *DISAGREEMENT_AGENTS[1:],
+        ("second_proposer", "aggressive_proposer"), ("second_verifier", "cautious_verifier")),
+}
+COUNTERFACTUAL_FRACTIONS = (0, 0.33, 0.50, 0.66, 1.0)
 DISAGREEMENT_TASK = (
     "Mira has a cedar ticket. Every cedar ticket is valid. Some valid tickets "
     "receive a priority stamp. Does Mira's ticket receive a priority stamp? "
@@ -116,8 +123,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         raise ValueError("the disagreement scenario has a fixed task and seed")
     if agent_count is None:
         agent_count = 3 if scenario == "disagreement" else 2
-    if type(agent_count) is not int or agent_count not in (2, 3):
-        raise ValueError("agent_count must be 2 or 3")
+    if type(agent_count) is not int or agent_count not in AGENT_ROSTERS:
+        raise ValueError("agent_count must be 2, 3, or 6")
     if scenario == "disagreement" and agent_count != 3:
         raise ValueError("the disagreement scenario requires three agents")
     task = task if task is not None else (
@@ -131,8 +138,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         raise ValueError("the disagreement scenario needs at least five turns")
     if type(max_retries) is not int or not 0 <= max_retries <= 5:
         raise ValueError("max_retries must be an integer between 0 and 5")
-    if counterfactual_fraction not in (0, 0.33, 0.66, 1.0):
-        raise ValueError("counterfactual_fraction must be one of 0, 0.33, 0.66, or 1.0")
+    if counterfactual_fraction not in COUNTERFACTUAL_FRACTIONS:
+        raise ValueError("counterfactual_fraction must be one of 0, 0.33, 0.50, 0.66, or 1.0")
     if type(retrospective_recovery) is not bool:
         raise ValueError("retrospective_recovery must be a bool")
     if type(counterfactual_seed) is not int:
@@ -160,10 +167,11 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
     store = InMemoryJSONStore(directory)
     board = Blackboard(task_id, store)
     scheduler = Scheduler(board)
-    participants = DISAGREEMENT_AGENTS if agent_count == 3 else DEFAULT_AGENTS
+    participants = AGENT_ROSTERS[agent_count]
     participant_ids = [agent_id for agent_id, _ in participants]
     capability_count = math.ceil(len(participant_ids) * counterfactual_fraction)
-    capable_ids = set(random.Random(counterfactual_seed).sample(participant_ids, capability_count))
+    capability_order = random.Random(counterfactual_seed).sample(participant_ids, len(participant_ids))
+    capable_ids = set(capability_order[:capability_count])
     for agent_id, persona in participants:
         agent = AgentRecord(agent_id=agent_id, persona=persona, model_name=client.model,
                             counterfactual_capable=agent_id in capable_ids)
@@ -369,7 +377,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                 result = client.generate_entry(task, state, agent.agent_id, **call_options)
                 turn["attempts"] = result["attempts"]
                 entry = result["entry"]
-                if capable_ids and entry.tag in (PXPTag.REJECT, PXPTag.REFUTE) and state.entries:
+                if (capable_ids and not retrospective_recovery and state.entries
+                        and entry.tag in (PXPTag.REJECT, PXPTag.REFUTE)):
                     if state.entries[-1].tag in (PXPTag.REJECT, PXPTag.REFUTE):
                         entry = entry.model_copy(update={
                             "target_entry_id": state.entries[-1].target_entry_id,
@@ -684,9 +693,9 @@ def main():
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--scenario", choices=("default", "disagreement"), default="default")
-    parser.add_argument("--agents", type=int, choices=(2, 3), help="Default: two agents, or three for disagreement")
+    parser.add_argument("--agents", type=int, choices=AGENT_ROSTERS, help="Default: two agents, or three for disagreement")
     parser.add_argument("--retrospective-recovery", action="store_true", help="Try isolated replay after a deadlock")
-    parser.add_argument("--counterfactual-fraction", type=float, choices=(0, 0.33, 0.66, 1.0), default=0.0)
+    parser.add_argument("--counterfactual-fraction", type=float, choices=COUNTERFACTUAL_FRACTIONS, default=0.0)
     parser.add_argument("--demo", action="store_true", help="Require a clean REVISE, RATIFY, RATIFY sequence")
     args = parser.parse_args()
     if args.demo and args.scenario != "default":

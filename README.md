@@ -162,3 +162,16 @@ at the 16,384-token context, and runs the same five tuning tasks with
 counterfactual recovery disabled. Each result folder under
 `/content/blackboard-results` includes `summary.jsonl`, model and GPU
 metadata, and task records. Download the results before resetting the VM.
+
+### MATH-500 recovery pilot
+
+The text-only pilot sends 12 pinned integer-answer problems directly to the model and the blackboard. Each problem has one solo answer and four six-agent runs with 0, 2, 3, or 4 agents eligible for retrospective recovery (0%, 33%, 50%, and 66%, rounded labels).
+
+```sh
+bash bench/colab_pilot.sh math-setup
+MATH_TASKS=3 bash bench/colab_pilot.sh math-run qwen3:8b  # optional smoke run
+bash bench/colab_pilot.sh math-run qwen3:8b
+bash bench/colab_pilot.sh math-run qwen3:14b-q4_K_M
+```
+
+Setup verifies the dataset and runs offline checks. Results in `/content/blackboard-results/math500` include `summary.json`, per-run scores in `summary.jsonl`, and transcripts. Accuracy counts unresolved attempts as incorrect. The summaries report natural deadlocks, replays, incorrect consensus, and model usage.

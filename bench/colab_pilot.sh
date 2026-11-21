@@ -9,6 +9,13 @@ export KRAMABENCH_EVALUATOR_PYTHON="$KRAMABENCH_EVALUATOR_VENV/bin/python"
 export PILOT_PYTHON="$KRAMABENCH_EVALUATOR_PYTHON"
 export PYTHONDONTWRITEBYTECODE=1
 python="$PILOT_PYTHON"
+host_python="${PYTHON:-python3}"
+math_venv="$runtime/math-venv"
+math_dataset="$runtime/math500-test.jsonl"
+mode="${1:-}"
+if [[ "$mode" == math-* ]]; then
+    python="$math_venv/bin/python"
+fi
 
 offline_checks() {
     for script in bench/colab_pilot.sh bench/baseline_pilot.sh bench/setup_krama_checkout.sh; do
@@ -20,7 +27,14 @@ offline_checks() {
     echo "Offline checks passed."
 }
 
-case "${1:-}:$#" in
+math_checks() {
+    bash -n bench/colab_pilot.sh
+    "$python" -m pytest -q tests/test_conversation.py tests/test_scheduler.py
+    "$python" -m bench.math_pilot --dataset "$math_dataset" --check --tasks "${MATH_TASKS:-12}"
+    echo "Offline math checks passed."
+}
+
+case "$mode:$#" in
     setup:1)
         mkdir -p "$runtime"
         bash bench/setup_krama_checkout.sh --reuse
@@ -32,20 +46,46 @@ case "${1:-}:$#" in
         offline_checks
         exit
         ;;
-    run:2)
+    math-setup:1)
+        mkdir -p "$runtime"
+        if [[ ! -x "$python" ]]; then
+            "$host_python" -m venv --without-pip "$math_venv"
+        fi
+        if ! "$python" -I -m pip --version >/dev/null 2>&1; then
+            "$host_python" -m pip --python "$python" install pip
+        fi
+        "$python" -m pip install "pydantic==2.14.1" "pytest>=8,<10"
+        if [[ ! -f "$math_dataset" ]]; then
+            dataset_url="$("$python" -c 'from bench.math_pilot import DATASET_URL; print(DATASET_URL)')"
+            curl -fsSL --retry 3 -o "$math_dataset.download" "$dataset_url"
+            "$python" -m bench.math_pilot --dataset "$math_dataset.download" --check --tasks 1
+            mv -- "$math_dataset.download" "$math_dataset"
+        fi
+        math_checks
+        exit
+        ;;
+    math-check:1)
+        math_checks
+        exit
+        ;;
+    run:2|math-run:2)
         case "$2" in
             qwen3:8b|qwen3:14b-q4_K_M) export PILOT_MODEL="$2" ;;
             *) echo "Choose qwen3:8b or qwen3:14b-q4_K_M." >&2; exit 2 ;;
         esac
         ;;
-    *) echo "Usage: bash bench/colab_pilot.sh {setup|check|run MODEL}" >&2; exit 2 ;;
+    *) echo "Usage: bash bench/colab_pilot.sh {setup|check|run MODEL|math-setup|math-check|math-run MODEL}" >&2; exit 2 ;;
 esac
 
 if [[ ! -d /content || "$(uname -m)" != x86_64 ]] || ! nvidia-smi -L; then
     echo "Choose an NVIDIA GPU in the Colab runtime before running a model." >&2
     exit 1
 fi
-offline_checks
+if [[ "$mode" == math-run ]]; then
+    math_checks
+else
+    offline_checks
+fi
 
 ollama_version=0.35.0
 ollama_dir="$runtime/ollama-$ollama_version"
@@ -74,6 +114,9 @@ if curl -fsS --max-time 2 "$url/api/version" >/dev/null 2>&1; then
     exit 1
 fi
 results_root="${COLAB_PILOT_RESULTS:-/content/blackboard-results}"
+if [[ "$mode" == math-run ]]; then
+    results_root="$results_root/math500"
+fi
 mkdir -p "$results_root"
 PILOT_RESULTS="$(mktemp -d "$results_root/${PILOT_MODEL//:/-}.XXXXXX")"
 export PILOT_RESULTS TURNS=6 PILOT_TOOL_CALLS=12 PILOT_REQUEST_TIMEOUT_SECONDS=300
@@ -110,7 +153,12 @@ if not loaded or not loaded["size"] or loaded["size_vram"] != loaded["size"] or 
 print(f"{model}: fully on GPU, {loaded['context_length']} context tokens")
 PY
 
-status=0
-bash bench/baseline_pilot.sh || status=$?
-"$python" -m bench.monitor_runs "$PILOT_RESULTS" | tee "$PILOT_RESULTS/summary.jsonl"
-exit "$status"
+if [[ "$mode" == math-run ]]; then
+    "$python" -m bench.math_pilot --dataset "$math_dataset" --model "$PILOT_MODEL" \
+        --output "$PILOT_RESULTS" --tasks "${MATH_TASKS:-12}"
+else
+    status=0
+    bash bench/baseline_pilot.sh || status=$?
+    "$python" -m bench.monitor_runs "$PILOT_RESULTS" | tee "$PILOT_RESULTS/summary.jsonl"
+    exit "$status"
+fi
