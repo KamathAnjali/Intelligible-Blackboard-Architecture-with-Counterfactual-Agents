@@ -21,7 +21,14 @@ TASK_IDS = (
     "test/number_theory/149.json", "test/number_theory/838.json",
     "test/counting_and_probability/913.json", "test/counting_and_probability/119.json",
     "test/counting_and_probability/216.json",
+    "test/algebra/1332.json", "test/algebra/824.json", "test/algebra/2277.json",
+    "test/intermediate_algebra/1151.json", "test/intermediate_algebra/121.json",
+    "test/intermediate_algebra/117.json", "test/number_theory/183.json",
+    "test/number_theory/1065.json", "test/number_theory/769.json",
+    "test/counting_and_probability/23957.json", "test/counting_and_probability/10.json",
+    "test/counting_and_probability/159.json",
 )
+DEFAULT_TASK_COUNT = 12
 AGENT_COUNT = 6
 TURNS = 12
 RETRIES = 2
@@ -122,12 +129,12 @@ def run_board(client, task, directory, task_id, fraction, seed):
     }
 
 
-def run_pilot(client, cases, output):
+def run_pilot(client, cases, output, start_index=0):
     records = []
     total_runs = len(cases) * len(CONDITIONS)
     output.mkdir(parents=True, exist_ok=True)
     with (output / "summary.jsonl").open("x", encoding="utf-8") as log:
-        for index, case in enumerate(cases):
+        for index, case in enumerate(cases, start=start_index):
             task = case["problem"] + ANSWER_INSTRUCTION
             task_id = "math500-" + case["unique_id"].removeprefix("test/").removesuffix(".json").replace("/", "-")
             expected = integer_answer(case["answer"])
@@ -206,7 +213,10 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
-    parser.add_argument("--tasks", type=int, choices=range(1, len(TASK_IDS) + 1), default=len(TASK_IDS))
+    parser.add_argument("--start", type=int, choices=range(1, len(TASK_IDS) + 1), default=1,
+                        help="First problem in the pinned list, numbered from 1")
+    parser.add_argument("--tasks", type=int, choices=range(1, len(TASK_IDS) + 1), default=DEFAULT_TASK_COUNT,
+                        help="Number of consecutive problems starting at --start")
     parser.add_argument("--check", action="store_true", help="Verify the pinned dataset and list cases without inference")
     args = parser.parse_args()
     if args.rescore:
@@ -217,8 +227,12 @@ def main():
         return 0
     if not args.check and args.output is None:
         parser.error("--output is required when running the pilot")
+    start_index = args.start - 1
+    end_index = start_index + args.tasks
+    if end_index > len(TASK_IDS):
+        parser.error(f"--start and --tasks must select problems within the {len(TASK_IDS)}-problem list")
     try:
-        cases = load_cases(args.dataset)[:args.tasks]
+        cases = load_cases(args.dataset)[start_index:end_index]
     except (OSError, ValueError, KeyError) as exc:
         parser.error(str(exc))
     if args.check:
@@ -227,10 +241,11 @@ def main():
         return 0
 
     client = OllamaClient(args.model, args.base_url)
-    records = run_pilot(client, cases, args.output)
+    records = run_pilot(client, cases, args.output, start_index=start_index)
     report = {
         "dataset": DATASET_URL, "dataset_sha256": DATASET_SHA256, "model": client.model,
-        "model_options": client.options, "task_ids": [case["unique_id"] for case in cases],
+        "model_options": client.options, "first_task": args.start,
+        "task_ids": [case["unique_id"] for case in cases],
         "conditions": CONDITIONS, "roster": AGENT_ROSTERS[AGENT_COUNT], "max_turns": TURNS,
         "max_retries": RETRIES, "complete": len(records) == len(cases) * len(CONDITIONS)
         and all(row["outcome"] != "interrupted" for row in records),

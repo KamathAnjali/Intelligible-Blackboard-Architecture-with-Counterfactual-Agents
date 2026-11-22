@@ -165,7 +165,7 @@ metadata, and task records. Download the results before resetting the VM.
 
 ### MATH-500 recovery pilot
 
-The text-only pilot sends 12 pinned integer-answer problems directly to the model and the blackboard. Each problem has one solo answer and four six-agent runs with 0, 2, 3, or 4 agents eligible for retrospective recovery (0%, 33%, 50%, and 66%, rounded labels).
+The text-only pilot sends pinned integer-answer problems directly to the model and the blackboard. It runs the first 12 by default, with 24 available. Each problem has one solo answer and four six-agent runs with 0, 2, 3, or 4 agents eligible for retrospective recovery (0%, 33%, 50%, and 66%, rounded labels).
 
 ```sh
 bash bench/colab_pilot.sh math-setup
@@ -175,5 +175,7 @@ bash bench/colab_pilot.sh math-run qwen3:14b-q4_K_M
 ```
 
 Setup verifies the dataset and runs offline checks. To see live output in a Colab cell, use `!env MATH_TASKS=3 bash /content/blackboard/bench/colab_pilot.sh math-run qwen3:8b`. Results under `/content/blackboard-results/math500` include `progress.log`, per-run scores in `summary.jsonl`, `summary.json`, and transcripts.
+
+Set `MATH_TASKS=24` for the extended set or use `MATH_START` (one-based) and `MATH_TASKS` to select a batch. Set `COLAB_PILOT_RESULTS` to a directory under mounted Google Drive to save scores and transcripts across Colab runtimes. Each invocation creates a separate results directory.
 
 Accuracy uses the final unanimous prediction, counts unresolved attempts as incorrect, and tracks earlier PXP tag warnings separately. To regrade a saved run with its transcripts, use `python -m bench.math_pilot --rescore <run-directory>` from the repository root with the math environment active.

@@ -30,7 +30,8 @@ offline_checks() {
 math_checks() {
     bash -n bench/colab_pilot.sh
     "$python" -m pytest -q tests/test_conversation.py tests/test_scheduler.py
-    "$python" -m bench.math_pilot --dataset "$math_dataset" --check --tasks "${MATH_TASKS:-12}"
+    "$python" -m bench.math_pilot --dataset "$math_dataset" --check \
+        --start "${MATH_START:-1}" --tasks "${MATH_TASKS:-12}"
     echo "Offline math checks passed."
 }
 
@@ -165,7 +166,7 @@ PY
 
 if [[ "$mode" == math-run ]]; then
     "$python" -m bench.math_pilot --dataset "$math_dataset" --model "$PILOT_MODEL" \
-        --output "$PILOT_RESULTS" --tasks "${MATH_TASKS:-12}"
+        --output "$PILOT_RESULTS" --start "${MATH_START:-1}" --tasks "${MATH_TASKS:-12}"
 else
     status=0
     bash bench/baseline_pilot.sh || status=$?
