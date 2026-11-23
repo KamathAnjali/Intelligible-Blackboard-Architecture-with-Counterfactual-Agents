@@ -1,6 +1,7 @@
 """Run a paired, text-only MATH-500 ablation with the existing conversation runner."""
 
 import argparse
+from collections import Counter
 import hashlib
 import json
 import re
@@ -81,6 +82,27 @@ def load_cases(path):
     return cases
 
 
+def load_deadlocked_ids(paths):
+    task_ids = set()
+    for path in paths:
+        with path.open(encoding="utf-8-sig") as log:
+            for number, line in enumerate(log, start=1):
+                if not line.strip():
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"{path}:{number}: invalid JSONL record") from exc
+                if row["outcome"] == "deadlocked" or row.get("deadlocks", 0) > 0:
+                    task_ids.add(row["task_id"])
+    unknown = task_ids.difference(TASK_IDS)
+    if unknown:
+        raise ValueError(f"Deadlocked task IDs outside the pinned pilot: {', '.join(sorted(unknown))}")
+    if not task_ids:
+        raise ValueError("No deadlocked math problems found in the supplied summaries")
+    return task_ids
+
+
 def run_solo(client, task, directory):
     directory.mkdir(parents=True, exist_ok=True)
     response = None
@@ -112,10 +134,11 @@ def run_board(client, task, directory, task_id, fraction, seed):
     report, trace = run_conversation(
         client, task, TURNS, RETRIES, directory, task_id=task_id, agent_count=AGENT_COUNT,
         counterfactual_fraction=fraction, counterfactual_seed=seed, retrospective_recovery=True,
+        counterfactual_include_first_agent=True,
     )
     replays = report["counterfactual_attempts"]
     usage = [turn["usage"] for turn in report["turns"] if "usage" in turn]
-    usage.extend(attempt.get("usage", {}) for attempt in replays)
+    usage.extend(attempt.get("usage") or {} for attempt in replays)
     return {
         "outcome": report["outcome"], "prediction": final_board_prediction(report),
         "trace": str(trace), "turns": len(report["turns"]),
@@ -124,20 +147,23 @@ def run_board(client, task, directory, task_id, fraction, seed):
         "replays": report["workflow_counters"]["counterfactual_simulations"],
         "accepted_replays": sum(attempt["accepted"] for attempt in replays),
         "applied_replays": sum(attempt["applied_to_live"] for attempt in replays),
+        "replay_sources": [attempt["proposal_source"] for attempt in replays],
+        "counterfactual_skips": report["counterfactual_skips"],
         "usage": {key: sum(item.get(key, 0) for item in usage)
                   for key in ("calls", "prompt_tokens", "output_tokens")},
     }
 
 
-def run_pilot(client, cases, output, start_index=0):
+def run_pilot(client, cases, output):
     records = []
     total_runs = len(cases) * len(CONDITIONS)
     output.mkdir(parents=True, exist_ok=True)
     with (output / "summary.jsonl").open("x", encoding="utf-8") as log:
-        for index, case in enumerate(cases, start=start_index):
+        for case in cases:
             task = case["problem"] + ANSWER_INSTRUCTION
             task_id = "math500-" + case["unique_id"].removeprefix("test/").removesuffix(".json").replace("/", "-")
             expected = integer_answer(case["answer"])
+            seed = 42 + TASK_IDS.index(case["unique_id"])
             for condition, fraction in CONDITIONS.items():
                 print(f"\n[{len(records) + 1}/{total_runs}] {case['unique_id']} "
                       f"(level {case['level']}) | {condition}", flush=True)
@@ -145,7 +171,7 @@ def run_pilot(client, cases, output, start_index=0):
                 if fraction is None:
                     run = run_solo(client, task, output / condition / task_id)
                 else:
-                    run = run_board(client, task, output / condition, task_id, fraction, 42 + index)
+                    run = run_board(client, task, output / condition, task_id, fraction, seed)
                 record = {
                     "task_id": case["unique_id"], "level": case["level"], "condition": condition,
                     "requested_fraction": fraction, "expected": expected,
@@ -195,7 +221,12 @@ def summarize(records):
                          for outcome in sorted({row["outcome"] for row in runs})},
             "tasks_with_deadlock": sum(row.get("deadlocks", 0) > 0 for row in runs),
             "replays": sum(row.get("replays", 0) for row in runs),
+            "accepted_replays": sum(row.get("accepted_replays", 0) for row in runs),
             "applied_replays": sum(row.get("applied_replays", 0) for row in runs),
+            "replay_sources": dict(Counter(source for row in runs for source in row.get("replay_sources", []))),
+            "replay_skip_reasons": dict(Counter(
+                skip["reason"] for row in runs for skip in row.get("counterfactual_skips", [])
+            )),
             "model_calls": sum(row["usage"]["calls"] for row in runs),
             "prompt_tokens": sum(row["usage"]["prompt_tokens"] for row in runs),
             "output_tokens": sum(row["usage"]["output_tokens"] for row in runs),
@@ -213,10 +244,12 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
-    parser.add_argument("--start", type=int, choices=range(1, len(TASK_IDS) + 1), default=1,
+    parser.add_argument("--start", type=int, choices=range(1, len(TASK_IDS) + 1),
                         help="First problem in the pinned list, numbered from 1")
-    parser.add_argument("--tasks", type=int, choices=range(1, len(TASK_IDS) + 1), default=DEFAULT_TASK_COUNT,
+    parser.add_argument("--tasks", type=int, choices=range(1, len(TASK_IDS) + 1),
                         help="Number of consecutive problems starting at --start")
+    parser.add_argument("--deadlocks-from", type=Path, nargs="+",
+                        help="Run only pinned problems that deadlocked in the supplied summary.jsonl files")
     parser.add_argument("--check", action="store_true", help="Verify the pinned dataset and list cases without inference")
     args = parser.parse_args()
     if args.rescore:
@@ -227,12 +260,19 @@ def main():
         return 0
     if not args.check and args.output is None:
         parser.error("--output is required when running the pilot")
-    start_index = args.start - 1
-    end_index = start_index + args.tasks
+    if args.deadlocks_from and (args.start is not None or args.tasks is not None):
+        parser.error("--deadlocks-from selects the problems instead of --start and --tasks")
+    start_index = (args.start or 1) - 1
+    end_index = start_index + (args.tasks or DEFAULT_TASK_COUNT)
     if end_index > len(TASK_IDS):
         parser.error(f"--start and --tasks must select problems within the {len(TASK_IDS)}-problem list")
     try:
-        cases = load_cases(args.dataset)[start_index:end_index]
+        cases = load_cases(args.dataset)
+        if args.deadlocks_from:
+            deadlocked_ids = load_deadlocked_ids(args.deadlocks_from)
+            cases = [case for case in cases if case["unique_id"] in deadlocked_ids]
+        else:
+            cases = cases[start_index:end_index]
     except (OSError, ValueError, KeyError) as exc:
         parser.error(str(exc))
     if args.check:
@@ -241,12 +281,14 @@ def main():
         return 0
 
     client = OllamaClient(args.model, args.base_url)
-    records = run_pilot(client, cases, args.output, start_index=start_index)
+    records = run_pilot(client, cases, args.output)
     report = {
         "dataset": DATASET_URL, "dataset_sha256": DATASET_SHA256, "model": client.model,
-        "model_options": client.options, "first_task": args.start,
+        "model_options": client.options, "first_task": TASK_IDS.index(cases[0]["unique_id"]) + 1,
         "task_ids": [case["unique_id"] for case in cases],
+        "deadlocks_from": [str(path) for path in args.deadlocks_from] if args.deadlocks_from else [],
         "conditions": CONDITIONS, "roster": AGENT_ROSTERS[AGENT_COUNT], "max_turns": TURNS,
+        "counterfactual_include_first_agent": True,
         "max_retries": RETRIES, "complete": len(records) == len(cases) * len(CONDITIONS)
         and all(row["outcome"] != "interrupted" for row in records),
         "results": summarize(records),

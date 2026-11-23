@@ -178,4 +178,6 @@ Setup verifies the dataset and runs offline checks. To see live output in a Cola
 
 Set `MATH_TASKS=24` for the extended set or use `MATH_START` (one-based) and `MATH_TASKS` to select a batch. Set `COLAB_PILOT_RESULTS` to a directory under mounted Google Drive to save scores and transcripts across Colab runtimes. Each invocation creates a separate results directory.
 
+For a targeted follow-up, run `bash bench/colab_pilot.sh math-run qwen3:14b-q4_K_M --deadlocks-from /path/to/prior/summary.jsonl`. Pass all original summaries to select the union of their deadlocked problems. Nonzero settings give the first proposer replay eligibility, and the summary records replay sources, skip reasons, and whether a replay was applied.
+
 Accuracy uses the final unanimous prediction, counts unresolved attempts as incorrect, and tracks earlier PXP tag warnings separately. To regrade a saved run with its transcripts, use `python -m bench.math_pilot --rescore <run-directory>` from the repository root with the math environment active.

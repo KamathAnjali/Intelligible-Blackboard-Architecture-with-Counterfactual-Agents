@@ -13,6 +13,7 @@ host_python="${PYTHON:-python3}"
 math_venv="$runtime/math-venv"
 math_dataset="$runtime/math500-test.jsonl"
 mode="${1:-}"
+math_selection=(--start "${MATH_START:-1}" --tasks "${MATH_TASKS:-12}")
 if [[ "$mode" == math-* ]]; then
     python="$math_venv/bin/python"
 fi
@@ -30,8 +31,7 @@ offline_checks() {
 math_checks() {
     bash -n bench/colab_pilot.sh
     "$python" -m pytest -q tests/test_conversation.py tests/test_scheduler.py
-    "$python" -m bench.math_pilot --dataset "$math_dataset" --check \
-        --start "${MATH_START:-1}" --tasks "${MATH_TASKS:-12}"
+    "$python" -m bench.math_pilot --dataset "$math_dataset" --check "${math_selection[@]}"
     echo "Offline math checks passed."
 }
 
@@ -69,7 +69,14 @@ case "$mode:$#" in
         math_checks
         exit
         ;;
-    run:2|math-run:2)
+    run:2|math-run:*)
+        if [[ $# -ne 2 ]]; then
+            if [[ $# -lt 4 || "${3:-}" != --deadlocks-from ]]; then
+                echo "Usage: bash bench/colab_pilot.sh math-run MODEL [--deadlocks-from LOG ...]" >&2
+                exit 2
+            fi
+            math_selection=(--deadlocks-from "${@:4}")
+        fi
         case "$2" in
             qwen3:8b|qwen3:14b-q4_K_M) export PILOT_MODEL="$2" ;;
             *) echo "Choose qwen3:8b or qwen3:14b-q4_K_M." >&2; exit 2 ;;
@@ -166,7 +173,7 @@ PY
 
 if [[ "$mode" == math-run ]]; then
     "$python" -m bench.math_pilot --dataset "$math_dataset" --model "$PILOT_MODEL" \
-        --output "$PILOT_RESULTS" --start "${MATH_START:-1}" --tasks "${MATH_TASKS:-12}"
+        --output "$PILOT_RESULTS" "${math_selection[@]}"
 else
     status=0
     bash bench/baseline_pilot.sh || status=$?

@@ -28,6 +28,7 @@ class RollbackRequest:
     max_alternatives: int = 1
     max_retries: int = 2
     review_evidence: list | None = None
+    rejected_proposal: BoardEntry | None = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,15 @@ def create_sandbox(request: RollbackRequest) -> Blackboard:
     agent = source.agents.get(request.target_agent_id)
     if agent is None or not agent.active or target.agent_id != request.target_agent_id:
         raise ValueError("target_agent_id must be the active author of the cutoff entry")
+    proposal = request.rejected_proposal
+    if proposal is not None and (
+        target.tag != PXPTag.REJECT
+        or proposal.tag != PXPTag.REVISE
+        or proposal.agent_id != target.agent_id
+        or proposal.prediction != target.prediction
+        or proposal.is_counterfactual_sim
+    ):
+        raise ValueError("rejected_proposal must match the live rejection and its author")
 
     store = InMemoryJSONStore()
     store.save(source)
@@ -108,6 +118,7 @@ class RetrospectiveSandbox:
         baseline = request.source_state.model_copy(deep=True)
         baseline.entries = [entry for entry in baseline.entries if not entry.is_counterfactual_sim]
         original = next(entry for entry in baseline.entries if entry.entry_id == request.cutoff_entry_id)
+        proposal = request.rejected_proposal or original
         baseline_score = consensus_progress(baseline)
         attempts: list[dict] = []
         replayed: list[BoardEntry] = []
@@ -120,9 +131,12 @@ class RetrospectiveSandbox:
                 agent = scheduler.next_agent()
                 guidance = None
                 if turn == 0:
-                    prior = json.dumps({"tag": original.tag.value, "prediction": original.prediction,
-                                        "explanation": original.explanation}, ensure_ascii=False)
-                    guidance = ("Reconsider this unverified earlier contribution: " + prior + "\n"
+                    prior = {"tag": proposal.tag.value, "prediction": proposal.prediction,
+                             "explanation": proposal.explanation}
+                    if request.rejected_proposal is not None:
+                        prior["reviewer_rejection"] = original.explanation
+                    guidance = ("Reconsider this unverified earlier contribution: "
+                                + json.dumps(prior, ensure_ascii=False) + "\n"
                                 + request.alternative_instruction + "\n"
                                 + "Propose an alternative tag or explanation using only supported facts.")
                 generated = None
@@ -138,10 +152,14 @@ class RetrospectiveSandbox:
                     if (entry.agent_id != agent.agent_id or not entry.is_counterfactual_sim
                             or any(old.entry_id == entry.entry_id for old in baseline.entries + replayed)):
                         raise ValueError("generated entry has invalid simulation identity or provenance")
-                    if turn or (entry.tag != original.tag or entry.explanation.strip() != original.explanation.strip()):
+                    if turn or (
+                        entry.tag != proposal.tag
+                        or entry.prediction.strip() != proposal.prediction.strip()
+                        or entry.explanation.strip() != proposal.explanation.strip()
+                    ):
                         break
                 else:
-                    raise ValueError("no alternative tag or explanation generated")
+                    raise ValueError("no alternative contribution generated")
                 scheduler.submit_entry(entry)
                 replayed.append(entry.model_copy(deep=True))
                 if board.current_intelligibility in (IntelligibilityLevel.STRONG, IntelligibilityLevel.ULTRA_STRONG):
