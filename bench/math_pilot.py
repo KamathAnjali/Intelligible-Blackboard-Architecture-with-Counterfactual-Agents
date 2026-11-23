@@ -130,9 +130,10 @@ def run_solo(client, task, directory):
     }
 
 
-def run_board(client, task, directory, task_id, fraction, seed):
+def run_board(client, task, directory, task_id, fraction, seed, *,
+              turns=TURNS, retries=RETRIES, agent_count=AGENT_COUNT):
     report, trace = run_conversation(
-        client, task, TURNS, RETRIES, directory, task_id=task_id, agent_count=AGENT_COUNT,
+        client, task, turns, retries, directory, task_id=task_id, agent_count=agent_count,
         counterfactual_fraction=fraction, counterfactual_seed=seed, retrospective_recovery=True,
         counterfactual_include_first_agent=True,
     )
@@ -201,10 +202,10 @@ def rescore_saved_run(directory):
     return summarize(records)
 
 
-def summarize(records):
+def summarize(records, conditions=CONDITIONS):
     baseline = {row["task_id"]: row for row in records if row["condition"] == "cf-00"}
     summary = {}
-    for condition in CONDITIONS:
+    for condition in conditions:
         runs = [row for row in records if row["condition"] == condition]
         paired = [(baseline[row["task_id"]], row) for row in runs if row["task_id"] in baseline]
         summary[condition] = {

@@ -39,3 +39,5 @@ The data workflow skips repeated successful searches and aggregates. For repeate
 The Colab launcher compares Qwen3 8B and 14B on the same five tuning tasks at 0% recovery with a 16,384-token context. Offline checks cover both model configurations, pinned task preflight and evaluator integration. The live launcher checks GPU placement before running tasks.
 
 The MATH-500 pilot supports 24 pinned, self-contained problems across levels 3 to 5 and compares solo answers with six-agent runs at 0%, 33%, 50%, and 66% replay eligibility. The follow-up selects previously deadlocked problems from saved summaries. It includes the first proposer in nonzero settings and lets eligible agents revisit their own rejected proposals when no eligible posted revision exists.
+
+The CounterBench pilot uses five pinned, self-contained causal reasoning questions. It compares three agents with recovery off and with all three eligible and grades yes/no predictions after inference. The local and Colab launchers use the same cases and default model. The two source files and five task IDs are verified. Live results are pending.

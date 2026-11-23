@@ -181,3 +181,23 @@ Set `MATH_TASKS=24` for the extended set or use `MATH_START` (one-based) and `MA
 For a targeted follow-up, run `bash bench/colab_pilot.sh math-run qwen3:14b-q4_K_M --deadlocks-from /path/to/prior/summary.jsonl`. Pass all original summaries to select the union of their deadlocked problems. Nonzero settings give the first proposer replay eligibility, and the summary records replay sources, skip reasons, and whether a replay was applied.
 
 Accuracy uses the final unanimous prediction, counts unresolved attempts as incorrect, and tracks earlier PXP tag warnings separately. To regrade a saved run with its transcripts, use `python -m bench.math_pilot --rescore <run-directory>` from the repository root with the math environment active.
+
+### CounterBench pilot
+
+The pilot runs five published [CounterBench questions](https://huggingface.co/datasets/CounterBench/CounterBench/tree/c6225dfa00b7a89ccfeae67797b9a6d80e48e44c), one per question type. Each question uses the same three agents with recovery off and with all three eligible. The model sees the supplied causal facts and question. Final predictions are scored against the dataset's yes/no answers after inference.
+
+```sh
+make counterbench-setup  # Download and verify both datasets without inference
+make counterbench        # Run the ten conversations using local Ollama
+```
+
+Start Windows Ollama before the live command. The initial limit is 10 scheduled turns and 2 retries per turn. Results under `results/counterbench/` include transcripts, per-run scores, and a summary of correct consensus, deadlocks, replay attempts, and model usage.
+
+On a Colab NVIDIA GPU runtime, run these from the `3-Dhruva` checkout:
+
+```sh
+bash bench/colab_pilot.sh counterbench-setup
+bash bench/colab_pilot.sh counterbench-run
+```
+
+The Colab launcher defaults to the same Qwen3 4B model as the local pilot. It also accepts `qwen3:8b` or `qwen3:14b-q4_K_M` after `counterbench-run`. The launcher verifies GPU placement and records the Git commit, transcripts, and scores under `/content/blackboard-results/counterbench/`.

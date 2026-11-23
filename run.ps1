@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('help', 'start', 'chat', 'query', 'gpu', 'latency', 'samples', 'pex', 'entry', 'conversation', 'disagreement', 'demo', 'personas', 'sessions', 'deadlocks', 'deadlock-ab', 'test', 'stop')]
+    [ValidateSet('help', 'start', 'chat', 'query', 'gpu', 'latency', 'samples', 'pex', 'entry', 'conversation', 'disagreement', 'demo', 'personas', 'sessions', 'deadlocks', 'deadlock-ab', 'counterbench-setup', 'counterbench', 'test', 'stop')]
     [string]$Task = 'help',
     [string]$Prompt = 'Explain a blackboard architecture in three sentences.',
     [ValidateRange(1, 100)][int]$Runs = 3,
@@ -15,10 +15,11 @@ $env:OLLAMA_HOST = 'http://127.0.0.1:11434'
 $ollamaCommand = Get-Command ollama -ErrorAction SilentlyContinue
 $ollamaExe = if ($ollamaCommand) { $ollamaCommand.Source } else { Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe' }
 if ($Task -eq 'help') {
-    Write-Host 'Tasks: start | chat | query [-Prompt "..."] | gpu | latency [-Runs 3] | samples | pex | entry [-Persona cautious_verifier] [-Retries 2] [-Prompt "..."] | conversation [-Agents 2|3] [-Turns 6] [-Prompt "..."] | disagreement [-Turns 6] | demo | personas | sessions | deadlocks | deadlock-ab [-Turns 10] | test | stop'
+    Write-Host 'Tasks: start | chat | query [-Prompt "..."] | gpu | latency [-Runs 3] | samples | pex | entry [-Persona cautious_verifier] [-Retries 2] [-Prompt "..."] | conversation [-Agents 2|3] [-Turns 6] [-Prompt "..."] | disagreement [-Turns 6] | demo | personas | sessions | deadlocks | deadlock-ab [-Turns 10] | counterbench-setup | counterbench [-Turns 10] | test | stop'
     exit 0
 }
-if ($Task -notin @('test', 'deadlocks') -and -not (Test-Path -LiteralPath $ollamaExe)) { throw 'Install Ollama for Windows first.' }
+$needsOllama = $Task -notin @('test', 'deadlocks', 'counterbench-setup')
+if ($needsOllama -and -not (Test-Path -LiteralPath $ollamaExe)) { throw 'Install Ollama for Windows first.' }
 if ($Task -eq 'start') {
     try {
         Invoke-RestMethod "$env:OLLAMA_HOST/api/version" -TimeoutSec 3 | Out-Host
@@ -31,7 +32,7 @@ if ($Task -eq 'start') {
     }
     exit 0
 }
-if ($Task -notin @('test', 'deadlocks')) {
+if ($needsOllama) {
     try { $null = Invoke-RestMethod "$env:OLLAMA_HOST/api/version" -TimeoutSec 3 }
     catch { throw 'Open Ollama from Start, or run .\run.ps1 start, then try again.' }
 }
@@ -69,6 +70,11 @@ try {
         $clientArgs = @('-m', 'pytest', '-q')
     } elseif ($Task -eq 'deadlock-ab') {
         $clientArgs = @('-m', 'agents.deadlock_ab', '--turns', $Turns, '--retries', $Retries)
+    } elseif ($Task -eq 'counterbench-setup' -or $Task -eq 'counterbench') {
+        $clientArgs = @('-m', 'bench.counterbench_pilot')
+        if ($Task -eq 'counterbench-setup') { $clientArgs += '--setup' }
+        elseif ($PSBoundParameters.ContainsKey('Turns')) { $clientArgs += @('--turns', $Turns) }
+        $clientArgs += @('--retries', $Retries)
     } elseif ($Task -eq 'sessions' -or $Task -eq 'deadlocks') {
         $clientArgs = @('-m', 'agents.session_suite')
         if ($Task -eq 'deadlocks') { $clientArgs += '--deadlock-fixtures' }

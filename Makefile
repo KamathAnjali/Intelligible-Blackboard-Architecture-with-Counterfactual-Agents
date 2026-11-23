@@ -14,10 +14,11 @@ PERSONA ?= cautious_verifier
 RETRIES ?= 2
 TURNS ?= 6
 AB_TURNS ?= 10
+COUNTERBENCH_TURNS ?= 10
 AGENTS ?= 2
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
-.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas sessions deadlocks deadlock-ab test stop
+.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas sessions deadlocks deadlock-ab counterbench-setup counterbench test stop
 
 help:
 	@echo make start                 Start Ollama if needed
@@ -34,6 +35,8 @@ help:
 	@echo make sessions             Run four live three-agent GSM8K and mSCoRe cases
 	@echo make deadlocks            Record two controlled deadlock fixtures, without Ollama
 	@echo make deadlock-ab AB_TURNS=10 Compare recovery disabled and enabled
+	@echo make counterbench-setup   Download and verify CounterBench data
+	@echo make counterbench         Run five paired CounterBench cases
 	@echo make disagreement TURNS=6  Run a seeded three-agent disagreement scenario
 	@echo make demo                  Require a clean three-turn RATIFY demonstration
 	@echo make test                  Run offline tests without requiring Ollama
@@ -62,6 +65,12 @@ deadlocks:
 
 deadlock-ab:
 	@$(RUNNER) deadlock-ab -Turns "$(AB_TURNS)" -Retries "$(RETRIES)"
+
+counterbench-setup:
+	@$(RUNNER) counterbench-setup
+
+counterbench:
+	@$(RUNNER) counterbench -Turns "$(COUNTERBENCH_TURNS)" -Retries "$(RETRIES)"
 
 disagreement:
 	@$(RUNNER) disagreement -Turns "$(TURNS)" -Retries "$(RETRIES)"

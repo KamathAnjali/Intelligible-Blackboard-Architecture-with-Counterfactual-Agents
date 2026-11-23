@@ -14,7 +14,7 @@ math_venv="$runtime/math-venv"
 math_dataset="$runtime/math500-test.jsonl"
 mode="${1:-}"
 math_selection=(--start "${MATH_START:-1}" --tasks "${MATH_TASKS:-12}")
-if [[ "$mode" == math-* ]]; then
+if [[ "$mode" == math-* || "$mode" == counterbench-* ]]; then
     python="$math_venv/bin/python"
 fi
 
@@ -47,13 +47,18 @@ case "$mode:$#" in
         offline_checks
         exit
         ;;
-    math-setup:1)
+    math-setup:1|counterbench-setup:1)
         mkdir -p "$runtime"
         if [[ ! -x "$python" ]]; then
             "$host_python" -m venv --without-pip "$math_venv"
         fi
         if ! "$python" -I -m pip --version >/dev/null 2>&1; then
             "$host_python" -m pip --python "$python" install pip
+        fi
+        if [[ "$mode" == counterbench-setup ]]; then
+            "$python" -m pip install "pydantic==2.14.1"
+            "$python" -m bench.counterbench_pilot --setup
+            exit
         fi
         "$python" -m pip install "pydantic==2.14.1" "pytest>=8,<10"
         if [[ ! -f "$math_dataset" ]]; then
@@ -69,6 +74,14 @@ case "$mode:$#" in
         math_checks
         exit
         ;;
+    counterbench-run:1|counterbench-run:2)
+        case "${2:-qwen3:4b-instruct-2507-q4_K_M}" in
+            qwen3:4b-instruct-2507-q4_K_M|qwen3:8b|qwen3:14b-q4_K_M)
+                export PILOT_MODEL="${2:-qwen3:4b-instruct-2507-q4_K_M}"
+                ;;
+            *) echo "Choose qwen3:4b-instruct-2507-q4_K_M, qwen3:8b, or qwen3:14b-q4_K_M." >&2; exit 2 ;;
+        esac
+        ;;
     run:2|math-run:*)
         if [[ $# -ne 2 ]]; then
             if [[ $# -lt 4 || "${3:-}" != --deadlocks-from ]]; then
@@ -82,17 +95,23 @@ case "$mode:$#" in
             *) echo "Choose qwen3:8b or qwen3:14b-q4_K_M." >&2; exit 2 ;;
         esac
         ;;
-    *) echo "Usage: bash bench/colab_pilot.sh {setup|check|run MODEL|math-setup|math-check|math-run MODEL}" >&2; exit 2 ;;
+    *) echo "Usage: bash bench/colab_pilot.sh {setup|check|run MODEL|math-setup|math-check|math-run MODEL|counterbench-setup|counterbench-run [MODEL]}" >&2; exit 2 ;;
 esac
 
 results_root="${COLAB_PILOT_RESULTS:-/content/blackboard-results}"
 if [[ "$mode" == math-run ]]; then
     results_root="$results_root/math500"
+elif [[ "$mode" == counterbench-run ]]; then
+    results_root="$results_root/counterbench"
+    if [[ ! -x "$python" ]]; then
+        echo "Run bash bench/colab_pilot.sh counterbench-setup first." >&2
+        exit 1
+    fi
 fi
 mkdir -p "$results_root"
 PILOT_RESULTS="$(mktemp -d "$results_root/${PILOT_MODEL//:/-}.XXXXXX")"
 export PILOT_RESULTS TURNS=6 PILOT_TOOL_CALLS=12 PILOT_REQUEST_TIMEOUT_SECONDS=300
-if [[ "$mode" == math-run ]]; then
+if [[ "$mode" == math-run || "$mode" == counterbench-run ]]; then
     exec > >(tee "$PILOT_RESULTS/progress.log") 2>&1
 fi
 echo "Results: $PILOT_RESULTS"
@@ -106,6 +125,8 @@ fi
 if [[ "$mode" == math-run ]]; then
     echo "Checking the pinned math problems and conversation runner..."
     math_checks
+elif [[ "$mode" == counterbench-run ]]; then
+    "$python" -m bench.counterbench_pilot --setup
 else
     offline_checks
 fi
@@ -174,6 +195,8 @@ PY
 if [[ "$mode" == math-run ]]; then
     "$python" -m bench.math_pilot --dataset "$math_dataset" --model "$PILOT_MODEL" \
         --output "$PILOT_RESULTS" "${math_selection[@]}"
+elif [[ "$mode" == counterbench-run ]]; then
+    "$python" -u -m bench.counterbench_pilot --model "$PILOT_MODEL" --output "$PILOT_RESULTS"
 else
     status=0
     bash bench/baseline_pilot.sh || status=$?
