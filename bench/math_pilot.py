@@ -143,6 +143,7 @@ def run_board(client, task, directory, task_id, fraction, seed, *,
     return {
         "outcome": report["outcome"], "prediction": final_board_prediction(report),
         "trace": str(trace), "turns": len(report["turns"]),
+        "self_check_enabled": report["self_check_enabled"],
         "eligible_agents": report["counterfactual_capable_agents"], "eligibility_seed": seed,
         "deadlocks": len(report["board"]["deadlocks"]),
         "replays": report["workflow_counters"]["counterfactual_simulations"],
@@ -245,6 +246,8 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
+    parser.add_argument("--no-explanation-review", dest="review_explanations", action="store_false",
+                        help="Skip the model explanation check in live and simulated turns")
     parser.add_argument("--start", type=int, choices=range(1, len(TASK_IDS) + 1),
                         help="First problem in the pinned list, numbered from 1")
     parser.add_argument("--tasks", type=int, choices=range(1, len(TASK_IDS) + 1),
@@ -281,7 +284,8 @@ def main():
             print(f"Level {case['level']} | {case['subject']} | {case['unique_id']}")
         return 0
 
-    client = OllamaClient(args.model, args.base_url)
+    client = OllamaClient(args.model, args.base_url, review_explanations=args.review_explanations)
+    print(f"Pre-board explanation review: {'on' if client.review_explanations else 'off'}", flush=True)
     records = run_pilot(client, cases, args.output)
     report = {
         "dataset": DATASET_URL, "dataset_sha256": DATASET_SHA256, "model": client.model,
@@ -290,6 +294,7 @@ def main():
         "deadlocks_from": [str(path) for path in args.deadlocks_from] if args.deadlocks_from else [],
         "conditions": CONDITIONS, "roster": AGENT_ROSTERS[AGENT_COUNT], "max_turns": TURNS,
         "counterfactual_include_first_agent": True,
+        "self_check_enabled": client.review_explanations,
         "max_retries": RETRIES, "complete": len(records) == len(cases) * len(CONDITIONS)
         and all(row["outcome"] != "interrupted" for row in records),
         "results": summarize(records),

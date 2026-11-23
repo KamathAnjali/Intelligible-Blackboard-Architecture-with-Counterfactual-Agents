@@ -180,6 +180,8 @@ Set `MATH_TASKS=24` for the extended set or use `MATH_START` (one-based) and `MA
 
 For a targeted follow-up, run `bash bench/colab_pilot.sh math-run qwen3:14b-q4_K_M --deadlocks-from /path/to/prior/summary.jsonl`. Pass all original summaries to select the union of their deadlocked problems. Nonzero settings give the first proposer replay eligibility, and the summary records replay sources, skip reasons, and whether a replay was applied.
 
+Set `PILOT_EXPLANATION_REVIEW=0` in the Colab launcher for either pilot, or pass `--no-explanation-review` to the Python conversation or pilot command. This disables model review before posting in live and simulated turns. Entries still follow the PXP schema, agents review each other's claims on the board, and the saved results record the setting.
+
 Accuracy uses the final unanimous prediction, counts unresolved attempts as incorrect, and tracks earlier PXP tag warnings separately. To regrade a saved run with its transcripts, use `python -m bench.math_pilot --rescore <run-directory>` from the repository root with the math environment active.
 
 ### CounterBench pilot

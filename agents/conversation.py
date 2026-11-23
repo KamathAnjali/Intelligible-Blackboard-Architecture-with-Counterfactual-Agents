@@ -210,6 +210,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                 prediction=message,
                 explanation="Application-posted structured data evidence; no reference answer supplied.",
             ))
+    self_check_enabled = getattr(client, "review_explanations", True)
+    prompt_names = ("pxp_template", "explanation_check") if self_check_enabled else ("pxp_template",)
     report = {
         "created_at": stamp.isoformat(), "task": task, "task_id": task_id,
         "scenario": scenario, "agent_count": agent_count,
@@ -217,7 +219,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         "options": dict(getattr(client, "options", OPTIONS)),
         "max_turns": max_turns, "effective_max_turns": max_turns,
         "max_retries": max_retries, "turns": [],
-        "failures": [], "outcome": "running", "explanation_review": "pending",
+        "failures": [], "outcome": "running",
+        "explanation_review": "pending" if self_check_enabled else "disabled",
         "workflow_counters": {
             "guard_activations": [],
             "refusal_despite_evidence_retries": 0,
@@ -228,7 +231,7 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
             "counterfactual_changed_outcome": 0,
             "max_guard_retries": MAX_TERMINATION_GUARD_RETRIES,
         },
-        "self_check_enabled": True,
+        "self_check_enabled": self_check_enabled,
         "counterfactual_fraction": float(counterfactual_fraction),
         "retrospective_recovery": retrospective_recovery,
         "counterfactual_seed": counterfactual_seed,
@@ -241,7 +244,7 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         "counterfactual_attempts": [],
         "counterfactual_skips": [],
         "prompts": {name: (ROOT / "agents" / "prompts" / f"{name}.txt").read_text(encoding="utf-8")
-                    for name in ("pxp_template", "explanation_check", *(persona for _, persona in participants))},
+                    for name in (*prompt_names, *(persona for _, persona in participants))},
     }
     if retrospective_recovery:
         report["prompts"]["rollback"] = (ROOT / "agents/prompts/rollback.txt").read_text(encoding="utf-8")
@@ -728,6 +731,8 @@ def main():
     parser.add_argument("--retries", type=int, choices=range(6), default=2)
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--base-url", default=BASE_URL)
+    parser.add_argument("--no-explanation-review", dest="review_explanations", action="store_false",
+                        help="Skip the model explanation check before posting")
     parser.add_argument("--scenario", choices=("default", "disagreement"), default="default")
     parser.add_argument("--agents", type=int, choices=AGENT_ROSTERS, help="Default: two agents, or three for disagreement")
     parser.add_argument("--retrospective-recovery", action="store_true", help="Try isolated replay after a deadlock")
@@ -739,8 +744,9 @@ def main():
     if args.demo and args.agents not in (None, 2):
         parser.error("--demo requires two agents")
     turns = 3 if args.demo else args.turns
-    report, _ = run_conversation(OllamaClient(args.model, args.base_url), args.prompt,
-                                 turns, args.retries, scenario=args.scenario, agent_count=args.agents,
+    client = OllamaClient(args.model, args.base_url, review_explanations=args.review_explanations)
+    report, _ = run_conversation(client, args.prompt, turns, args.retries,
+                                 scenario=args.scenario, agent_count=args.agents,
                                  retrospective_recovery=args.retrospective_recovery,
                                  counterfactual_fraction=args.counterfactual_fraction)
     if args.demo:

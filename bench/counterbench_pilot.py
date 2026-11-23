@@ -102,6 +102,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--setup", action="store_true", help="Download and verify data without inference")
     parser.add_argument("--model", default=MODEL)
+    parser.add_argument("--no-explanation-review", dest="review_explanations", action="store_false",
+                        help="Skip the model explanation check in live and simulated turns")
     parser.add_argument("--output", type=Path, help="Directory for this pilot's transcripts and scores")
     parser.add_argument("--turns", type=int, choices=range(4, 13), default=10)
     parser.add_argument("--retries", type=int, choices=range(6), default=2)
@@ -118,7 +120,8 @@ def main():
         print(f"Verified CounterBench dataset revision {REVISION}")
         return 0
 
-    client = OllamaClient(args.model, BASE_URL)
+    client = OllamaClient(args.model, BASE_URL, review_explanations=args.review_explanations)
+    print(f"Pre-board explanation review: {'on' if client.review_explanations else 'off'}", flush=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output = args.output or ROOT / "results/counterbench" / f"pilot-{stamp}"
     records = run_pilot(client, cases, output, args.turns, args.retries)
@@ -132,6 +135,7 @@ def main():
         "conditions": CONDITIONS,
         "model": client.model,
         "model_options": client.options,
+        "self_check_enabled": client.review_explanations,
         "roster": AGENT_ROSTERS[AGENT_COUNT],
         "max_turns": args.turns,
         "max_retries": args.retries,

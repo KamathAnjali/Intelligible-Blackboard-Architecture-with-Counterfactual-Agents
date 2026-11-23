@@ -55,11 +55,15 @@ def sanitized_base_url(value):
 
 class OllamaClient:
     def __init__(self, model=MODEL, base_url=BASE_URL, model_seed=42,
-                 request_timeout_seconds=DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS):
+                 request_timeout_seconds=DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS, *,
+                 review_explanations: bool = True):
+        if not isinstance(review_explanations, bool):
+            raise ValueError("review_explanations must be a bool")
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.options = {**OPTIONS, "seed": model_seed}
         self.request_timeout_seconds = request_timeout_seconds
+        self.review_explanations = review_explanations
         self.task_deadline = None
 
     def set_task_deadline(self, deadline):
@@ -103,7 +107,7 @@ class OllamaClient:
         return result
 
     def generate_pex(self, prompt, persona=None, max_retries=2):
-        """Return validated, self-checked PEX and every generation/review attempt."""
+        """Return validated PEX and every generation or review attempt."""
         return self._generate_structured(
             prompt, persona, max_retries, "pex_template.txt", PEXResponse, PEXGenerationError,
         )
@@ -187,9 +191,9 @@ class OllamaClient:
                              candidate_validator=None):
         """Validate and review each candidate within the existing retry budget.
 
-        A valid candidate gets one model self-check before it can be returned.
-        Rejected or malformed reviews trigger regeneration; transport failures
-        preserve the attempts and stop. Independent evaluation is still needed.
+        When enabled, a model self-check reviews each valid candidate. Rejected
+        or malformed reviews trigger regeneration. Transport failures preserve
+        the attempts and stop.
         """
         if type(max_retries) is not int or not 0 <= max_retries <= 5:
             raise ValueError("max_retries must be an integer between 0 and 5")
@@ -218,6 +222,7 @@ class OllamaClient:
                 attempt["error"] = candidate_validator(parsed)
             if parsed is not None and attempt["error"] is None:
                 attempt["parsed"] = parsed
+            if self.review_explanations and "parsed" in attempt:
                 try:
                     reviewer = self.check_explanation
                     if review_evidence is not None and (

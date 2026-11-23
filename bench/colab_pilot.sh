@@ -14,8 +14,14 @@ math_venv="$runtime/math-venv"
 math_dataset="$runtime/math500-test.jsonl"
 mode="${1:-}"
 math_selection=(--start "${MATH_START:-1}" --tasks "${MATH_TASKS:-12}")
+review_options=()
 if [[ "$mode" == math-* || "$mode" == counterbench-* ]]; then
     python="$math_venv/bin/python"
+    case "${PILOT_EXPLANATION_REVIEW:-1}" in
+        1) ;;
+        0) review_options=(--no-explanation-review) ;;
+        *) echo "PILOT_EXPLANATION_REVIEW must be 0 or 1." >&2; exit 2 ;;
+    esac
 fi
 
 offline_checks() {
@@ -31,7 +37,7 @@ offline_checks() {
 math_checks() {
     bash -n bench/colab_pilot.sh
     "$python" -m pytest -q tests/test_conversation.py tests/test_scheduler.py
-    "$python" -m bench.math_pilot --dataset "$math_dataset" --check "${math_selection[@]}"
+    "$python" -m bench.math_pilot --dataset "$math_dataset" --check "${review_options[@]}" "${math_selection[@]}"
     echo "Offline math checks passed."
 }
 
@@ -194,9 +200,9 @@ PY
 
 if [[ "$mode" == math-run ]]; then
     "$python" -m bench.math_pilot --dataset "$math_dataset" --model "$PILOT_MODEL" \
-        --output "$PILOT_RESULTS" "${math_selection[@]}"
+        --output "$PILOT_RESULTS" "${review_options[@]}" "${math_selection[@]}"
 elif [[ "$mode" == counterbench-run ]]; then
-    "$python" -u -m bench.counterbench_pilot --model "$PILOT_MODEL" --output "$PILOT_RESULTS"
+    "$python" -u -m bench.counterbench_pilot --model "$PILOT_MODEL" --output "$PILOT_RESULTS" "${review_options[@]}"
 else
     status=0
     bash bench/baseline_pilot.sh || status=$?
