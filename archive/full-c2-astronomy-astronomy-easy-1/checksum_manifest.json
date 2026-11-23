@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-04T11:27:23.475117+00:00",
+  "source_directory": "/Users/tanishasinghal/krama-results/fullbench/chunk-2/astronomy/astronomy-easy-1/run-20261104T112240Z-96d40db2",
+  "label": "full-c2-astronomy-astronomy-easy-1",
+  "algorithm": "sha256",
+  "files": [
+    {
+      "path": "evaluator_stderr.log",
+      "sha256": "92f44e5462c3d41a8bb04639b3f0f0ef3a6336f9b0610b80953cf04777122a2b",
+      "size_bytes": 3069,
+      "source_sha256": "92f44e5462c3d41a8bb04639b3f0f0ef3a6336f9b0610b80953cf04777122a2b",
+      "redaction_applied": false
+    },
+    {
+      "path": "evaluator_stdout.log",
+      "sha256": "9b6e06e25526b2c5f33fea6b4275ad6810720605eced930b71c562d3e9359bf7",
+      "size_bytes": 3756,
+      "source_sha256": "9b6e06e25526b2c5f33fea6b4275ad6810720605eced930b71c562d3e9359bf7",
+      "redaction_applied": false
+    },
+    {
+      "path": "run_manifest.json",
+      "sha256": "da8873630d348cbd68f73f99fe368104ebd1e73511f6d81eefd72818da4e84a3",
+      "size_bytes": 6843,
+      "source_sha256": "001b00e6be8d59c98c9778e65411dba89414872bd194fed561b77ec08b8f97eb",
+      "redaction_applied": true
+    },
+    {
+      "path": "driver_logs/evaluator.stdout.log",
+      "sha256": "9b6e06e25526b2c5f33fea6b4275ad6810720605eced930b71c562d3e9359bf7",
+      "size_bytes": 3756,
+      "source_sha256": "9b6e06e25526b2c5f33fea6b4275ad6810720605eced930b71c562d3e9359bf7",
+      "redaction_applied": false
+    },
+    {
+      "path": "driver_logs/evaluator.stderr.log",
+      "sha256": "92f44e5462c3d41a8bb04639b3f0f0ef3a6336f9b0610b80953cf04777122a2b",
+      "size_bytes": 3069,
+      "source_sha256": "92f44e5462c3d41a8bb04639b3f0f0ef3a6336f9b0610b80953cf04777122a2b",
+      "redaction_applied": false
+    },
+    {
+      "path": "results/KramaBenchPXPSystem/astronomy_measures_20261104_165242.csv",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "size_bytes": 1,
+      "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "redaction_applied": false
+    },
+    {
+      "path": "system_scratch/KramaBenchPXPSystem/krama_task_records/astronomy-easy-1-b93fe61f933d42f58cf44c78595a5b76.json",
+      "sha256": "56c8de1398b5546ee3457436856a89f9927268b6ccd72ef20799bb07a3ac12b9",
+      "size_bytes": 24003,
+      "source_sha256": "f8bbebe11f5b94f8b9ff625ffda5ebca2cb608171b53054a9656afb35f01b6a1",
+      "redaction_applied": true
+    }
+  ],
+  "note": "Checksums describe archived, secret-scrubbed bytes; this manifest is not self-hashed."
+}

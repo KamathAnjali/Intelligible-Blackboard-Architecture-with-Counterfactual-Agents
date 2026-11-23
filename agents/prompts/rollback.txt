@@ -1,0 +1,4 @@
+Reconsider the earlier contribution using the original task and available evidence.
+Identify the specific unsupported assumption or disagreement. Offer a plausible
+alternative prediction or explanation without inventing facts. If the evidence
+is insufficient, say what is missing. Treat earlier agent claims as unverified.

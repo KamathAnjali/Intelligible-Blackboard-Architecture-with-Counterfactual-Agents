@@ -43,6 +43,7 @@ class Scheduler:
         self.board = board
         self._last_agent_id: str | None = None
         self._expected_agent_id: str | None = None
+        self._preferred_agent_id: str | None = None
         self._lock = threading.Lock()
         self._notifications: queue.Queue[object] = queue.Queue()
         self._closed = threading.Event()
@@ -81,15 +82,30 @@ class Scheduler:
                 raise ValueError("No active agents registered on the board")
 
             agent_ids = [agent.agent_id for agent in agents]
-            if self._last_agent_id in agent_ids:
+            if self._preferred_agent_id is not None:
+                if self._preferred_agent_id not in agent_ids:
+                    raise ValueError("Preferred next agent is not active on the board")
+                agent = next(item for item in agents if item.agent_id == self._preferred_agent_id)
+                self._preferred_agent_id = None
+            elif self._last_agent_id in agent_ids:
                 index = (agent_ids.index(self._last_agent_id) + 1) % len(agents)
+                agent = agents[index]
             else:
-                index = 0
-
-            agent = agents[index]
+                agent = agents[0]
             self._last_agent_id = agent.agent_id
             self._expected_agent_id = agent.agent_id
             return agent
+
+    def prioritize_next_turn(self, agent_id: str) -> None:
+        """Schedule one bounded correction turn for a registered active agent."""
+        with self._lock:
+            if self.status is not IntelligibilityLevel.UNRESOLVED:
+                raise RuntimeError("A terminal board must be reopened before scheduling a review turn")
+            if self._expected_agent_id is not None:
+                raise RuntimeError("Cannot prioritize an agent while a turn is already reserved")
+            if agent_id not in self.board.get_agents(active_only=True):
+                raise ValueError("Preferred next agent is not active on the board")
+            self._preferred_agent_id = agent_id
 
     def wait_for_next_agent(self, timeout: float | None = None) -> AgentRecord:
         """Wait for board activity, then return the next scheduled active agent.

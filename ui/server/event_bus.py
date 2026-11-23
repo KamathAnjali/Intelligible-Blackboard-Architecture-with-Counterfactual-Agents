@@ -36,6 +36,9 @@ class BoardEventBus:
         self._subscribers: list[asyncio.Queue[dict]] = []
         self._history_limit = history_limit
         self._history: list[dict] = []
+        self._entry_ids: list[str] = []
+        self._entry_id_set: set[str] = set()
+        self._last_entry_id: str | None = None
 
     def subscribe(self, maxsize: int = 256) -> asyncio.Queue[dict]:
         q: asyncio.Queue[dict] = asyncio.Queue(maxsize=maxsize)
@@ -56,6 +59,19 @@ class BoardEventBus:
 
     async def publish(self, event: dict) -> None:
         """Retain and fan out an event (non-blocking; drops for full client queues)."""
+        event = dict(event)
+        if event.get("type") == "board_entry" and isinstance(event.get("entry"), dict):
+            entry_id = event["entry"].get("entry_id")
+            if isinstance(entry_id, str) and entry_id not in self._entry_id_set:
+                self._entry_id_set.add(entry_id)
+                self._entry_ids.append(entry_id)
+                self._last_entry_id = entry_id
+        if event.get("type") in {
+            "connection_ack", "session_started", "session_summary", "session_error",
+            "stream_complete", "heartbeat", "board_entry",
+        }:
+            event.setdefault("entry_count", len(self._entry_ids))
+            event.setdefault("last_entry_id", self._last_entry_id)
         self._history.append(event)
         if len(self._history) > self._history_limit:
             del self._history[:-self._history_limit]
@@ -68,6 +84,13 @@ class BoardEventBus:
     def reset_history(self) -> None:
         """Start a new replay/session without carrying earlier events forward."""
         self._history.clear()
+        self._entry_ids.clear()
+        self._entry_id_set.clear()
+        self._last_entry_id = None
+
+    def snapshot(self) -> dict:
+        """Return parity fields for a connection handshake or heartbeat."""
+        return {"entry_count": len(self._entry_ids), "last_entry_id": self._last_entry_id}
 
     async def stream(self, q: asyncio.Queue[dict]) -> AsyncGenerator[dict, None]:
         """Async generator that yields events from a subscriber queue indefinitely."""

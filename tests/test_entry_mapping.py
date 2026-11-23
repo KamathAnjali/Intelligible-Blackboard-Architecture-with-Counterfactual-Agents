@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from agents.llm_client import MODEL, OllamaClient
-from agents.pxp import PXPGenerationError
+from agents.pxp import PXPGenerationError, PXPResponse
 from blackboard.core import Blackboard
 from blackboard.models import AgentRecord, BlackboardState, BoardEntry, PXPTag
 from blackboard.scheduler import Scheduler
@@ -50,7 +50,7 @@ def test_initial_entry_uses_application_metadata_without_mutating_state(client, 
     assert result["attempts"][0]["raw"]["response"] == model_response()["response"]
 
 
-@pytest.mark.parametrize("tag", [tag.value for tag in PXPTag])
+@pytest.mark.parametrize("tag", [tag.value for tag in PXPTag if tag != PXPTag.FACT])
 def test_reply_tag_selected_by_model_and_target_by_caller(client, state, tag):
     previous = BoardEntry(agent_id="a", tag="REVISE", prediction="yes", explanation="Rule applies")
     later = BoardEntry(agent_id="a", tag="REVISE", prediction="no", explanation="Alternative")
@@ -63,6 +63,10 @@ def test_reply_tag_selected_by_model_and_target_by_caller(client, state, tag):
     assert model_input["task"] == "Original task"
     assert model_input["target_entry_id"] == previous.entry_id
     assert [entry["entry_id"] for entry in model_input["history"]] == [previous.entry_id, later.entry_id]
+
+
+def test_application_fact_tag_is_excluded_from_model_schema():
+    assert "FACT" not in PXPResponse.model_json_schema()["properties"]["tag"]["enum"]
 
 
 def test_reply_defaults_to_latest_target_and_simulation_flag_is_owned_by_caller(client, state):

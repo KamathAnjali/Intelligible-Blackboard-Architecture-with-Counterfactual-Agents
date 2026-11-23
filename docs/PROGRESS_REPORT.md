@@ -1,66 +1,41 @@
 # Progress report
 
-Updated 5 October 2026 for `integration-main` (with Student 1 Week 3 Storage & Recovery additions).
+`3-Dhruva` integrates the shared blackboard, scheduler, agents, UI and KramaBench work through `4-Tanisha`. Day 10 and 11 agent work is recorded in commit `4326124`.
 
-## Integrated sources
+## Implemented
 
-All four source branch tips are included through Git merge history. Existing source files, documentation, and data are retained.
+- The board validates PXP entries, serializes snapshots, emits events and provides isolated history forks. The scheduler enforces round-robin turn ownership and detects terminal states.
+- Four Ollama personas produce validated predictions and explanations, with bounded retries and an explanation self-check. Two- and three-agent conversations save transcripts and usage.
+- Explanation review uses the task's facts for ordinary questions and requires supplied data-tool evidence for benchmark tasks. This fixes a regression introduced during integration; the earlier prompt-library freeze is a historical checkpoint.
+- A four-case local sanity workload and two controlled deadlock fixtures are available through `make sessions` and `make deadlocks`. `RetrospectiveSandbox` generates an alternative in an isolated history fork and replays scheduled agent turns. Its delta compares the largest matching RATIFY group as a fraction of active agents; this is agreement progress, not answer correctness.
+- The React/D3 UI and FastAPI backend support board visualization and a scoped KramaBench task endpoint. The benchmark adapter and paired orchestrator are present in the integrated Student 4 work.
+- The conversation runner supports both the earlier single-proposal experiment and an opt-in retrospective replay with live guidance after a deadlock. Benchmark and UI integration remain incomplete.
 
-| Branch | Included tip | Contribution |
-| --- | --- | --- |
-| `1-Anjali` | `cdf18c3` | Data contracts, synchronized board/storage, events, refined consensus, sandbox isolation, deadlock-breaking recovery verification, and trial-run metrics logging. |
-| `2-Lopez` | `9554aae` | Event-driven scheduling, turn enforcement, and scheduler lifecycle. |
-| `3-Dhruva` | `6d7b9d8` | Day 9 agent workflows and the conversation archive. |
-| `4-Tanisha` | `bc777ba` | UI/backend, ingestion, metrics, and benchmark infrastructure. |
+## Evidence and remaining work
 
-## Implemented behavior
+The 18 October six-case local agent check recorded 6/6 correct unanimous outcomes. It was a small synthetic sanity check, not a benchmark. Two controlled deadlock fixtures made no model calls. Compact records are in `results/transcripts/`.
 
-| Area | Current implementation |
-| --- | --- |
-| Board and storage | Pydantic contracts, synchronized mutations, JSON snapshots, replay export, event subscriptions, and structured trial-run metrics logging (`TrialMetrics`). Consensus requires matching RATIFY predictions from every active agent; a four-entry negative streak flags deadlock; constructive revisions allow deadlock recovery. |
-| Scheduler | Uses the board registry, reserves round-robin turns, rejects submissions from the wrong agent, and stops on terminal board status. Board events can wake the orchestration loop through `wait_for_next_agent()`; the current conversation runner still uses `next_agent()`. |
-| Local inference | Shared `qwen3:4b-instruct-2507-q4_K_M` model, context 4096, temperature 0, seed 42, and a 768-token generation cap. |
-| Structured agents | Four personas share strict PEX/PXP schemas. A separate model call checks explanation support; malformed or rejected outputs trigger bounded retries before entry creation. |
-| Conversations | Two-agent sessions and the three-agent seeded disagreement case submit entries through the scheduler. Reports contain prompts, raw responses, reviews, failures, usage, outcomes, and board checkpoints. |
-| UI/backend | FastAPI health and conversation-start endpoints, WebSocket board streaming, React/D3 graph layouts, node inspection, history scrubbing, and estimated entry-text token totals. LIVE_TAP attaches to the backend's in-process conversation board; replay and mock sources remain available. |
-| Ingestion and metrics | JSON/JSONL parsing supports the upstream KramaBench record shape. Synthetic trial modes produce CSVs; plotting requires official evaluator provenance. |
-| Sandbox foundations | History slices, isolated board forks, and deadlock-breaking recovery verification (`test_rollback.py`) are implemented. Sandbox branches remain strictly isolated while recovering deadlocked live sessions. |
+On 14 November, 79 existing agent and adapter checks passed, and a live three-agent deduction reached consensus after the explanation-review fix. A five-task KramaBench baseline used the local model and the compatibility evaluator. All five ended without an accepted score: three failed on repeated invalid data requests, one exhausted the data-tool budget, and one reached the six-turn limit without a verified answer.
 
-## Published conversation records
+The data-access prompt was clarified to request compact actions, short search strings, exact categorical column names, and valid aggregate fields. In two retests, the previously blocked tasks reached the agent conversation but both hit the six-turn limit without a verified answer. The fix passed 100 existing focused checks; one dependency-related check was skipped. These runs do not establish benchmark accuracy or completion of the full-pipeline checkpoint. Local run records are under `~/blackboard-day12-20261114/` in WSL.
 
-Five transcripts and five usable snapshots are tracked under `results/transcripts/` and `results/snapshots/`. Three runs completed with a recorded scheduler-consensus outcome; two contain partial checkpoints and retain their original `running` outcome. Consensus labels do not independently establish answer correctness.
+The Day 15 sandbox preparation uses the shared board fork API and deep-copies the source state. Focused existing checks and a direct isolation check cover empty and nonempty prefixes and invalid cutoffs. The agent registry reflects the supplied snapshot, since historical registry changes are not available.
 
-Snapshots for `conversation-20260929T144759406083Z` and `conversation-20260929T144943919595Z` were recovered from the board state embedded in their transcripts. The original zero-byte snapshot files are retained in `results/snapshots/originals/`. All other published records are unchanged copies of their local originals.
+The opt-in retrospective recovery path retains the live history, reopens a deadlocked board after a positive-delta consensus replay, and supplies the alternative as unverified guidance to a new scheduled turn. A controlled end-to-end recovery reached consensus; a live Ollama replay on a simple deduction reached consensus with six model calls. These checks do not establish a benchmark improvement. The KramaBench runner now accepts retrospective recovery and the paired orchestrator enables it; UI integration and ablation evidence remain outstanding.
 
-The Day 9 records show an initial auditor correction labeled REFUTE, followed by prompt tuning and a repeated five-turn sequence ending at `C: insufficient information`. The two completed disagreement runs retain their original generation and explanation-review evidence.
+On 15 November, a paired A/B run injected the same five-entry deadlock in both conditions. Without recovery the board stayed deadlocked. With recovery, the final run reached the expected `insufficient information` consensus in eight live entries, using six simulation calls and seven live model calls. Two earlier enabled runs produced the correct prediction but were flagged for an invalid RATIFY; a bounded retry now rejects changed predictions tagged RATIFY on the recovery turn. The [compact record](../results/transcripts/deadlock-ab-20261115.json) retains all three attempts. This single synthetic case does not establish a general recovery rate or benchmark accuracy.
 
-New conversation checkpoints, Ollama reports, benchmark outputs, and raw dataset clones remain ignored; publication is a separate archive operation.
+On 20 November, the no-key allowlist grew from 13 to 76 tasks after offline input parsing, hash and metric checks. The data adapter now reads text-based TLE and DAT inputs, resolves the pinned OMNI2 documentation extension, and recognizes tab-separated exports with a CSV extension. Four deterministic tasks remain blocked at preflight:
 
-## Integration verification and remaining work
+- `astronomy-hard-12`: the pinned SP3 selector matches no files, and the task also requires an NPZ grid reader.
+- `biomedical-hard-1`: its large XLSX workbook exceeded the 120-second data-operation limit.
+- `wildfire-easy-2`: the adapter lacks GeoPackage support.
+- `wildfire-hard-19`: the specified WeatherEvents CSV is absent from the pinned revision.
 
-Integration checks cover source ancestry, archive integrity, absence of unresolved conflict markers, and offline test execution. All core storage and isolation tests pass.
+The 18 November five-task baseline with a 16,384-token context produced one correct and one incorrect compatibility-evaluator score. Two tasks exhausted the data-tool budget and one encountered a review request timeout. The v2 scope uses the same task selection and a 16,384-token context. The 20 November dry run stopped during data access in all 12 attempts, before counterfactual recovery could run. `bench.monitor_runs` summarizes saved attempts.
 
-The UI's token totals are estimates over prediction/explanation text, while transcript usage includes model generation and review calls. The checked-in replay fixture is synthetic. No official KramaBench performance results have been produced: the current trial runner uses synthetic data and keeps empirical modes disabled.
+The data workflow skips repeated successful searches and aggregates. For repeated rate requests, it can collect the declared category counts within the existing budget. In the 21 November four-configuration rerun, environment-easy-1 scored correctly in all four settings. The other eight attempts ended without scores, and no counterfactual simulations ran. The full batch remains pending.
 
-Remaining work includes runtime integration verification, counterfactual replay/scoring/adoption, and a real benchmark agent/evaluator adapter. The [README](../README.md) contains setup and run commands; the [milestones](PROJECT_MILESTONES.md) retain the planned work.
+The Colab launcher compares Qwen3 8B and 14B on the same five tuning tasks at 0% recovery with a 16,384-token context. Offline checks cover both model configurations, pinned task preflight and evaluator integration. The live launcher checks GPU placement before running tasks.
 
-## Methods: Data Model, Persistence, and Branching State
-
-### 1. Chronological Append-Only State Model
-The blackboard state is modeled as an immutable chronological sequence of typed messages (`BoardEntry`) rather than an indexed overwrite dictionary. Each message contains a unique identifier (`entry_id`), participating agent identity (`agent_id`), grammatical move (`tag` in `{RATIFY, REVISE, REFUTE, REJECT}`), hypothesis statement (`prediction`), reasoning rationale (`explanation`), and causal pointer (`target_entry_id`). This append-only design preserves the full historical derivation graph, enabling deterministic history scrubbing, graph edge linking in visual tooling, and unambiguous deadlock detection.
-
-### 2. Thread-Safe Concurrency and In-Memory Mutations
-Active reasoning turns operate over an in-memory dictionary store (`InMemoryJSONStore`) guarded by a reentrant synchronization lock (`threading.RLock`). All state modifications (agent registration, message submission, intelligibility evaluation, and snapshot creation) are serialized under lock acquisition. Observers, such as WebSocket event taps, subscribe via `Blackboard.subscribe()` and receive asynchronous `BoardEvent` deltas outside critical sections to prevent UI event loops from deadlocking or interrupting core blackboard operations.
-
-### 3. Snapshot Persistence and Replay Trace Generation
-For crash recovery, auditing, and visual scrubbers, in-memory states can be serialized to disk as structured JSON snapshots via `InMemoryJSONStore.snapshot_to_disk()`. Replay traces are generated through `export_replay_trace()`, constructing an incremental step-by-step reconstruction of the deliberative process up to any designated turn without mutating the underlying live state.
-
-### 4. Branching Board State and Counterfactual Isolation
-When an argumentative deadlock is detected (a consecutive window of 4 negative `REFUTE`/`REJECT` entries), counterfactual agents initiate alternative hypothesis testing without polluting the live audit trail:
-- **History Slicing**: `Blackboard.get_history_slice(cutoff_entry_id)` retrieves an isolated sub-slice up to the cutoff, excluding all entries posted after the selected pivot.
-- **Isolated Sandbox Forking**: `Blackboard.fork_simulation_blackboard()` spawns a detached `Blackboard` instance backed by its own in-memory store populated strictly with state up to the cutoff.
-- **Simulation Execution**: Downstream turns execute inside the sandbox with `is_counterfactual_sim=True`.
-- **Live State Protection**: The live blackboard remains completely unaffected during sandbox exploration. If an alternative hypothesis demonstrates consensus convergence, the agent promotes a new live entry (`PXPTag.REVISE`) referencing the revised rationale to resolve the live deadlock.
-
-### 5. Structured Trial-Run Metrics Logging
-Session-level performance and convergence metrics are captured via `TrialMetrics`, tracking task identity, convergence status (`is_converged`), terminal intelligibility level, total turn count, deadlock frequency, counterfactual attempt count, and elapsed time. Results are exported via `Blackboard.log_trial_run()` for downstream benchmark batching and comparative evaluation.
+The MATH-500 pilot bypasses model-driven data access with 12 pinned, self-contained problems across levels 3 to 5. It grades integer answers after inference and reports a solo baseline plus paired six-agent runs at 0%, 33%, 50%, and 66% recovery eligibility. Live Colab results are pending.

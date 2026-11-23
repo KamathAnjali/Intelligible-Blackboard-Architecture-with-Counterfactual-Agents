@@ -1,0 +1,4133 @@
+{
+  "benchmark": {
+    "repository_url": "https://github.com/mitdbg/KramaBench.git",
+    "revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+    "version": "b2e0d77540263f8b6119f977fe79a8c4386b5a02"
+  },
+  "content_sha256": "b972537ca85005ac8700d85837ed9f14ba8be920df23a616b651ffaa5aeae268",
+  "counterfactual_fractions": [
+    0.0,
+    0.33,
+    0.66,
+    1.0
+  ],
+  "evaluators": {
+    "compatibility-no-key": {
+      "adaptation": "Defer GPTInterface construction when pipeline evaluation is disabled; no workload/data changes.",
+      "adapted": true,
+      "mode": "compatibility-no-key",
+      "patch_sha256": "39dc1ea82ad6d7a75ca3a18de7b3efcbeb58250b307b09c45541286d20394897",
+      "pipeline_evaluation_enabled": false,
+      "run_subtasks": false,
+      "version": "b2e0d77540263f8b6119f977fe79a8c4386b5a02"
+    },
+    "official": {
+      "adapted": false,
+      "credential_prerequisite": "OPENAI_API_KEY must be configured; value is never stored",
+      "mode": "official",
+      "pipeline_evaluation_enabled": false,
+      "run_subtasks": false,
+      "version": "b2e0d77540263f8b6119f977fe79a8c4386b5a02"
+    }
+  },
+  "excluded_tasks": [
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "archeology-hard-1",
+      "workload": "archeology"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "archeology-hard-2",
+      "workload": "archeology"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "archeology-easy-3",
+      "workload": "archeology"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "archeology-easy-4",
+      "workload": "archeology"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "archeology-hard-5",
+      "workload": "archeology"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "archeology-easy-6",
+      "workload": "archeology"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "archeology-easy-8",
+      "workload": "archeology"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "archeology-hard-9",
+      "workload": "archeology"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "archeology-easy-10",
+      "workload": "archeology"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "archeology-easy-11",
+      "workload": "archeology"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "archeology-hard-12",
+      "workload": "archeology"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-easy-2",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-easy-3",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-easy-4",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "unsupported_format:.tle;previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-easy-5",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-easy-6",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "unsupported_format:.cdf;unsupported_format:.lst;answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-hard-8",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "input_resolution_failed:DatasetInputError;previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-hard-9",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "unsupported_format:.sp3;previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-hard-10",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "input_resolution_failed:DatasetInputError;previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-hard-11",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "input_resolution_failed:DatasetInputError;previously_exposed; excluded from held-out selection",
+      "task_id": "astronomy-hard-12",
+      "workload": "astronomy"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "biomedical-hard-1",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "biomedical-easy-2",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "biomedical-hard-3",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "biomedical-hard-4",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "biomedical-hard-5",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl;previously_exposed; excluded from held-out selection",
+      "task_id": "biomedical-easy-6",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "biomedical-hard-7",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl",
+      "task_id": "biomedical-hard-8",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "parser_dependency_missing:openpyxl;previously_exposed; excluded from held-out selection",
+      "task_id": "biomedical-easy-9",
+      "workload": "biomedical"
+    },
+    {
+      "reason": "non_main_workload_subset;input_resolution_failed:FileNotFoundError;previously_exposed; excluded from held-out selection",
+      "task_id": "environment-easy-1",
+      "workload": "environment-tiny"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "environment-easy-2",
+      "workload": "environment"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "environment-easy-4",
+      "workload": "environment"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "environment-easy-5",
+      "workload": "environment"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "environment-easy-6",
+      "workload": "environment"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "environment-hard-9",
+      "workload": "environment"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "environment-hard-10",
+      "workload": "environment"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "environment-hard-11",
+      "workload": "environment"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule",
+      "task_id": "environment-hard-12",
+      "workload": "environment"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "environment-hard-13",
+      "workload": "environment"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "environment-hard-16",
+      "workload": "environment"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule",
+      "task_id": "environment-hard-18",
+      "workload": "environment"
+    },
+    {
+      "reason": "non_main_workload_subset;input_resolution_failed:FileNotFoundError;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection",
+      "task_id": "legal-hard-1",
+      "workload": "legal-tiny"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-hard-1",
+      "workload": "legal"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule",
+      "task_id": "legal-hard-2",
+      "workload": "legal"
+    },
+    {
+      "reason": "no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-3",
+      "workload": "legal"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "legal-easy-5",
+      "workload": "legal"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "legal-hard-8",
+      "workload": "legal"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "legal-easy-9",
+      "workload": "legal"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-10",
+      "workload": "legal"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-11",
+      "workload": "legal"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-13",
+      "workload": "legal"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "legal-hard-17",
+      "workload": "legal"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-19",
+      "workload": "legal"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-20",
+      "workload": "legal"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-21",
+      "workload": "legal"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule",
+      "task_id": "legal-hard-23",
+      "workload": "legal"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-25",
+      "workload": "legal"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-26",
+      "workload": "legal"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "legal-easy-27",
+      "workload": "legal"
+    },
+    {
+      "reason": "non_main_workload_subset;input_resolution_failed:FileNotFoundError;previously_exposed; excluded from held-out selection",
+      "task_id": "environment-easy-1",
+      "workload": "quick-start-questions"
+    },
+    {
+      "reason": "non_main_workload_subset;input_resolution_failed:FileNotFoundError",
+      "task_id": "environment-hard-2",
+      "workload": "quick-start-questions"
+    },
+    {
+      "reason": "non_main_workload_subset;input_resolution_failed:FileNotFoundError",
+      "task_id": "environment-hard-3",
+      "workload": "quick-start-questions"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "wildfire-easy-1",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "unsupported_format:.gpkg;previously_exposed; excluded from held-out selection",
+      "task_id": "wildfire-easy-2",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "unsupported_format:.gpkg;previously_exposed; excluded from held-out selection",
+      "task_id": "wildfire-easy-3",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "no_scope_defined_binary_pass_rule",
+      "task_id": "wildfire-hard-6",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule",
+      "task_id": "wildfire-hard-7",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "wildfire-easy-8",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "no_scope_defined_binary_pass_rule",
+      "task_id": "wildfire-easy-9",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule",
+      "task_id": "wildfire-hard-12",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection",
+      "task_id": "wildfire-easy-13",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "no_scope_defined_binary_pass_rule",
+      "task_id": "wildfire-hard-14",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "previously_exposed; excluded from held-out selection",
+      "task_id": "wildfire-easy-15",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "no_scope_defined_binary_pass_rule",
+      "task_id": "wildfire-hard-17",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule",
+      "task_id": "wildfire-hard-18",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "input_resolution_failed:DatasetInputError;no_scope_defined_binary_pass_rule",
+      "task_id": "wildfire-hard-19",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "not selected by seeded sampling rule",
+      "task_id": "wildfire-hard-20",
+      "workload": "wildfire"
+    },
+    {
+      "reason": "input_resolution_failed:DatasetInputError",
+      "task_id": "wildfire-hard-21",
+      "workload": "wildfire"
+    }
+  ],
+  "exclusion_counts": {
+    "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule": 7,
+    "answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection": 4,
+    "input_resolution_failed:DatasetInputError": 1,
+    "input_resolution_failed:DatasetInputError;no_scope_defined_binary_pass_rule": 1,
+    "input_resolution_failed:DatasetInputError;previously_exposed; excluded from held-out selection": 3,
+    "no_scope_defined_binary_pass_rule": 4,
+    "no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection": 1,
+    "non_main_workload_subset;input_resolution_failed:FileNotFoundError": 2,
+    "non_main_workload_subset;input_resolution_failed:FileNotFoundError;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection": 1,
+    "non_main_workload_subset;input_resolution_failed:FileNotFoundError;previously_exposed; excluded from held-out selection": 2,
+    "not selected by seeded sampling rule": 15,
+    "parser_dependency_missing:openpyxl": 11,
+    "parser_dependency_missing:openpyxl;previously_exposed; excluded from held-out selection": 2,
+    "previously_exposed; excluded from held-out selection": 20,
+    "unsupported_format:.cdf;unsupported_format:.lst;answer_metric_not_independent_deterministic;no_scope_defined_binary_pass_rule;previously_exposed; excluded from held-out selection": 1,
+    "unsupported_format:.gpkg;previously_exposed; excluded from held-out selection": 2,
+    "unsupported_format:.sp3;previously_exposed; excluded from held-out selection": 1,
+    "unsupported_format:.tle;previously_exposed; excluded from held-out selection": 1
+  },
+  "model": {
+    "digest_note": "Unavailable in archived manifests; capture /api/show digest on every later run.",
+    "name": "qwen3:4b-instruct-2507-q4_K_M",
+    "provider": "ollama",
+    "tag_digest": null,
+    "version": "qwen3:4b-instruct-2507-q4_K_M"
+  },
+  "model_agent_count": 2,
+  "model_options": {
+    "num_ctx": 4096,
+    "num_predict": 768,
+    "seed": 42,
+    "temperature": 0
+  },
+  "personas": [
+    "aggressive_proposer",
+    "cautious_verifier"
+  ],
+  "run_prerequisites": [
+    "Exact pinned checkout and input hashes pass preflight.",
+    "OPENAI_API_KEY is configured for the official evaluator; no credential is embedded in this scope.",
+    "Ollama reports the exact model tag and runtime at launch."
+  ],
+  "scheduler_policy": "Round-robin proposer/verifier; consensus requires matching RATIFY predictions from all active agents.",
+  "schema_version": 1,
+  "scope_id": "kramabench_pilot_v1",
+  "selection": {
+    "dry_run_task_count": 5,
+    "held_out_count": 25,
+    "held_out_exposure_rule": "Exclude every task ID found in existing archive manifests or prior docs/bench/results reports before sampling.",
+    "rule": "Select by ascending SHA-256(seed NUL workload NUL task_id); no answer, query text, historical score, or agent outcome is read for ordering. Tuning candidates are compatibility-allowlisted deterministic tasks; held-out candidates are unexposed main-workload deterministic tasks using the unmodified evaluator.",
+    "seed": 20261110,
+    "tuning_count": 5,
+    "tuning_use": [
+      "prompt/replay-rule tuning",
+      "pipeline dry-run"
+    ]
+  },
+  "status": "frozen",
+  "stopping_rules": {
+    "counterfactual_simulation_generation_retries": 0,
+    "counterfactual_streak_threshold": 2,
+    "data_operation_timeout_seconds": 120,
+    "data_tool_invocation_cap": 12,
+    "max_counterfactual_simulations_per_task": 1,
+    "max_output_tokens_per_generation": 768,
+    "max_retries_per_generation": 1,
+    "max_turns": 6,
+    "model_context_tokens": 4096,
+    "task_wall_clock_cap_seconds": 900,
+    "total_token_budget": null,
+    "total_token_budget_note": "No cumulative task token cap is configured; runs must report actual provider usage."
+  },
+  "tasks": [
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "archeology",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "roman_cities.csv",
+          "sha256": "0cea47b3d090d8e5dcc1a52dcd9064e3398ed18994233e677f74dab4ef2659b2",
+          "size_bytes": 225298
+        },
+        {
+          "format": "csv",
+          "path": "worldcities.csv",
+          "sha256": "ee0bf595e7a3bc5205711e96e8706e20892053b5e5a7e0e012d590e07db39229",
+          "size_bytes": 4689990
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "archeology-hard-7",
+      "workload": "archeology"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "astronomy",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "STORM-AI/warmup/v2/GOES/goes-wu334-20160824_to_20161023.csv",
+          "sha256": "50fea4b4bed7b66734039061e957cc45ccd9d186e3d69c515d7bd633a230c788",
+          "size_bytes": 8844658
+        },
+        {
+          "format": "csv",
+          "path": "STORM-AI/warmup/v2/GOES/goes-wu335-20160827_to_20161026.csv",
+          "sha256": "ff4ce65ca37f193d1b6999ca2ce2217d68ae0b2715bdac42292cd40a9f1a0884",
+          "size_bytes": 8853984
+        },
+        {
+          "format": "csv",
+          "path": "STORM-AI/warmup/v2/OMNI2/omni2-wu334-20160824_to_20161023.csv",
+          "sha256": "b6c7c762d1022187a1e5f01f7adb7bf752b17a9520bbdf42844579b97f95b941",
+          "size_bytes": 418009
+        },
+        {
+          "format": "csv",
+          "path": "STORM-AI/warmup/v2/OMNI2/omni2-wu335-20160827_to_20161026.csv",
+          "sha256": "e30cf633b9e8d54d6879668482c7e904117f570524e7428c3d2c920011f40046",
+          "size_bytes": 418023
+        },
+        {
+          "format": "csv",
+          "path": "STORM-AI/warmup/v2/Sat_Density/swarma-wu334-20161023_to_20161026.csv",
+          "sha256": "a087a040c77cc03aa6f05c8f4400ef43d87eaa30b8d00433b3746386610cd716",
+          "size_bytes": 18681
+        },
+        {
+          "format": "csv",
+          "path": "STORM-AI/warmup/v2/Sat_Density/swarma-wu335-20161026_to_20161029.csv",
+          "sha256": "df6f4dc8db3f63e20fb1668ace1fac27184037315896ea2d1dd3d5635d971100",
+          "size_bytes": 18635
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "astronomy-hard-7",
+      "workload": "astronomy"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "environment",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_amherst.csv",
+          "sha256": "b2e3af8ee94dd96d2b1bf0d51102d4d6cc89176194dc8d4f3f63c932cfce9303",
+          "size_bytes": 2208
+        },
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_ashburnham.csv",
+          "sha256": "7fdd0873fd40d7456a8f697a721dea96b180413b90646bfc43543e892a8d05da",
+          "size_bytes": 2216
+        },
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_boston.csv",
+          "sha256": "98f4655efe4e724db7a577c07dd9e3f0f237372ce124e148c3fd5e6bf0c4038d",
+          "size_bytes": 2216
+        },
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_chatham.csv",
+          "sha256": "6f86b1f44983621b54700f360f0528e6af3ee27adefef8a3de3c3adb4282bc4b",
+          "size_bytes": 2015
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2007.csv",
+          "sha256": "f60344387419c01e263ad00177ba40a45cd295e81e2e11a30fa5419da905f89e",
+          "size_bytes": 1420704
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2008.csv",
+          "sha256": "0efda55742280b272e63cd52de077970b11caa54d0b5d8fe912728a81ababe26",
+          "size_bytes": 1424886
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2009.csv",
+          "sha256": "049ebd3f1ce128d344f92c47f3656ec39cb5a39ee89325ad86667235804c2d26",
+          "size_bytes": 1449404
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "environment-hard-14",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "environment",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "water-body-testing-2020.csv",
+          "sha256": "c14b14b4a0518e9d20f20fadbab0ad362d56b4ee298063a33578b4c6974e70de",
+          "size_bytes": 1415343
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2021.csv",
+          "sha256": "6f11d505645d40ce9ad31e2e15df939904cd0ded51976aef2ec13cb3e3c998d0",
+          "size_bytes": 1534191
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2022.csv",
+          "sha256": "9b861e1b0dbc5322f8aa255e153cc2f87473fb4aaa98f25001a54443ea701779",
+          "size_bytes": 1540369
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2023.csv",
+          "sha256": "1ab4b1605228913cb5566e8047b93895e7c241d28a94a1e51081eee01f7d96ab",
+          "size_bytes": 1554564
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "environment-hard-15",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "environment",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_chatham.csv",
+          "sha256": "6f86b1f44983621b54700f360f0528e6af3ee27adefef8a3de3c3adb4282bc4b",
+          "size_bytes": 2015
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2016.csv",
+          "sha256": "f1aad1d3d88e5ed0c3dba1c49bf2ef506bed9441a9697b633fa69dde2376744f",
+          "size_bytes": 1487349
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "environment-hard-17",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "environment",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_boston.csv",
+          "sha256": "98f4655efe4e724db7a577c07dd9e3f0f237372ce124e148c3fd5e6bf0c4038d",
+          "size_bytes": 2216
+        },
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_chatham.csv",
+          "sha256": "6f86b1f44983621b54700f360f0528e6af3ee27adefef8a3de3c3adb4282bc4b",
+          "size_bytes": 2015
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2002.csv",
+          "sha256": "56f29ae5a7450034cc5bd99b3ac56774bd30d7b32cd1bcb81222cd01edab7224",
+          "size_bytes": 66042
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2003.csv",
+          "sha256": "6a47b25d8db4bc6eab6d85c29a01d3bd73effb66881f5190dd2eb20ded949dd5",
+          "size_bytes": 1191059
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2004.csv",
+          "sha256": "3a04c5f40f827588983f066e8f645e183d3acf486707384c6c56d9afdde89a4a",
+          "size_bytes": 1353400
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2005.csv",
+          "sha256": "5934b63168ef389aa208baccfb14ab930c4c9344beddd67e76c1191ff42b55e3",
+          "size_bytes": 1379995
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2006.csv",
+          "sha256": "1719193d65101244f468edc51a21f20135ad4c32695f33bba967bceead9abe1b",
+          "size_bytes": 1437300
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2007.csv",
+          "sha256": "f60344387419c01e263ad00177ba40a45cd295e81e2e11a30fa5419da905f89e",
+          "size_bytes": 1420704
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2008.csv",
+          "sha256": "0efda55742280b272e63cd52de077970b11caa54d0b5d8fe912728a81ababe26",
+          "size_bytes": 1424886
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2009.csv",
+          "sha256": "049ebd3f1ce128d344f92c47f3656ec39cb5a39ee89325ad86667235804c2d26",
+          "size_bytes": 1449404
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2010.csv",
+          "sha256": "78b9f400e516523f40ac5ba91c604ead41c1551f59aad9a552a931e71764481b",
+          "size_bytes": 1415411
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2011.csv",
+          "sha256": "a9007df50b16fa85b647d20f763cdec9d94df58295d1cd6b5b9e0bb9b303c4f0",
+          "size_bytes": 1481056
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2012.csv",
+          "sha256": "e98422d708150a37b0265b808d256a052ffa54d0593c1af3ab99d7d10e9d3ff0",
+          "size_bytes": 1467124
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2013.csv",
+          "sha256": "911d1ef8bf290494ace9ff1785b5e9789a50de21606aaef8d4b45a7ab695becb",
+          "size_bytes": 1469864
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2014.csv",
+          "sha256": "cb748331d1a03d711a18aa07fa8d1699758547624aead8516dd2866006005677",
+          "size_bytes": 1414355
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2015.csv",
+          "sha256": "b488a1a283236bd25327b1d1726eeafed2365a22764c8783ad4bbd5c1c56ea72",
+          "size_bytes": 1516151
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2016.csv",
+          "sha256": "f1aad1d3d88e5ed0c3dba1c49bf2ef506bed9441a9697b633fa69dde2376744f",
+          "size_bytes": 1487349
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2017.csv",
+          "sha256": "ef9d6d5b19d4922989d112158ea022722b9251b98e73ba559a0203e38e7d43ba",
+          "size_bytes": 1479310
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2018.csv",
+          "sha256": "804e1b46a8492bf456db7a4d815799bb5680c3bb18896b29c78d0bd19c482aa8",
+          "size_bytes": 1487617
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2019.csv",
+          "sha256": "52107e49c0c7488409df970e51035e3e7f345439cf98c66077380d1a34bbfd28",
+          "size_bytes": 1484941
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2020.csv",
+          "sha256": "c14b14b4a0518e9d20f20fadbab0ad362d56b4ee298063a33578b4c6974e70de",
+          "size_bytes": 1415343
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2021.csv",
+          "sha256": "6f11d505645d40ce9ad31e2e15df939904cd0ded51976aef2ec13cb3e3c998d0",
+          "size_bytes": 1534191
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2022.csv",
+          "sha256": "9b861e1b0dbc5322f8aa255e153cc2f87473fb4aaa98f25001a54443ea701779",
+          "size_bytes": 1540369
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2023.csv",
+          "sha256": "1ab4b1605228913cb5566e8047b93895e7c241d28a94a1e51081eee01f7d96ab",
+          "size_bytes": 1554564
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "environment-hard-19",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "f1",
+          "precision",
+          "recall"
+        ]
+      },
+      "answer_type": "list_exact",
+      "dataset_domain": "environment",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_amherst.csv",
+          "sha256": "b2e3af8ee94dd96d2b1bf0d51102d4d6cc89176194dc8d4f3f63c932cfce9303",
+          "size_bytes": 2208
+        },
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_ashburnham.csv",
+          "sha256": "7fdd0873fd40d7456a8f697a721dea96b180413b90646bfc43543e892a8d05da",
+          "size_bytes": 2216
+        },
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_boston.csv",
+          "sha256": "98f4655efe4e724db7a577c07dd9e3f0f237372ce124e148c3fd5e6bf0c4038d",
+          "size_bytes": 2216
+        },
+        {
+          "format": "csv",
+          "path": "monthly_precipitations_chatham.csv",
+          "sha256": "6f86b1f44983621b54700f360f0528e6af3ee27adefef8a3de3c3adb4282bc4b",
+          "size_bytes": 2015
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2015.csv",
+          "sha256": "b488a1a283236bd25327b1d1726eeafed2365a22764c8783ad4bbd5c1c56ea72",
+          "size_bytes": 1516151
+        }
+      ],
+      "metric_names": [
+        "f1",
+        "precision",
+        "recall"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "environment-hard-20",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "environment",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "environmental-justice-populations.csv",
+          "sha256": "b7fe1ce872b48edc6f7c2fc3c87a772bc87edaa0d3cd23a6efc2fee5a5df8f73",
+          "size_bytes": 7880
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2023.csv",
+          "sha256": "1ab4b1605228913cb5566e8047b93895e7c241d28a94a1e51081eee01f7d96ab",
+          "size_bytes": 1554564
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "environment-hard-7",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "environment",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "txt",
+          "path": "boston-harbor-beaches.txt",
+          "sha256": "63061cd176129270d155391368abefedd90fc1db42ac059545a7e23b2e785f22",
+          "size_bytes": 145
+        },
+        {
+          "format": "csv",
+          "path": "carson_beach_datasheet.csv",
+          "sha256": "b2165f8da89341ccbe0f783667ddc553201a733520ec392befe6fc207add6281",
+          "size_bytes": 39951
+        },
+        {
+          "format": "csv",
+          "path": "city_point_beach_datasheet.csv",
+          "sha256": "121d7ce20bbe95e686f56b578f7e498ca6ad25cb4a89b5e795ca6e942f118860",
+          "size_bytes": 31956
+        },
+        {
+          "format": "csv",
+          "path": "constitution_beach_datasheet.csv",
+          "sha256": "d4c4ff889dfe0cde79f2b0d82288bdd3bd300c38ae965861144807fe7a0c867a",
+          "size_bytes": 74397
+        },
+        {
+          "format": "csv",
+          "path": "m_street_beach_datasheet.csv",
+          "sha256": "3e5b2f0ae2f0bb819c28687fbc1ec0d8e0ee7c9994a21fc28ed0b82824ef3d3d",
+          "size_bytes": 34753
+        },
+        {
+          "format": "csv",
+          "path": "malibu_beach_datasheet.csv",
+          "sha256": "81d2724c32110e275029402f34576fe918d926da4a8765346572054a0ac3a7ba",
+          "size_bytes": 36123
+        },
+        {
+          "format": "csv",
+          "path": "pleasure_bay_and_castle_island_beach_datasheet.csv",
+          "sha256": "73d6f495fd8bfa325af0c9e54691202c1b1cdfcf5d6d3a1d53825206f066bd6c",
+          "size_bytes": 31172
+        },
+        {
+          "format": "csv",
+          "path": "tenean_beach_datasheet.csv",
+          "sha256": "d7870bc077ea3c0d139664ea7ef54c980953a577505c499ea83bf65c3c16295f",
+          "size_bytes": 58726
+        },
+        {
+          "format": "csv",
+          "path": "wollaston_beach_datasheet.csv",
+          "sha256": "a1b136c96363469eb5336f6deb39327d1a4c6ba63feb6cc39dcd7856c3227f91",
+          "size_bytes": 83319
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "environment-hard-8",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "f1",
+          "precision",
+          "recall"
+        ]
+      },
+      "answer_type": "list_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alabama.csv",
+          "sha256": "e7fd46477c8980a8df059403cd4ef52799b2c3b1ebfd8b5c9ce4476f96c079b4",
+          "size_bytes": 1157
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alaska.csv",
+          "sha256": "89ecca3974d2369ac8b9535557c1af8778d66092b94af7b43c68d309d3a604ec",
+          "size_bytes": 440
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arizona.csv",
+          "sha256": "84220106b49d7ecf1804b573f9c40cb41203e4ae8caf7aa220042a765743a65a",
+          "size_bytes": 850
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arkansas.csv",
+          "sha256": "7f68ab78f2b3ffebfcdfab1879d2bb77c3eb96eace7f556a8e1373445c1059b3",
+          "size_bytes": 815
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/California.csv",
+          "sha256": "a711fc0be2f796656f5d6311d7bef85e0b2abd62fd0991631e08092110b57300",
+          "size_bytes": 2032
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Colorado.csv",
+          "sha256": "6d9decf63ac82f0388685a34a735a0e3823b0cd3362925fba036bc575d30b195",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Connecticut.csv",
+          "sha256": "27c4f97edfc9028643a7a4ff79e3765522f947c72c16ba016eac33532aadf9f1",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Delaware.csv",
+          "sha256": "2e3f14d595ae3b583dd5ed261ddf29a11abe8c63f205aca362893e16b8dda11d",
+          "size_bytes": 571
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/DistrictofColumbia.csv",
+          "sha256": "db18db550616a35f17289c5f04d49b706bd8c3929c735552ca0bfabc9c8571ec",
+          "size_bytes": 476
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Florida.csv",
+          "sha256": "0c21f69128a2f2583d17b567a228334e80730af58c31230efaa556f48d0a210a",
+          "size_bytes": 1855
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Georgia.csv",
+          "sha256": "cb807aa8736bcb5e4e0d6d3b6457522577fbc3252b9636217ff56532c206fce6",
+          "size_bytes": 1202
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Hawaii.csv",
+          "sha256": "fe5c4a5bd4bbe12dffd492b5c7bbbe2d96fe4d6012912563debe13e5cc6f2599",
+          "size_bytes": 559
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Idaho.csv",
+          "sha256": "7797d2a080590c382a44f637e1ee2cb67b5282ab1d0c00f625a4adc4362f2f30",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Illinois.csv",
+          "sha256": "e89364e32f45c7adea17ce4e0c42a9e04c3b599e7dc7267c78ff54927e2dbd92",
+          "size_bytes": 1055
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Indiana.csv",
+          "sha256": "5ea5cec6d69c49421e08e2e08787e1e1c6a4c8aa325905c506020efb386bca5c",
+          "size_bytes": 1185
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Iowa.csv",
+          "sha256": "c9e78635e9e5474d5d761d93035fbf4f6a15ff109fb3f0cad847fd6d1efa396f",
+          "size_bytes": 859
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kansas.csv",
+          "sha256": "e521d3d0db79bc1531308e415c8cdf380304ea3f2785cad7b8fcdf6ecb9e6081",
+          "size_bytes": 757
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kentucky.csv",
+          "sha256": "83f874595d776e5b6337f17b43824fa725521ff7aa570ef999239f6da8378702",
+          "size_bytes": 1025
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Louisiana.csv",
+          "sha256": "e79237a59b645734722a81191814d872eb0f6c83e102ea12eb9a1e5b798b0414",
+          "size_bytes": 977
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maine.csv",
+          "sha256": "03cad78e9417fb77c4d83a69310d036f5ed847192b486951ddb0d9ab8cc705f7",
+          "size_bytes": 619
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maryland.csv",
+          "sha256": "2c0a3f73b4583e9ba697a3966dc03211350323d5ff897c682b73ca47b5352dc5",
+          "size_bytes": 807
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Massachusetts.csv",
+          "sha256": "96ebd202626d92d9e9b68ec6812c3a0610fb939ad74758bc538ea3c01e409928",
+          "size_bytes": 816
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Michigan.csv",
+          "sha256": "7e6de78e7736ee6d39ac81ec90313401b65c5264f0ffba4f4414e96693e997f1",
+          "size_bytes": 1282
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Minnesota.csv",
+          "sha256": "c382e13c0aa0996d16059c341e371b90d70dbe351adcc803b8b806157b56724d",
+          "size_bytes": 897
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Mississippi.csv",
+          "sha256": "55cf8b2ccf87a933aa81685988f5f2d78c932076d02b521c2ab04ba3ca7ab39c",
+          "size_bytes": 659
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Missouri.csv",
+          "sha256": "d80453d26c26ccb6f0f52ffb6cfb01b5982c326e092b4dc7a210d188d6ccaf30",
+          "size_bytes": 772
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Montana.csv",
+          "sha256": "8f061b628488368b15c1233cd1eeda60720b52fc0d00658c17ab2bc7b5809d6f",
+          "size_bytes": 589
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nebraska.csv",
+          "sha256": "8c21561d0fdbd2feea8143edc25172d16a7223f0930dfb34036d1a215a2ba1ad",
+          "size_bytes": 550
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nevada.csv",
+          "sha256": "081e531bb821b6e9b553bcf608f0b05ab7e436a25299769b6df74752f16696f5",
+          "size_bytes": 521
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewHampshire.csv",
+          "sha256": "52d4a9f6857692d07d043c281e6b998977ea976e58ff04a69de939c563bb76d9",
+          "size_bytes": 632
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewJersey.csv",
+          "sha256": "575d560754d22d1c2d8ce49fbe6da44c92aecc717624a5c8e25c83498cef93de",
+          "size_bytes": 805
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewMexico.csv",
+          "sha256": "886ce7fd54a67501bfbb2f6c751d28cdc4dfbff4b56deb6dc5b98299cb0db1eb",
+          "size_bytes": 600
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewYork.csv",
+          "sha256": "2eef080d49bf596b1970fb7b195d17c2fb1f9eef5152171308c9717b30e0ecd2",
+          "size_bytes": 1223
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthCarolina.csv",
+          "sha256": "82813c241c838dd5accaafbf0b1e4e9c6c86f556ce57398081b1ca8c427388b6",
+          "size_bytes": 1570
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthDakota.csv",
+          "sha256": "35798315a4d010deba995d72375f25644e6118b73c22c32e7b9eeece666c8209",
+          "size_bytes": 545
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Ohio.csv",
+          "sha256": "bafb939059e5bb98c73ee0536a754800d9a682f1dacaa4caeaacd1f381958b54",
+          "size_bytes": 1334
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oklahoma.csv",
+          "sha256": "a57e73c9e532deeffa67a824d2a9fdb9b37d7357dc5e9fbc732b31b481d4ad36",
+          "size_bytes": 602
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oregon.csv",
+          "sha256": "0b01ed1e0a8bb4baea8fd4e95dcf4a114eb3dbbcd135b19b76e2b79a0b9fe06b",
+          "size_bytes": 766
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Pennsylvania.csv",
+          "sha256": "bf7ea3852b3471f66db9ed06eda1053d625632b899005f219dd94d99effe93b8",
+          "size_bytes": 1517
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/PuertoRico.csv",
+          "sha256": "5e3f44acd2ae0a00b1c076bd298948a94fe3e7abfa815360490e03ed16ed7aa1",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/RhodeIsland.csv",
+          "sha256": "e060ebc0b8b48e0eb3a920efc85cf854dc8ceb43f552bacdcbff00a65172ae3e",
+          "size_bytes": 456
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthCarolina.csv",
+          "sha256": "2ce24142d9870cb714f2ead800904d7370874b4814c7e7940fe166516c3de706",
+          "size_bytes": 1046
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthDakota.csv",
+          "sha256": "9e2e8627278682626ef805220066b7beb5f37bc98319077d319dfda9a0efbe9d",
+          "size_bytes": 555
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Tennessee.csv",
+          "sha256": "1fa22305b500fe8d50df6b9c64db87821329a3f18c2ac013a527c4ba90ba6c2b",
+          "size_bytes": 1027
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Texas.csv",
+          "sha256": "beecbeb16612e5283dbeb949396ec6bde9f5e15274da2a2e7d7e38525391cc32",
+          "size_bytes": 1770
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Utah.csv",
+          "sha256": "7722efd7db3a8d0457f7d2102fc5cbc5d7863c031af28844f952b57dda518ebd",
+          "size_bytes": 666
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Vermont.csv",
+          "sha256": "8207722368cc11e9038d5f5bc912cd43cc6dfe510e9564375e8c5956ff24b546",
+          "size_bytes": 520
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Virginia.csv",
+          "sha256": "cd93ef5510e3ffdfe9114b49f73837fdd42fcf823bbdd705de6be1c26e28d3ad",
+          "size_bytes": 1129
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Washington.csv",
+          "sha256": "fe9ed2158d1e4cf1b34014a41f3c862ea08eb710925f80a44e72b1c12f36bc7d",
+          "size_bytes": 1140
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/WestVirginia.csv",
+          "sha256": "a53dee405c4c34ef2603e9ee9f938c70ab6d57f59d0cb05fcaaaeaf4ad2b6cb5",
+          "size_bytes": 935
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wisconsin.csv",
+          "sha256": "669bf325d0774dbfdf732b8be7be86da24deae74c1b962b90796f772c73e5bac",
+          "size_bytes": 1293
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wyoming.csv",
+          "sha256": "0f01184400a6c0801d266edac471b95fbd66d6123b176e71fc6a4ac60040bfa2",
+          "size_bytes": 439
+        },
+        {
+          "format": "csv",
+          "path": "new_england_states.csv",
+          "sha256": "9f1cdb8731183195f838561177a5ab4fecf88667a223a78c423fca981e4d4f34",
+          "size_bytes": 72
+        }
+      ],
+      "metric_names": [
+        "f1",
+        "precision",
+        "recall"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-14",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alabama.csv",
+          "sha256": "e7fd46477c8980a8df059403cd4ef52799b2c3b1ebfd8b5c9ce4476f96c079b4",
+          "size_bytes": 1157
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alaska.csv",
+          "sha256": "89ecca3974d2369ac8b9535557c1af8778d66092b94af7b43c68d309d3a604ec",
+          "size_bytes": 440
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arizona.csv",
+          "sha256": "84220106b49d7ecf1804b573f9c40cb41203e4ae8caf7aa220042a765743a65a",
+          "size_bytes": 850
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arkansas.csv",
+          "sha256": "7f68ab78f2b3ffebfcdfab1879d2bb77c3eb96eace7f556a8e1373445c1059b3",
+          "size_bytes": 815
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/California.csv",
+          "sha256": "a711fc0be2f796656f5d6311d7bef85e0b2abd62fd0991631e08092110b57300",
+          "size_bytes": 2032
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Colorado.csv",
+          "sha256": "6d9decf63ac82f0388685a34a735a0e3823b0cd3362925fba036bc575d30b195",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Connecticut.csv",
+          "sha256": "27c4f97edfc9028643a7a4ff79e3765522f947c72c16ba016eac33532aadf9f1",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Delaware.csv",
+          "sha256": "2e3f14d595ae3b583dd5ed261ddf29a11abe8c63f205aca362893e16b8dda11d",
+          "size_bytes": 571
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/DistrictofColumbia.csv",
+          "sha256": "db18db550616a35f17289c5f04d49b706bd8c3929c735552ca0bfabc9c8571ec",
+          "size_bytes": 476
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Florida.csv",
+          "sha256": "0c21f69128a2f2583d17b567a228334e80730af58c31230efaa556f48d0a210a",
+          "size_bytes": 1855
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Georgia.csv",
+          "sha256": "cb807aa8736bcb5e4e0d6d3b6457522577fbc3252b9636217ff56532c206fce6",
+          "size_bytes": 1202
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Hawaii.csv",
+          "sha256": "fe5c4a5bd4bbe12dffd492b5c7bbbe2d96fe4d6012912563debe13e5cc6f2599",
+          "size_bytes": 559
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Idaho.csv",
+          "sha256": "7797d2a080590c382a44f637e1ee2cb67b5282ab1d0c00f625a4adc4362f2f30",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Illinois.csv",
+          "sha256": "e89364e32f45c7adea17ce4e0c42a9e04c3b599e7dc7267c78ff54927e2dbd92",
+          "size_bytes": 1055
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Indiana.csv",
+          "sha256": "5ea5cec6d69c49421e08e2e08787e1e1c6a4c8aa325905c506020efb386bca5c",
+          "size_bytes": 1185
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Iowa.csv",
+          "sha256": "c9e78635e9e5474d5d761d93035fbf4f6a15ff109fb3f0cad847fd6d1efa396f",
+          "size_bytes": 859
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kansas.csv",
+          "sha256": "e521d3d0db79bc1531308e415c8cdf380304ea3f2785cad7b8fcdf6ecb9e6081",
+          "size_bytes": 757
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kentucky.csv",
+          "sha256": "83f874595d776e5b6337f17b43824fa725521ff7aa570ef999239f6da8378702",
+          "size_bytes": 1025
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Louisiana.csv",
+          "sha256": "e79237a59b645734722a81191814d872eb0f6c83e102ea12eb9a1e5b798b0414",
+          "size_bytes": 977
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maine.csv",
+          "sha256": "03cad78e9417fb77c4d83a69310d036f5ed847192b486951ddb0d9ab8cc705f7",
+          "size_bytes": 619
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maryland.csv",
+          "sha256": "2c0a3f73b4583e9ba697a3966dc03211350323d5ff897c682b73ca47b5352dc5",
+          "size_bytes": 807
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Massachusetts.csv",
+          "sha256": "96ebd202626d92d9e9b68ec6812c3a0610fb939ad74758bc538ea3c01e409928",
+          "size_bytes": 816
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Michigan.csv",
+          "sha256": "7e6de78e7736ee6d39ac81ec90313401b65c5264f0ffba4f4414e96693e997f1",
+          "size_bytes": 1282
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Minnesota.csv",
+          "sha256": "c382e13c0aa0996d16059c341e371b90d70dbe351adcc803b8b806157b56724d",
+          "size_bytes": 897
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Mississippi.csv",
+          "sha256": "55cf8b2ccf87a933aa81685988f5f2d78c932076d02b521c2ab04ba3ca7ab39c",
+          "size_bytes": 659
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Missouri.csv",
+          "sha256": "d80453d26c26ccb6f0f52ffb6cfb01b5982c326e092b4dc7a210d188d6ccaf30",
+          "size_bytes": 772
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Montana.csv",
+          "sha256": "8f061b628488368b15c1233cd1eeda60720b52fc0d00658c17ab2bc7b5809d6f",
+          "size_bytes": 589
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nebraska.csv",
+          "sha256": "8c21561d0fdbd2feea8143edc25172d16a7223f0930dfb34036d1a215a2ba1ad",
+          "size_bytes": 550
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nevada.csv",
+          "sha256": "081e531bb821b6e9b553bcf608f0b05ab7e436a25299769b6df74752f16696f5",
+          "size_bytes": 521
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewHampshire.csv",
+          "sha256": "52d4a9f6857692d07d043c281e6b998977ea976e58ff04a69de939c563bb76d9",
+          "size_bytes": 632
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewJersey.csv",
+          "sha256": "575d560754d22d1c2d8ce49fbe6da44c92aecc717624a5c8e25c83498cef93de",
+          "size_bytes": 805
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewMexico.csv",
+          "sha256": "886ce7fd54a67501bfbb2f6c751d28cdc4dfbff4b56deb6dc5b98299cb0db1eb",
+          "size_bytes": 600
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewYork.csv",
+          "sha256": "2eef080d49bf596b1970fb7b195d17c2fb1f9eef5152171308c9717b30e0ecd2",
+          "size_bytes": 1223
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthCarolina.csv",
+          "sha256": "82813c241c838dd5accaafbf0b1e4e9c6c86f556ce57398081b1ca8c427388b6",
+          "size_bytes": 1570
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthDakota.csv",
+          "sha256": "35798315a4d010deba995d72375f25644e6118b73c22c32e7b9eeece666c8209",
+          "size_bytes": 545
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Ohio.csv",
+          "sha256": "bafb939059e5bb98c73ee0536a754800d9a682f1dacaa4caeaacd1f381958b54",
+          "size_bytes": 1334
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oklahoma.csv",
+          "sha256": "a57e73c9e532deeffa67a824d2a9fdb9b37d7357dc5e9fbc732b31b481d4ad36",
+          "size_bytes": 602
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oregon.csv",
+          "sha256": "0b01ed1e0a8bb4baea8fd4e95dcf4a114eb3dbbcd135b19b76e2b79a0b9fe06b",
+          "size_bytes": 766
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Pennsylvania.csv",
+          "sha256": "bf7ea3852b3471f66db9ed06eda1053d625632b899005f219dd94d99effe93b8",
+          "size_bytes": 1517
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/PuertoRico.csv",
+          "sha256": "5e3f44acd2ae0a00b1c076bd298948a94fe3e7abfa815360490e03ed16ed7aa1",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/RhodeIsland.csv",
+          "sha256": "e060ebc0b8b48e0eb3a920efc85cf854dc8ceb43f552bacdcbff00a65172ae3e",
+          "size_bytes": 456
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthCarolina.csv",
+          "sha256": "2ce24142d9870cb714f2ead800904d7370874b4814c7e7940fe166516c3de706",
+          "size_bytes": 1046
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthDakota.csv",
+          "sha256": "9e2e8627278682626ef805220066b7beb5f37bc98319077d319dfda9a0efbe9d",
+          "size_bytes": 555
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Tennessee.csv",
+          "sha256": "1fa22305b500fe8d50df6b9c64db87821329a3f18c2ac013a527c4ba90ba6c2b",
+          "size_bytes": 1027
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Texas.csv",
+          "sha256": "beecbeb16612e5283dbeb949396ec6bde9f5e15274da2a2e7d7e38525391cc32",
+          "size_bytes": 1770
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Utah.csv",
+          "sha256": "7722efd7db3a8d0457f7d2102fc5cbc5d7863c031af28844f952b57dda518ebd",
+          "size_bytes": 666
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Vermont.csv",
+          "sha256": "8207722368cc11e9038d5f5bc912cd43cc6dfe510e9564375e8c5956ff24b546",
+          "size_bytes": 520
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Virginia.csv",
+          "sha256": "cd93ef5510e3ffdfe9114b49f73837fdd42fcf823bbdd705de6be1c26e28d3ad",
+          "size_bytes": 1129
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Washington.csv",
+          "sha256": "fe9ed2158d1e4cf1b34014a41f3c862ea08eb710925f80a44e72b1c12f36bc7d",
+          "size_bytes": 1140
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/WestVirginia.csv",
+          "sha256": "a53dee405c4c34ef2603e9ee9f938c70ab6d57f59d0cb05fcaaaeaf4ad2b6cb5",
+          "size_bytes": 935
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wisconsin.csv",
+          "sha256": "669bf325d0774dbfdf732b8be7be86da24deae74c1b962b90796f772c73e5bac",
+          "size_bytes": 1293
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wyoming.csv",
+          "sha256": "0f01184400a6c0801d266edac471b95fbd66d6123b176e71fc6a4ac60040bfa2",
+          "size_bytes": 439
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-15",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alabama.csv",
+          "sha256": "e7fd46477c8980a8df059403cd4ef52799b2c3b1ebfd8b5c9ce4476f96c079b4",
+          "size_bytes": 1157
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alaska.csv",
+          "sha256": "89ecca3974d2369ac8b9535557c1af8778d66092b94af7b43c68d309d3a604ec",
+          "size_bytes": 440
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arizona.csv",
+          "sha256": "84220106b49d7ecf1804b573f9c40cb41203e4ae8caf7aa220042a765743a65a",
+          "size_bytes": 850
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arkansas.csv",
+          "sha256": "7f68ab78f2b3ffebfcdfab1879d2bb77c3eb96eace7f556a8e1373445c1059b3",
+          "size_bytes": 815
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/California.csv",
+          "sha256": "a711fc0be2f796656f5d6311d7bef85e0b2abd62fd0991631e08092110b57300",
+          "size_bytes": 2032
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Colorado.csv",
+          "sha256": "6d9decf63ac82f0388685a34a735a0e3823b0cd3362925fba036bc575d30b195",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Connecticut.csv",
+          "sha256": "27c4f97edfc9028643a7a4ff79e3765522f947c72c16ba016eac33532aadf9f1",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Delaware.csv",
+          "sha256": "2e3f14d595ae3b583dd5ed261ddf29a11abe8c63f205aca362893e16b8dda11d",
+          "size_bytes": 571
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/DistrictofColumbia.csv",
+          "sha256": "db18db550616a35f17289c5f04d49b706bd8c3929c735552ca0bfabc9c8571ec",
+          "size_bytes": 476
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Florida.csv",
+          "sha256": "0c21f69128a2f2583d17b567a228334e80730af58c31230efaa556f48d0a210a",
+          "size_bytes": 1855
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Georgia.csv",
+          "sha256": "cb807aa8736bcb5e4e0d6d3b6457522577fbc3252b9636217ff56532c206fce6",
+          "size_bytes": 1202
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Hawaii.csv",
+          "sha256": "fe5c4a5bd4bbe12dffd492b5c7bbbe2d96fe4d6012912563debe13e5cc6f2599",
+          "size_bytes": 559
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Idaho.csv",
+          "sha256": "7797d2a080590c382a44f637e1ee2cb67b5282ab1d0c00f625a4adc4362f2f30",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Illinois.csv",
+          "sha256": "e89364e32f45c7adea17ce4e0c42a9e04c3b599e7dc7267c78ff54927e2dbd92",
+          "size_bytes": 1055
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Indiana.csv",
+          "sha256": "5ea5cec6d69c49421e08e2e08787e1e1c6a4c8aa325905c506020efb386bca5c",
+          "size_bytes": 1185
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Iowa.csv",
+          "sha256": "c9e78635e9e5474d5d761d93035fbf4f6a15ff109fb3f0cad847fd6d1efa396f",
+          "size_bytes": 859
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kansas.csv",
+          "sha256": "e521d3d0db79bc1531308e415c8cdf380304ea3f2785cad7b8fcdf6ecb9e6081",
+          "size_bytes": 757
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kentucky.csv",
+          "sha256": "83f874595d776e5b6337f17b43824fa725521ff7aa570ef999239f6da8378702",
+          "size_bytes": 1025
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Louisiana.csv",
+          "sha256": "e79237a59b645734722a81191814d872eb0f6c83e102ea12eb9a1e5b798b0414",
+          "size_bytes": 977
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maine.csv",
+          "sha256": "03cad78e9417fb77c4d83a69310d036f5ed847192b486951ddb0d9ab8cc705f7",
+          "size_bytes": 619
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maryland.csv",
+          "sha256": "2c0a3f73b4583e9ba697a3966dc03211350323d5ff897c682b73ca47b5352dc5",
+          "size_bytes": 807
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Massachusetts.csv",
+          "sha256": "96ebd202626d92d9e9b68ec6812c3a0610fb939ad74758bc538ea3c01e409928",
+          "size_bytes": 816
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Michigan.csv",
+          "sha256": "7e6de78e7736ee6d39ac81ec90313401b65c5264f0ffba4f4414e96693e997f1",
+          "size_bytes": 1282
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Minnesota.csv",
+          "sha256": "c382e13c0aa0996d16059c341e371b90d70dbe351adcc803b8b806157b56724d",
+          "size_bytes": 897
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Mississippi.csv",
+          "sha256": "55cf8b2ccf87a933aa81685988f5f2d78c932076d02b521c2ab04ba3ca7ab39c",
+          "size_bytes": 659
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Missouri.csv",
+          "sha256": "d80453d26c26ccb6f0f52ffb6cfb01b5982c326e092b4dc7a210d188d6ccaf30",
+          "size_bytes": 772
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Montana.csv",
+          "sha256": "8f061b628488368b15c1233cd1eeda60720b52fc0d00658c17ab2bc7b5809d6f",
+          "size_bytes": 589
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nebraska.csv",
+          "sha256": "8c21561d0fdbd2feea8143edc25172d16a7223f0930dfb34036d1a215a2ba1ad",
+          "size_bytes": 550
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nevada.csv",
+          "sha256": "081e531bb821b6e9b553bcf608f0b05ab7e436a25299769b6df74752f16696f5",
+          "size_bytes": 521
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewHampshire.csv",
+          "sha256": "52d4a9f6857692d07d043c281e6b998977ea976e58ff04a69de939c563bb76d9",
+          "size_bytes": 632
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewJersey.csv",
+          "sha256": "575d560754d22d1c2d8ce49fbe6da44c92aecc717624a5c8e25c83498cef93de",
+          "size_bytes": 805
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewMexico.csv",
+          "sha256": "886ce7fd54a67501bfbb2f6c751d28cdc4dfbff4b56deb6dc5b98299cb0db1eb",
+          "size_bytes": 600
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewYork.csv",
+          "sha256": "2eef080d49bf596b1970fb7b195d17c2fb1f9eef5152171308c9717b30e0ecd2",
+          "size_bytes": 1223
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthCarolina.csv",
+          "sha256": "82813c241c838dd5accaafbf0b1e4e9c6c86f556ce57398081b1ca8c427388b6",
+          "size_bytes": 1570
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthDakota.csv",
+          "sha256": "35798315a4d010deba995d72375f25644e6118b73c22c32e7b9eeece666c8209",
+          "size_bytes": 545
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Ohio.csv",
+          "sha256": "bafb939059e5bb98c73ee0536a754800d9a682f1dacaa4caeaacd1f381958b54",
+          "size_bytes": 1334
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oklahoma.csv",
+          "sha256": "a57e73c9e532deeffa67a824d2a9fdb9b37d7357dc5e9fbc732b31b481d4ad36",
+          "size_bytes": 602
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oregon.csv",
+          "sha256": "0b01ed1e0a8bb4baea8fd4e95dcf4a114eb3dbbcd135b19b76e2b79a0b9fe06b",
+          "size_bytes": 766
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Pennsylvania.csv",
+          "sha256": "bf7ea3852b3471f66db9ed06eda1053d625632b899005f219dd94d99effe93b8",
+          "size_bytes": 1517
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/PuertoRico.csv",
+          "sha256": "5e3f44acd2ae0a00b1c076bd298948a94fe3e7abfa815360490e03ed16ed7aa1",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/RhodeIsland.csv",
+          "sha256": "e060ebc0b8b48e0eb3a920efc85cf854dc8ceb43f552bacdcbff00a65172ae3e",
+          "size_bytes": 456
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthCarolina.csv",
+          "sha256": "2ce24142d9870cb714f2ead800904d7370874b4814c7e7940fe166516c3de706",
+          "size_bytes": 1046
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthDakota.csv",
+          "sha256": "9e2e8627278682626ef805220066b7beb5f37bc98319077d319dfda9a0efbe9d",
+          "size_bytes": 555
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Tennessee.csv",
+          "sha256": "1fa22305b500fe8d50df6b9c64db87821329a3f18c2ac013a527c4ba90ba6c2b",
+          "size_bytes": 1027
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Texas.csv",
+          "sha256": "beecbeb16612e5283dbeb949396ec6bde9f5e15274da2a2e7d7e38525391cc32",
+          "size_bytes": 1770
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Utah.csv",
+          "sha256": "7722efd7db3a8d0457f7d2102fc5cbc5d7863c031af28844f952b57dda518ebd",
+          "size_bytes": 666
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Vermont.csv",
+          "sha256": "8207722368cc11e9038d5f5bc912cd43cc6dfe510e9564375e8c5956ff24b546",
+          "size_bytes": 520
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Virginia.csv",
+          "sha256": "cd93ef5510e3ffdfe9114b49f73837fdd42fcf823bbdd705de6be1c26e28d3ad",
+          "size_bytes": 1129
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Washington.csv",
+          "sha256": "fe9ed2158d1e4cf1b34014a41f3c862ea08eb710925f80a44e72b1c12f36bc7d",
+          "size_bytes": 1140
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/WestVirginia.csv",
+          "sha256": "a53dee405c4c34ef2603e9ee9f938c70ab6d57f59d0cb05fcaaaeaf4ad2b6cb5",
+          "size_bytes": 935
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wisconsin.csv",
+          "sha256": "669bf325d0774dbfdf732b8be7be86da24deae74c1b962b90796f772c73e5bac",
+          "size_bytes": 1293
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wyoming.csv",
+          "sha256": "0f01184400a6c0801d266edac471b95fbd66d6123b176e71fc6a4ac60040bfa2",
+          "size_bytes": 439
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-16",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Identity_Theft_Reports_by_Age.csv",
+          "sha256": "d7339395ec0d3c71336961aab9f3c45361821c17e1208e6153b8d71f0bc6d309",
+          "size_bytes": 398
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Categories.csv",
+          "sha256": "9bff1bf397a848d4c14cc4f8192b13d140e0ead40ce519389bf17541427af511",
+          "size_bytes": 1612
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Count.csv",
+          "sha256": "a726361b1eacd29bcad16b8e35cb96f618421832b3794b36587b4e233951e219",
+          "size_bytes": 662
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-18",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Identity_Theft_Reports_by_Type.csv",
+          "sha256": "0408de480b457454f03c113c7640414d45236f93d57ddfe0d32872431906a43c",
+          "size_bytes": 2090
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Type.csv",
+          "sha256": "e973331606af0be020f99777e90848a79d90f0cc709f98847ce1ebe1b0b1b3e8",
+          "size_bytes": 2039
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-22",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_State_Rankings_Fraud_and_Other_Reports.csv",
+          "sha256": "563f29003f812ab65e472ba0a9bba9da3e3a2c7ed9d8e3037d45ea710cec04a5",
+          "size_bytes": 2002
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_State_Rankings_Identity_Theft_Reports.csv",
+          "sha256": "99027f597cd5610a9c156f668f555f69e8a9f6be95991998e3e21733449b7365",
+          "size_bytes": 1762
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alabama.csv",
+          "sha256": "e7fd46477c8980a8df059403cd4ef52799b2c3b1ebfd8b5c9ce4476f96c079b4",
+          "size_bytes": 1157
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alaska.csv",
+          "sha256": "89ecca3974d2369ac8b9535557c1af8778d66092b94af7b43c68d309d3a604ec",
+          "size_bytes": 440
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arizona.csv",
+          "sha256": "84220106b49d7ecf1804b573f9c40cb41203e4ae8caf7aa220042a765743a65a",
+          "size_bytes": 850
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arkansas.csv",
+          "sha256": "7f68ab78f2b3ffebfcdfab1879d2bb77c3eb96eace7f556a8e1373445c1059b3",
+          "size_bytes": 815
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/California.csv",
+          "sha256": "a711fc0be2f796656f5d6311d7bef85e0b2abd62fd0991631e08092110b57300",
+          "size_bytes": 2032
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Colorado.csv",
+          "sha256": "6d9decf63ac82f0388685a34a735a0e3823b0cd3362925fba036bc575d30b195",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Connecticut.csv",
+          "sha256": "27c4f97edfc9028643a7a4ff79e3765522f947c72c16ba016eac33532aadf9f1",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Delaware.csv",
+          "sha256": "2e3f14d595ae3b583dd5ed261ddf29a11abe8c63f205aca362893e16b8dda11d",
+          "size_bytes": 571
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/DistrictofColumbia.csv",
+          "sha256": "db18db550616a35f17289c5f04d49b706bd8c3929c735552ca0bfabc9c8571ec",
+          "size_bytes": 476
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Florida.csv",
+          "sha256": "0c21f69128a2f2583d17b567a228334e80730af58c31230efaa556f48d0a210a",
+          "size_bytes": 1855
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Georgia.csv",
+          "sha256": "cb807aa8736bcb5e4e0d6d3b6457522577fbc3252b9636217ff56532c206fce6",
+          "size_bytes": 1202
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Hawaii.csv",
+          "sha256": "fe5c4a5bd4bbe12dffd492b5c7bbbe2d96fe4d6012912563debe13e5cc6f2599",
+          "size_bytes": 559
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Idaho.csv",
+          "sha256": "7797d2a080590c382a44f637e1ee2cb67b5282ab1d0c00f625a4adc4362f2f30",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Illinois.csv",
+          "sha256": "e89364e32f45c7adea17ce4e0c42a9e04c3b599e7dc7267c78ff54927e2dbd92",
+          "size_bytes": 1055
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Indiana.csv",
+          "sha256": "5ea5cec6d69c49421e08e2e08787e1e1c6a4c8aa325905c506020efb386bca5c",
+          "size_bytes": 1185
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Iowa.csv",
+          "sha256": "c9e78635e9e5474d5d761d93035fbf4f6a15ff109fb3f0cad847fd6d1efa396f",
+          "size_bytes": 859
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kansas.csv",
+          "sha256": "e521d3d0db79bc1531308e415c8cdf380304ea3f2785cad7b8fcdf6ecb9e6081",
+          "size_bytes": 757
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kentucky.csv",
+          "sha256": "83f874595d776e5b6337f17b43824fa725521ff7aa570ef999239f6da8378702",
+          "size_bytes": 1025
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Louisiana.csv",
+          "sha256": "e79237a59b645734722a81191814d872eb0f6c83e102ea12eb9a1e5b798b0414",
+          "size_bytes": 977
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maine.csv",
+          "sha256": "03cad78e9417fb77c4d83a69310d036f5ed847192b486951ddb0d9ab8cc705f7",
+          "size_bytes": 619
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maryland.csv",
+          "sha256": "2c0a3f73b4583e9ba697a3966dc03211350323d5ff897c682b73ca47b5352dc5",
+          "size_bytes": 807
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Massachusetts.csv",
+          "sha256": "96ebd202626d92d9e9b68ec6812c3a0610fb939ad74758bc538ea3c01e409928",
+          "size_bytes": 816
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Michigan.csv",
+          "sha256": "7e6de78e7736ee6d39ac81ec90313401b65c5264f0ffba4f4414e96693e997f1",
+          "size_bytes": 1282
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Minnesota.csv",
+          "sha256": "c382e13c0aa0996d16059c341e371b90d70dbe351adcc803b8b806157b56724d",
+          "size_bytes": 897
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Mississippi.csv",
+          "sha256": "55cf8b2ccf87a933aa81685988f5f2d78c932076d02b521c2ab04ba3ca7ab39c",
+          "size_bytes": 659
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Missouri.csv",
+          "sha256": "d80453d26c26ccb6f0f52ffb6cfb01b5982c326e092b4dc7a210d188d6ccaf30",
+          "size_bytes": 772
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Montana.csv",
+          "sha256": "8f061b628488368b15c1233cd1eeda60720b52fc0d00658c17ab2bc7b5809d6f",
+          "size_bytes": 589
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nebraska.csv",
+          "sha256": "8c21561d0fdbd2feea8143edc25172d16a7223f0930dfb34036d1a215a2ba1ad",
+          "size_bytes": 550
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nevada.csv",
+          "sha256": "081e531bb821b6e9b553bcf608f0b05ab7e436a25299769b6df74752f16696f5",
+          "size_bytes": 521
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewHampshire.csv",
+          "sha256": "52d4a9f6857692d07d043c281e6b998977ea976e58ff04a69de939c563bb76d9",
+          "size_bytes": 632
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewJersey.csv",
+          "sha256": "575d560754d22d1c2d8ce49fbe6da44c92aecc717624a5c8e25c83498cef93de",
+          "size_bytes": 805
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewMexico.csv",
+          "sha256": "886ce7fd54a67501bfbb2f6c751d28cdc4dfbff4b56deb6dc5b98299cb0db1eb",
+          "size_bytes": 600
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewYork.csv",
+          "sha256": "2eef080d49bf596b1970fb7b195d17c2fb1f9eef5152171308c9717b30e0ecd2",
+          "size_bytes": 1223
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthCarolina.csv",
+          "sha256": "82813c241c838dd5accaafbf0b1e4e9c6c86f556ce57398081b1ca8c427388b6",
+          "size_bytes": 1570
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthDakota.csv",
+          "sha256": "35798315a4d010deba995d72375f25644e6118b73c22c32e7b9eeece666c8209",
+          "size_bytes": 545
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Ohio.csv",
+          "sha256": "bafb939059e5bb98c73ee0536a754800d9a682f1dacaa4caeaacd1f381958b54",
+          "size_bytes": 1334
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oklahoma.csv",
+          "sha256": "a57e73c9e532deeffa67a824d2a9fdb9b37d7357dc5e9fbc732b31b481d4ad36",
+          "size_bytes": 602
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oregon.csv",
+          "sha256": "0b01ed1e0a8bb4baea8fd4e95dcf4a114eb3dbbcd135b19b76e2b79a0b9fe06b",
+          "size_bytes": 766
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Pennsylvania.csv",
+          "sha256": "bf7ea3852b3471f66db9ed06eda1053d625632b899005f219dd94d99effe93b8",
+          "size_bytes": 1517
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/PuertoRico.csv",
+          "sha256": "5e3f44acd2ae0a00b1c076bd298948a94fe3e7abfa815360490e03ed16ed7aa1",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/RhodeIsland.csv",
+          "sha256": "e060ebc0b8b48e0eb3a920efc85cf854dc8ceb43f552bacdcbff00a65172ae3e",
+          "size_bytes": 456
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthCarolina.csv",
+          "sha256": "2ce24142d9870cb714f2ead800904d7370874b4814c7e7940fe166516c3de706",
+          "size_bytes": 1046
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthDakota.csv",
+          "sha256": "9e2e8627278682626ef805220066b7beb5f37bc98319077d319dfda9a0efbe9d",
+          "size_bytes": 555
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Tennessee.csv",
+          "sha256": "1fa22305b500fe8d50df6b9c64db87821329a3f18c2ac013a527c4ba90ba6c2b",
+          "size_bytes": 1027
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Texas.csv",
+          "sha256": "beecbeb16612e5283dbeb949396ec6bde9f5e15274da2a2e7d7e38525391cc32",
+          "size_bytes": 1770
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Utah.csv",
+          "sha256": "7722efd7db3a8d0457f7d2102fc5cbc5d7863c031af28844f952b57dda518ebd",
+          "size_bytes": 666
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Vermont.csv",
+          "sha256": "8207722368cc11e9038d5f5bc912cd43cc6dfe510e9564375e8c5956ff24b546",
+          "size_bytes": 520
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Virginia.csv",
+          "sha256": "cd93ef5510e3ffdfe9114b49f73837fdd42fcf823bbdd705de6be1c26e28d3ad",
+          "size_bytes": 1129
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Washington.csv",
+          "sha256": "fe9ed2158d1e4cf1b34014a41f3c862ea08eb710925f80a44e72b1c12f36bc7d",
+          "size_bytes": 1140
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/WestVirginia.csv",
+          "sha256": "a53dee405c4c34ef2603e9ee9f938c70ab6d57f59d0cb05fcaaaeaf4ad2b6cb5",
+          "size_bytes": 935
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wisconsin.csv",
+          "sha256": "669bf325d0774dbfdf732b8be7be86da24deae74c1b962b90796f772c73e5bac",
+          "size_bytes": 1293
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wyoming.csv",
+          "sha256": "0f01184400a6c0801d266edac471b95fbd66d6123b176e71fc6a4ac60040bfa2",
+          "size_bytes": 439
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-24",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Categories.csv",
+          "sha256": "9bff1bf397a848d4c14cc4f8192b13d140e0ead40ce519389bf17541427af511",
+          "size_bytes": 1612
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Reports_by_Military_Consumers.csv",
+          "sha256": "930a7977512ab2fbd9d8a6cf13a353c7311d9a4f500908c6dfd7c44e52261646",
+          "size_bytes": 2161
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-28",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Alabama.csv",
+          "sha256": "17ca4cb8500c52d859067e651d4e1d0564f8776df8850a71b77e3799ad06213f",
+          "size_bytes": 1254
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Alaska.csv",
+          "sha256": "d5ec17c1648a74c9adb8891e9e8a39031a7de57492457305dbc2c39474a2f9a9",
+          "size_bytes": 504
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Arizona.csv",
+          "sha256": "0cf0f96271ece5af60b43084f057cfea4eb6b6296e57669430f35ec4c80daae4",
+          "size_bytes": 931
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Arkansas.csv",
+          "sha256": "7fce5231ac42540e24e1858eecf3192073fa66874f413f4bf555391fafd915c3",
+          "size_bytes": 897
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/California.csv",
+          "sha256": "cbde228a7807f697cdea958568d1943278d971e034bf89767d280aeab1e6973d",
+          "size_bytes": 2148
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Colorado.csv",
+          "sha256": "edf433fb0390a6f8a12cf8f27e2144524b669c163aa54e26a4b0a662fa0aa28f",
+          "size_bytes": 868
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Connecticut.csv",
+          "sha256": "9c9bb60a345f3727412d5da493cb1d6105e42f17696a9f00e3cc342861f7d9e0",
+          "size_bytes": 856
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Delaware.csv",
+          "sha256": "363d3c7d6b5ede65275022bcfdbf5b4d39ca3b9a7984edd7a4b3808e75badcaf",
+          "size_bytes": 640
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/DistrictofColumbia.csv",
+          "sha256": "e600095d44cf6facce6bb584d650a3f2d3ceb5b3d80a610eb2d713b13274e93e",
+          "size_bytes": 537
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Florida.csv",
+          "sha256": "8a98f9b10a5782f45a29f2f37e8cc592f91bfb713a419d2d2014bc0c03999e36",
+          "size_bytes": 1954
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Georgia.csv",
+          "sha256": "345c9127b77e1cec5fcbb461b78e682ae2e981d1c33eb6eee96254bc6ed4a692",
+          "size_bytes": 1291
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Hawaii.csv",
+          "sha256": "0a3dada2badd99b43060c93d9c324f25a8b4b24fd45fa3f7b13d2c322c6bacc5",
+          "size_bytes": 627
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Idaho.csv",
+          "sha256": "b71c1d1efe2a4a3bb3b1a1c78404a036dfe8ef0abf488d6ab9defe153d6c8915",
+          "size_bytes": 723
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Illinois.csv",
+          "sha256": "604b95a23190bd0204b024f7da83314869574d72ba4967a701c972be75865edb",
+          "size_bytes": 1149
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Indiana.csv",
+          "sha256": "10a403074cd260e743976c18d700cfb9d4f4e49a9e18ca6ecc972ce6690d0e84",
+          "size_bytes": 1281
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Iowa.csv",
+          "sha256": "e892858eb9e7ab3d98eb97422bf285b010dc15f6669773f6996716fa574e1996",
+          "size_bytes": 936
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Kansas.csv",
+          "sha256": "84298c5b2ae0cb15eea72af61c39db8a8fcf2e45911b3715b14fee9614440fd0",
+          "size_bytes": 834
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Kentucky.csv",
+          "sha256": "7dffddf3c41302b713882b369f0b6d39071a933673631ccacf1cf751cb44f7dd",
+          "size_bytes": 1107
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Louisiana.csv",
+          "sha256": "6611225cea80f73d1ac91ed5f86d0fe6c4e766a83497f5c8793391cdca40231a",
+          "size_bytes": 1063
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Maine.csv",
+          "sha256": "a27c18bf439b289f3470c23433da0303499274b078a7fea0bae17aa5eb6b7d85",
+          "size_bytes": 695
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Maryland.csv",
+          "sha256": "d41f6b0d0ea7f8eae4cf28ee394880c13d62eb930b5d4556c57edf80ebdc4ffc",
+          "size_bytes": 882
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Massachusetts.csv",
+          "sha256": "22e4d84df110bd562e4e58755e19606a4d97cac24156694cbbbbbd8c7f6491f6",
+          "size_bytes": 889
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Michigan.csv",
+          "sha256": "3705244b57c270d6f341ae34dba80c282a7d35b0ca899c3c94cd0807c1bb622e",
+          "size_bytes": 1392
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Minnesota.csv",
+          "sha256": "3d876edfbeb36dd90347892b8e729c43b1dbe1c25921d259427da6c6190d00e5",
+          "size_bytes": 982
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Mississippi.csv",
+          "sha256": "284fd305ec1b6f31ecd812034eddfcb1f3818303436582ea013283d3bca3b734",
+          "size_bytes": 732
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Missouri.csv",
+          "sha256": "e3a583249a8448d2c46e7afcd0c3ab127a6fe49ce05f885211419a534853c449",
+          "size_bytes": 850
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Montana.csv",
+          "sha256": "b7d0377554d9cc325130e6c2b7a739fb7c29b392f4048763f1601eb89997d090",
+          "size_bytes": 665
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Nebraska.csv",
+          "sha256": "9c20b315eea74ba03a9043833a5eab308281782beadd51b93caba5203798b894",
+          "size_bytes": 615
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Nevada.csv",
+          "sha256": "263ae1c0419563ad46f2b0b8f9bd28817d141a77f81d62b2ece7fa574f9643d9",
+          "size_bytes": 581
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NewHampshire.csv",
+          "sha256": "a18f3f99510b9877daa6329362543b1bb80336bad00246c9c30abea68fc26d00",
+          "size_bytes": 704
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NewJersey.csv",
+          "sha256": "220bc3ea039db650c4448575d25ba40b954c6e6e763ee8ea80075377c5dada30",
+          "size_bytes": 876
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NewMexico.csv",
+          "sha256": "63eb14f343d42932351569fa6ea4eaacabe960ceb918e09e6b2f51e6e9ad8223",
+          "size_bytes": 669
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NewYork.csv",
+          "sha256": "54cd471bbe304365bdf342edb5ff92fc776991afa23e73c883ea22012be5430c",
+          "size_bytes": 1307
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NorthCarolina.csv",
+          "sha256": "89cd7fa13fe74afc21828e0875c22a9748bb8f77d91b8a8b604adaa402d0d95c",
+          "size_bytes": 1685
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NorthDakota.csv",
+          "sha256": "d569eac674d0dbe06d1686f63908788d640c15d023b9273c1948514df636e162",
+          "size_bytes": 609
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Ohio.csv",
+          "sha256": "c9fdbba91c040e485a09fdc07efa767b6cb9331c6fb4cbd229b123c893bdae5e",
+          "size_bytes": 1421
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Oklahoma.csv",
+          "sha256": "570805307c469fccef7c1f4dc2adfbdf378a186f982a09f5ffa88fdcaa052dd7",
+          "size_bytes": 672
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Oregon.csv",
+          "sha256": "ddaaedbb6a4e70f6d4a4eb2b2662def6c0b233ac8a2ee131e3913be4a9382b12",
+          "size_bytes": 847
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Pennsylvania.csv",
+          "sha256": "69fc5fe5a0420006ef5f23c95bf41b8c134a6ff22c8c8b472c95c97346978150",
+          "size_bytes": 1624
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/PuertoRico.csv",
+          "sha256": "c863161c7251b96f4f277517fabcf8a4f70ed8994df8a5bf071aebd3feb828f6",
+          "size_bytes": 717
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/RhodeIsland.csv",
+          "sha256": "034aba04d3a332d20277dc91ceb12c1e910e3bfdee4ec0589a1155cab5ecae37",
+          "size_bytes": 517
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/SouthCarolina.csv",
+          "sha256": "9b636e9c7882e5e57fbd3706a04fb33fad534c02b79f6f3abffaecf367a6194c",
+          "size_bytes": 1129
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/SouthDakota.csv",
+          "sha256": "7fee7171c867be93e63d90a50bab36241bad0e8f54330e4e6aab6afbcab08e77",
+          "size_bytes": 623
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Tennessee.csv",
+          "sha256": "48299e3f4559513c845d5b78d877622f7d3d4f613b202ed06648fbb7ae98370d",
+          "size_bytes": 1113
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Texas.csv",
+          "sha256": "4a9a9a11e5fc8318dcd02357aacbb6b58a42e99b79bd3f0efa6ac6a2c28cf70e",
+          "size_bytes": 1895
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Utah.csv",
+          "sha256": "ed0fd3a0ba8fa7a9661e0bbe809cd47bac043e346751c020c8573c2576badfc5",
+          "size_bytes": 735
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Vermont.csv",
+          "sha256": "98a811824f9599eb8e45cefccd3c9c94ca0251440166ce36316aacd26adddf18",
+          "size_bytes": 588
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Virginia.csv",
+          "sha256": "ad1a36557668bea12049310bc9338243b2e61da7d62ffe53414ef3a86a4264c4",
+          "size_bytes": 1220
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Washington.csv",
+          "sha256": "f57428c7d5389811ad8707453705bb8a01636fc72072178744f666dc4f98a45a",
+          "size_bytes": 1226
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/WestVirginia.csv",
+          "sha256": "74bab7fc4b0a6891e856b7469efce0557ff36782e814babf0c9c25d40b611855",
+          "size_bytes": 1020
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Wisconsin.csv",
+          "sha256": "b521f990de551fbb01337dbf47cd60e62aeb72e2373b848b165cbed082c29909",
+          "size_bytes": 1391
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Wyoming.csv",
+          "sha256": "88d2c0ceee0e7c6341ca76b952ce873a7968c9d66c4fe95b4a7bb3cd874fc74d",
+          "size_bytes": 503
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-29",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Alabama.csv",
+          "sha256": "17ca4cb8500c52d859067e651d4e1d0564f8776df8850a71b77e3799ad06213f",
+          "size_bytes": 1254
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Alaska.csv",
+          "sha256": "d5ec17c1648a74c9adb8891e9e8a39031a7de57492457305dbc2c39474a2f9a9",
+          "size_bytes": 504
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Arizona.csv",
+          "sha256": "0cf0f96271ece5af60b43084f057cfea4eb6b6296e57669430f35ec4c80daae4",
+          "size_bytes": 931
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Arkansas.csv",
+          "sha256": "7fce5231ac42540e24e1858eecf3192073fa66874f413f4bf555391fafd915c3",
+          "size_bytes": 897
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/California.csv",
+          "sha256": "cbde228a7807f697cdea958568d1943278d971e034bf89767d280aeab1e6973d",
+          "size_bytes": 2148
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Colorado.csv",
+          "sha256": "edf433fb0390a6f8a12cf8f27e2144524b669c163aa54e26a4b0a662fa0aa28f",
+          "size_bytes": 868
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Connecticut.csv",
+          "sha256": "9c9bb60a345f3727412d5da493cb1d6105e42f17696a9f00e3cc342861f7d9e0",
+          "size_bytes": 856
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Delaware.csv",
+          "sha256": "363d3c7d6b5ede65275022bcfdbf5b4d39ca3b9a7984edd7a4b3808e75badcaf",
+          "size_bytes": 640
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/DistrictofColumbia.csv",
+          "sha256": "e600095d44cf6facce6bb584d650a3f2d3ceb5b3d80a610eb2d713b13274e93e",
+          "size_bytes": 537
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Florida.csv",
+          "sha256": "8a98f9b10a5782f45a29f2f37e8cc592f91bfb713a419d2d2014bc0c03999e36",
+          "size_bytes": 1954
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Georgia.csv",
+          "sha256": "345c9127b77e1cec5fcbb461b78e682ae2e981d1c33eb6eee96254bc6ed4a692",
+          "size_bytes": 1291
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Hawaii.csv",
+          "sha256": "0a3dada2badd99b43060c93d9c324f25a8b4b24fd45fa3f7b13d2c322c6bacc5",
+          "size_bytes": 627
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Idaho.csv",
+          "sha256": "b71c1d1efe2a4a3bb3b1a1c78404a036dfe8ef0abf488d6ab9defe153d6c8915",
+          "size_bytes": 723
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Illinois.csv",
+          "sha256": "604b95a23190bd0204b024f7da83314869574d72ba4967a701c972be75865edb",
+          "size_bytes": 1149
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Indiana.csv",
+          "sha256": "10a403074cd260e743976c18d700cfb9d4f4e49a9e18ca6ecc972ce6690d0e84",
+          "size_bytes": 1281
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Iowa.csv",
+          "sha256": "e892858eb9e7ab3d98eb97422bf285b010dc15f6669773f6996716fa574e1996",
+          "size_bytes": 936
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Kansas.csv",
+          "sha256": "84298c5b2ae0cb15eea72af61c39db8a8fcf2e45911b3715b14fee9614440fd0",
+          "size_bytes": 834
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Kentucky.csv",
+          "sha256": "7dffddf3c41302b713882b369f0b6d39071a933673631ccacf1cf751cb44f7dd",
+          "size_bytes": 1107
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Louisiana.csv",
+          "sha256": "6611225cea80f73d1ac91ed5f86d0fe6c4e766a83497f5c8793391cdca40231a",
+          "size_bytes": 1063
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Maine.csv",
+          "sha256": "a27c18bf439b289f3470c23433da0303499274b078a7fea0bae17aa5eb6b7d85",
+          "size_bytes": 695
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Maryland.csv",
+          "sha256": "d41f6b0d0ea7f8eae4cf28ee394880c13d62eb930b5d4556c57edf80ebdc4ffc",
+          "size_bytes": 882
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Massachusetts.csv",
+          "sha256": "22e4d84df110bd562e4e58755e19606a4d97cac24156694cbbbbbd8c7f6491f6",
+          "size_bytes": 889
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Michigan.csv",
+          "sha256": "3705244b57c270d6f341ae34dba80c282a7d35b0ca899c3c94cd0807c1bb622e",
+          "size_bytes": 1392
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Minnesota.csv",
+          "sha256": "3d876edfbeb36dd90347892b8e729c43b1dbe1c25921d259427da6c6190d00e5",
+          "size_bytes": 982
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Mississippi.csv",
+          "sha256": "284fd305ec1b6f31ecd812034eddfcb1f3818303436582ea013283d3bca3b734",
+          "size_bytes": 732
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Missouri.csv",
+          "sha256": "e3a583249a8448d2c46e7afcd0c3ab127a6fe49ce05f885211419a534853c449",
+          "size_bytes": 850
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Montana.csv",
+          "sha256": "b7d0377554d9cc325130e6c2b7a739fb7c29b392f4048763f1601eb89997d090",
+          "size_bytes": 665
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Nebraska.csv",
+          "sha256": "9c20b315eea74ba03a9043833a5eab308281782beadd51b93caba5203798b894",
+          "size_bytes": 615
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Nevada.csv",
+          "sha256": "263ae1c0419563ad46f2b0b8f9bd28817d141a77f81d62b2ece7fa574f9643d9",
+          "size_bytes": 581
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NewHampshire.csv",
+          "sha256": "a18f3f99510b9877daa6329362543b1bb80336bad00246c9c30abea68fc26d00",
+          "size_bytes": 704
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NewJersey.csv",
+          "sha256": "220bc3ea039db650c4448575d25ba40b954c6e6e763ee8ea80075377c5dada30",
+          "size_bytes": 876
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NewMexico.csv",
+          "sha256": "63eb14f343d42932351569fa6ea4eaacabe960ceb918e09e6b2f51e6e9ad8223",
+          "size_bytes": 669
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NewYork.csv",
+          "sha256": "54cd471bbe304365bdf342edb5ff92fc776991afa23e73c883ea22012be5430c",
+          "size_bytes": 1307
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NorthCarolina.csv",
+          "sha256": "89cd7fa13fe74afc21828e0875c22a9748bb8f77d91b8a8b604adaa402d0d95c",
+          "size_bytes": 1685
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/NorthDakota.csv",
+          "sha256": "d569eac674d0dbe06d1686f63908788d640c15d023b9273c1948514df636e162",
+          "size_bytes": 609
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Ohio.csv",
+          "sha256": "c9fdbba91c040e485a09fdc07efa767b6cb9331c6fb4cbd229b123c893bdae5e",
+          "size_bytes": 1421
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Oklahoma.csv",
+          "sha256": "570805307c469fccef7c1f4dc2adfbdf378a186f982a09f5ffa88fdcaa052dd7",
+          "size_bytes": 672
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Oregon.csv",
+          "sha256": "ddaaedbb6a4e70f6d4a4eb2b2662def6c0b233ac8a2ee131e3913be4a9382b12",
+          "size_bytes": 847
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Pennsylvania.csv",
+          "sha256": "69fc5fe5a0420006ef5f23c95bf41b8c134a6ff22c8c8b472c95c97346978150",
+          "size_bytes": 1624
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/PuertoRico.csv",
+          "sha256": "c863161c7251b96f4f277517fabcf8a4f70ed8994df8a5bf071aebd3feb828f6",
+          "size_bytes": 717
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/RhodeIsland.csv",
+          "sha256": "034aba04d3a332d20277dc91ceb12c1e910e3bfdee4ec0589a1155cab5ecae37",
+          "size_bytes": 517
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/SouthCarolina.csv",
+          "sha256": "9b636e9c7882e5e57fbd3706a04fb33fad534c02b79f6f3abffaecf367a6194c",
+          "size_bytes": 1129
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/SouthDakota.csv",
+          "sha256": "7fee7171c867be93e63d90a50bab36241bad0e8f54330e4e6aab6afbcab08e77",
+          "size_bytes": 623
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Tennessee.csv",
+          "sha256": "48299e3f4559513c845d5b78d877622f7d3d4f613b202ed06648fbb7ae98370d",
+          "size_bytes": 1113
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Texas.csv",
+          "sha256": "4a9a9a11e5fc8318dcd02357aacbb6b58a42e99b79bd3f0efa6ac6a2c28cf70e",
+          "size_bytes": 1895
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Utah.csv",
+          "sha256": "ed0fd3a0ba8fa7a9661e0bbe809cd47bac043e346751c020c8573c2576badfc5",
+          "size_bytes": 735
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Vermont.csv",
+          "sha256": "98a811824f9599eb8e45cefccd3c9c94ca0251440166ce36316aacd26adddf18",
+          "size_bytes": 588
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Virginia.csv",
+          "sha256": "ad1a36557668bea12049310bc9338243b2e61da7d62ffe53414ef3a86a4264c4",
+          "size_bytes": 1220
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Washington.csv",
+          "sha256": "f57428c7d5389811ad8707453705bb8a01636fc72072178744f666dc4f98a45a",
+          "size_bytes": 1226
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/WestVirginia.csv",
+          "sha256": "74bab7fc4b0a6891e856b7469efce0557ff36782e814babf0c9c25d40b611855",
+          "size_bytes": 1020
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Wisconsin.csv",
+          "sha256": "b521f990de551fbb01337dbf47cd60e62aeb72e2373b848b165cbed082c29909",
+          "size_bytes": 1391
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Fraud and Other data/Wyoming.csv",
+          "sha256": "88d2c0ceee0e7c6341ca76b952ce873a7968c9d66c4fe95b4a7bb3cd874fc74d",
+          "size_bytes": 503
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alabama.csv",
+          "sha256": "e7fd46477c8980a8df059403cd4ef52799b2c3b1ebfd8b5c9ce4476f96c079b4",
+          "size_bytes": 1157
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Alaska.csv",
+          "sha256": "89ecca3974d2369ac8b9535557c1af8778d66092b94af7b43c68d309d3a604ec",
+          "size_bytes": 440
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arizona.csv",
+          "sha256": "84220106b49d7ecf1804b573f9c40cb41203e4ae8caf7aa220042a765743a65a",
+          "size_bytes": 850
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Arkansas.csv",
+          "sha256": "7f68ab78f2b3ffebfcdfab1879d2bb77c3eb96eace7f556a8e1373445c1059b3",
+          "size_bytes": 815
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/California.csv",
+          "sha256": "a711fc0be2f796656f5d6311d7bef85e0b2abd62fd0991631e08092110b57300",
+          "size_bytes": 2032
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Colorado.csv",
+          "sha256": "6d9decf63ac82f0388685a34a735a0e3823b0cd3362925fba036bc575d30b195",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Connecticut.csv",
+          "sha256": "27c4f97edfc9028643a7a4ff79e3765522f947c72c16ba016eac33532aadf9f1",
+          "size_bytes": 786
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Delaware.csv",
+          "sha256": "2e3f14d595ae3b583dd5ed261ddf29a11abe8c63f205aca362893e16b8dda11d",
+          "size_bytes": 571
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/DistrictofColumbia.csv",
+          "sha256": "db18db550616a35f17289c5f04d49b706bd8c3929c735552ca0bfabc9c8571ec",
+          "size_bytes": 476
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Florida.csv",
+          "sha256": "0c21f69128a2f2583d17b567a228334e80730af58c31230efaa556f48d0a210a",
+          "size_bytes": 1855
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Georgia.csv",
+          "sha256": "cb807aa8736bcb5e4e0d6d3b6457522577fbc3252b9636217ff56532c206fce6",
+          "size_bytes": 1202
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Hawaii.csv",
+          "sha256": "fe5c4a5bd4bbe12dffd492b5c7bbbe2d96fe4d6012912563debe13e5cc6f2599",
+          "size_bytes": 559
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Idaho.csv",
+          "sha256": "7797d2a080590c382a44f637e1ee2cb67b5282ab1d0c00f625a4adc4362f2f30",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Illinois.csv",
+          "sha256": "e89364e32f45c7adea17ce4e0c42a9e04c3b599e7dc7267c78ff54927e2dbd92",
+          "size_bytes": 1055
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Indiana.csv",
+          "sha256": "5ea5cec6d69c49421e08e2e08787e1e1c6a4c8aa325905c506020efb386bca5c",
+          "size_bytes": 1185
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Iowa.csv",
+          "sha256": "c9e78635e9e5474d5d761d93035fbf4f6a15ff109fb3f0cad847fd6d1efa396f",
+          "size_bytes": 859
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kansas.csv",
+          "sha256": "e521d3d0db79bc1531308e415c8cdf380304ea3f2785cad7b8fcdf6ecb9e6081",
+          "size_bytes": 757
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Kentucky.csv",
+          "sha256": "83f874595d776e5b6337f17b43824fa725521ff7aa570ef999239f6da8378702",
+          "size_bytes": 1025
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Louisiana.csv",
+          "sha256": "e79237a59b645734722a81191814d872eb0f6c83e102ea12eb9a1e5b798b0414",
+          "size_bytes": 977
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maine.csv",
+          "sha256": "03cad78e9417fb77c4d83a69310d036f5ed847192b486951ddb0d9ab8cc705f7",
+          "size_bytes": 619
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Maryland.csv",
+          "sha256": "2c0a3f73b4583e9ba697a3966dc03211350323d5ff897c682b73ca47b5352dc5",
+          "size_bytes": 807
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Massachusetts.csv",
+          "sha256": "96ebd202626d92d9e9b68ec6812c3a0610fb939ad74758bc538ea3c01e409928",
+          "size_bytes": 816
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Michigan.csv",
+          "sha256": "7e6de78e7736ee6d39ac81ec90313401b65c5264f0ffba4f4414e96693e997f1",
+          "size_bytes": 1282
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Minnesota.csv",
+          "sha256": "c382e13c0aa0996d16059c341e371b90d70dbe351adcc803b8b806157b56724d",
+          "size_bytes": 897
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Mississippi.csv",
+          "sha256": "55cf8b2ccf87a933aa81685988f5f2d78c932076d02b521c2ab04ba3ca7ab39c",
+          "size_bytes": 659
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Missouri.csv",
+          "sha256": "d80453d26c26ccb6f0f52ffb6cfb01b5982c326e092b4dc7a210d188d6ccaf30",
+          "size_bytes": 772
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Montana.csv",
+          "sha256": "8f061b628488368b15c1233cd1eeda60720b52fc0d00658c17ab2bc7b5809d6f",
+          "size_bytes": 589
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nebraska.csv",
+          "sha256": "8c21561d0fdbd2feea8143edc25172d16a7223f0930dfb34036d1a215a2ba1ad",
+          "size_bytes": 550
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Nevada.csv",
+          "sha256": "081e531bb821b6e9b553bcf608f0b05ab7e436a25299769b6df74752f16696f5",
+          "size_bytes": 521
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewHampshire.csv",
+          "sha256": "52d4a9f6857692d07d043c281e6b998977ea976e58ff04a69de939c563bb76d9",
+          "size_bytes": 632
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewJersey.csv",
+          "sha256": "575d560754d22d1c2d8ce49fbe6da44c92aecc717624a5c8e25c83498cef93de",
+          "size_bytes": 805
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewMexico.csv",
+          "sha256": "886ce7fd54a67501bfbb2f6c751d28cdc4dfbff4b56deb6dc5b98299cb0db1eb",
+          "size_bytes": 600
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NewYork.csv",
+          "sha256": "2eef080d49bf596b1970fb7b195d17c2fb1f9eef5152171308c9717b30e0ecd2",
+          "size_bytes": 1223
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthCarolina.csv",
+          "sha256": "82813c241c838dd5accaafbf0b1e4e9c6c86f556ce57398081b1ca8c427388b6",
+          "size_bytes": 1570
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/NorthDakota.csv",
+          "sha256": "35798315a4d010deba995d72375f25644e6118b73c22c32e7b9eeece666c8209",
+          "size_bytes": 545
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Ohio.csv",
+          "sha256": "bafb939059e5bb98c73ee0536a754800d9a682f1dacaa4caeaacd1f381958b54",
+          "size_bytes": 1334
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oklahoma.csv",
+          "sha256": "a57e73c9e532deeffa67a824d2a9fdb9b37d7357dc5e9fbc732b31b481d4ad36",
+          "size_bytes": 602
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Oregon.csv",
+          "sha256": "0b01ed1e0a8bb4baea8fd4e95dcf4a114eb3dbbcd135b19b76e2b79a0b9fe06b",
+          "size_bytes": 766
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Pennsylvania.csv",
+          "sha256": "bf7ea3852b3471f66db9ed06eda1053d625632b899005f219dd94d99effe93b8",
+          "size_bytes": 1517
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/PuertoRico.csv",
+          "sha256": "5e3f44acd2ae0a00b1c076bd298948a94fe3e7abfa815360490e03ed16ed7aa1",
+          "size_bytes": 655
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/RhodeIsland.csv",
+          "sha256": "e060ebc0b8b48e0eb3a920efc85cf854dc8ceb43f552bacdcbff00a65172ae3e",
+          "size_bytes": 456
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthCarolina.csv",
+          "sha256": "2ce24142d9870cb714f2ead800904d7370874b4814c7e7940fe166516c3de706",
+          "size_bytes": 1046
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/SouthDakota.csv",
+          "sha256": "9e2e8627278682626ef805220066b7beb5f37bc98319077d319dfda9a0efbe9d",
+          "size_bytes": 555
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Tennessee.csv",
+          "sha256": "1fa22305b500fe8d50df6b9c64db87821329a3f18c2ac013a527c4ba90ba6c2b",
+          "size_bytes": 1027
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Texas.csv",
+          "sha256": "beecbeb16612e5283dbeb949396ec6bde9f5e15274da2a2e7d7e38525391cc32",
+          "size_bytes": 1770
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Utah.csv",
+          "sha256": "7722efd7db3a8d0457f7d2102fc5cbc5d7863c031af28844f952b57dda518ebd",
+          "size_bytes": 666
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Vermont.csv",
+          "sha256": "8207722368cc11e9038d5f5bc912cd43cc6dfe510e9564375e8c5956ff24b546",
+          "size_bytes": 520
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Virginia.csv",
+          "sha256": "cd93ef5510e3ffdfe9114b49f73837fdd42fcf823bbdd705de6be1c26e28d3ad",
+          "size_bytes": 1129
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Washington.csv",
+          "sha256": "fe9ed2158d1e4cf1b34014a41f3c862ea08eb710925f80a44e72b1c12f36bc7d",
+          "size_bytes": 1140
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/WestVirginia.csv",
+          "sha256": "a53dee405c4c34ef2603e9ee9f938c70ab6d57f59d0cb05fcaaaeaf4ad2b6cb5",
+          "size_bytes": 935
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wisconsin.csv",
+          "sha256": "669bf325d0774dbfdf732b8be7be86da24deae74c1b962b90796f772c73e5bac",
+          "size_bytes": 1293
+        },
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/State MSA Identity Theft data/Wyoming.csv",
+          "sha256": "0f01184400a6c0801d266edac471b95fbd66d6123b176e71fc6a4ac60040bfa2",
+          "size_bytes": 439
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-30",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Top_Three_Identity_Theft_Reports_by_Year.csv",
+          "sha256": "a2289b24172c8d4bc5c45dc8fb016777d1744ccb5cff1e5817316fac7c1c056e",
+          "size_bytes": 771
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-6",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "legal",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Top_Three_Identity_Theft_Reports_by_Year.csv",
+          "sha256": "a2289b24172c8d4bc5c45dc8fb016777d1744ccb5cff1e5817316fac7c1c056e",
+          "size_bytes": 771
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "legal-hard-7",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "wildfire",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "Wildfire_Acres_by_State.csv",
+          "sha256": "3ed233050c7ca0f83d6fe6884564ee5145b6c68ae515a373bf7aa4e61ff8a811",
+          "size_bytes": 1346
+        },
+        {
+          "format": "csv",
+          "path": "democratic_vs_republican_votes_by_usa_state_2020.csv",
+          "sha256": "63425fa10ea838b025fea4be2603a3a79a4ba46a92bc5d9de002ea3c8c7424f3",
+          "size_bytes": 2880
+        },
+        {
+          "format": "csv",
+          "path": "wildfire_total_fires_p45_54.csv",
+          "sha256": "492414f9f9168d3e17244276f3f69ef3f40737cac8cbf463e7c62c45d9e2d842",
+          "size_bytes": 706
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "wildfire-hard-10",
+      "workload": "wildfire"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "string_exact",
+      "dataset_domain": "wildfire",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "Wildfire_Acres_by_State.csv",
+          "sha256": "3ed233050c7ca0f83d6fe6884564ee5145b6c68ae515a373bf7aa4e61ff8a811",
+          "size_bytes": 1346
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "wildfire-hard-11",
+      "workload": "wildfire"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "f1",
+          "precision",
+          "recall"
+        ]
+      },
+      "answer_type": "list_exact",
+      "dataset_domain": "wildfire",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "noaa_wildfires.csv",
+          "sha256": "c51c4409b77e5a1ad26e368ff95f8b5836dd122219d813af1b71a48a21ca658b",
+          "size_bytes": 1302377
+        },
+        {
+          "format": "csv",
+          "path": "noaa_wildfires_variabledescrip.csv",
+          "sha256": "bb1e046c7f0a637d14a3da670ed8c3798a3c60477c0757dbba382968bddead38",
+          "size_bytes": 5157
+        }
+      ],
+      "metric_names": [
+        "f1",
+        "precision",
+        "recall"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "wildfire-hard-16",
+      "workload": "wildfire"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "wildfire",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "nifc_human_caused_acres.csv",
+          "sha256": "9de47dedde4ff93c5d7b9ca92f98f66c6641a7dbe356cd92848a017011367aef",
+          "size_bytes": 2508
+        },
+        {
+          "format": "csv",
+          "path": "nifc_suppression_costs.csv",
+          "sha256": "133db55f2de8ffd5e8c08a0aff22026b60b706bae2df18b548421afe3eda81c3",
+          "size_bytes": 2504
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "wildfire-hard-4",
+      "workload": "wildfire"
+    },
+    {
+      "adaptation_flags": [],
+      "adapted": false,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "wildfire",
+      "difficulty": "hard",
+      "evaluator_mode": "official",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "nifc_wildfires.csv",
+          "sha256": "87e7bf5f741795bdb5b3b7d89dbc29e2237b2f71e366ad99f75e3d1597d9ec06",
+          "size_bytes": 944
+        },
+        {
+          "format": "csv",
+          "path": "noaa_wildfires_monthly_stats.csv",
+          "sha256": "765a3957ab35b2397580fb186be1215dd12101164ea2d6b805056b378a48a8d3",
+          "size_bytes": 7717
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "held_out_pilot",
+      "task_id": "wildfire-hard-5",
+      "workload": "wildfire"
+    },
+    {
+      "adaptation_flags": [
+        "compatibility_evaluator_patch: conditionally defers GPTInterface construction when pipeline evaluation is disabled"
+      ],
+      "adapted": true,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "astronomy",
+      "difficulty": "easy",
+      "evaluator_mode": "compatibility-no-key",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "txt",
+          "path": "geomag_forecast/0309geomag_forecast.txt",
+          "sha256": "b8baaa583ffda34d7203505fa18c1c64472fc894a8f744eeadb4706a0a185749",
+          "size_bytes": 882
+        },
+        {
+          "format": "txt",
+          "path": "geomag_forecast/0311geomag_forecast.txt",
+          "sha256": "21d615213abcc15cca372525ea22becf3abf6db69dcd22b2db65b28ef38fbabe",
+          "size_bytes": 882
+        },
+        {
+          "format": "txt",
+          "path": "geomag_forecast/0312geomag_forecast.txt",
+          "sha256": "edf018c7d9abf5c34e4ae1a9c6cdfb2dda1debcf0a0de39cb634d9e754a86a2f",
+          "size_bytes": 882
+        },
+        {
+          "format": "txt",
+          "path": "geomag_forecast/0313geomag_forecast.txt",
+          "sha256": "4c51008bf5da58fd75405390d62ab66494f392b8e252e4bbf2260f2abfb7d992",
+          "size_bytes": 882
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "tuning",
+      "task_id": "astronomy-easy-1",
+      "workload": "astronomy"
+    },
+    {
+      "adaptation_flags": [
+        "compatibility_evaluator_patch: conditionally defers GPTInterface construction when pipeline evaluation is disabled"
+      ],
+      "adapted": true,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "environment",
+      "difficulty": "easy",
+      "evaluator_mode": "compatibility-no-key",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "water-body-testing-2013.csv",
+          "sha256": "911d1ef8bf290494ace9ff1785b5e9789a50de21606aaef8d4b45a7ab695becb",
+          "size_bytes": 1469864
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "tuning",
+      "task_id": "environment-easy-1",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [
+        "compatibility_evaluator_patch: conditionally defers GPTInterface construction when pipeline evaluation is disabled"
+      ],
+      "adapted": true,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "environment",
+      "difficulty": "easy",
+      "evaluator_mode": "compatibility-no-key",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "water-body-testing-2012.csv",
+          "sha256": "e98422d708150a37b0265b808d256a052ffa54d0593c1af3ab99d7d10e9d3ff0",
+          "size_bytes": 1467124
+        },
+        {
+          "format": "csv",
+          "path": "water-body-testing-2013.csv",
+          "sha256": "911d1ef8bf290494ace9ff1785b5e9789a50de21606aaef8d4b45a7ab695becb",
+          "size_bytes": 1469864
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "tuning",
+      "task_id": "environment-easy-3",
+      "workload": "environment"
+    },
+    {
+      "adaptation_flags": [
+        "compatibility_evaluator_patch: conditionally defers GPTInterface construction when pipeline evaluation is disabled"
+      ],
+      "adapted": true,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "legal",
+      "difficulty": "easy",
+      "evaluator_mode": "compatibility-no-key",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Report_Categories.csv",
+          "sha256": "9bff1bf397a848d4c14cc4f8192b13d140e0ead40ce519389bf17541427af511",
+          "size_bytes": 1612
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "tuning",
+      "task_id": "legal-easy-12",
+      "workload": "legal"
+    },
+    {
+      "adaptation_flags": [
+        "compatibility_evaluator_patch: conditionally defers GPTInterface construction when pipeline evaluation is disabled"
+      ],
+      "adapted": true,
+      "answer_check_provenance": {
+        "answer_type_fixture": "benchmark/fixtures/answer_type_fixtures.json",
+        "benchmark_revision": "b2e0d77540263f8b6119f977fe79a8c4386b5a02",
+        "metric_kind": "deterministic",
+        "metric_names": [
+          "success"
+        ]
+      },
+      "answer_type": "numeric_exact",
+      "dataset_domain": "legal",
+      "difficulty": "easy",
+      "evaluator_mode": "compatibility-no-key",
+      "independent_answer_check": true,
+      "input_files": [
+        {
+          "format": "csv",
+          "path": "csn-data-book-2024-csv/CSVs/2024_CSN_Data_Contributors.csv",
+          "sha256": "fcdbbdfbfce463f4b34a2797c9ef398cade63cc8c814c110af2d96c3b8f84a16",
+          "size_bytes": 7278
+        }
+      ],
+      "metric_names": [
+        "success"
+      ],
+      "pass_rule": {
+        "kind": "all_metrics_equal",
+        "value": 1.0
+      },
+      "split": "tuning",
+      "task_id": "legal-easy-4",
+      "workload": "legal"
+    }
+  ]
+}

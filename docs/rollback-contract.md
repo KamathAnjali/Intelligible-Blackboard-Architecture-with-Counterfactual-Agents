@@ -1,59 +1,50 @@
-# Data Contract: Retrospective Rollback & Counterfactual Sandbox
+# Retrospective rollback contract
 
-**Author**: Student 1 (Data Model & Storage) in sync with Student 3 (Agents & Counterfactual)  
-**Milestone**: Week 2 Checkpoint  
-**Status**: Agreed & Implemented
+Agent-side interface v1, 18 October 2026. Reviewed against `origin/integration-main` at `ce3993f` and its shared board contract. This document records the agent contribution and the unresolved integration requirements; it does not claim implementation of replay or approval by the other workstreams.
 
----
+## Inputs
 
-## 1. Overview & Purpose
+`agents/counterfactual.py` defines the request, outcome, sandbox preparation, and standalone replay.
 
-When agents encounter a deadlock (`DEADLOCK_WINDOW` consecutive negative `REFUTE`/`REJECT` entries), counterfactual-capable agents can trigger a **retrospective rollback simulation**. 
+| Input | Meaning |
+| --- | --- |
+| `task` | Original task text. The board state does not contain this text, so the caller must supply it. |
+| `source_state` | Detached `board.get_state()` snapshot containing ordered entries, agent IDs/personas/model names/active flags, status, and deadlock records. |
+| `cutoff_entry_id` | Original contribution selected for replacement, not the end of the subsequent deadlock. It must exist in the live history. |
+| `target_agent_id` | Registered, active author of the selected contribution. |
+| `alternative_instruction` | Instruction to reconsider that contribution using the original facts. It must not contain a reference answer. |
+| `max_replay_turns` | Maximum number of newly generated sandbox turns, including the alternative. Default 6. |
+| `max_alternatives` | Maximum candidate timelines. Default 1. |
+| `max_retries` | Regeneration budget per turn, shared with explanation checking. Default 2. |
 
-To preserve experimental integrity and prevent live session pollution:
-1. The historical timeline prior to the disputed decision must remain **strictly immutable**.
-2. Simulations must execute in an **isolated sandbox blackboard**.
-3. A connected evaluator may produce a **`delta_score`** before an alternative is considered for adoption. Until such an evaluator exists, the score is `null` and the demo must not invent one.
+The replay returns generated entries, attempts, usage, and failures. Recording model digest, inference options, and prompt versions with the result remains an integration task. The active registration order is retained, and downstream replay starts after the author of the alternative.
 
----
+The frozen dataclass protects field assignment, not mutation of nested Pydantic objects. Sandbox creation deep-copies the supplied state and entries. Expected answers and official evaluator reference data stay outside model context.
 
-## 2. Five Pillars of the Rollback Contract
+## Cutoff and replay semantics
 
-### Pillar 1: Historical Cutoff Point
-- **Definition**: The specific historical `entry_id` ($E_{\text{cutoff}}$) where an earlier agent contribution is selected for modification.
-- **Contract**: `cutoff_entry_id: str`.
-- **Constraint**: Must exist within the live board's chronological history.
+1. The source history and its IDs remain unchanged.
+2. Shared `get_history_slice()` and `fork_simulation_blackboard()` currently include the cutoff entry. A replacement experiment must retain only entries strictly before that entry in its working sandbox. For the first entry, the retained prefix is empty.
+3. Generate a new alternative with a fresh entry ID. Keep the original cutoff ID as provenance in `RollbackOutcome.original_entry_id`. Do not retain the old cutoff contribution alongside its replacement or reuse downstream live responses.
+4. Rebuild target references against entries that exist in the alternative timeline. New sandbox entries have `is_counterfactual_sim=True`; inherited prefix entries keep their original metadata.
+5. Regenerate subsequent turns using the new history, the regular persona/PXP prompts, and explanation checks. Reset deadlock-window state at the intervention. Stop on the sandbox's evaluated consensus/deadlock, a generation error, or the configured budget.
 
-### Pillar 2: Board Snapshot & History Slice
-- **Definition**: The exact sub-slice of board history $[E_0, E_1, \dots, E_{\text{cutoff}}]$.
-- **Contract Function**: `board.get_history_slice(cutoff_entry_id, include_counterfactual=False)`
-- **Sandbox Factory**: `board.fork_simulation_blackboard(cutoff_entry_id)` produces an isolated `Blackboard` instance populated with state up to $E_{\text{cutoff}}$.
-- **Constraint**: All live entries created after $E_{\text{cutoff}}$ are excluded in the simulation sandbox. Live board state is completely isolated and unaffected by writes in the sandbox.
+## Outputs and evaluation
 
-### Pillar 3: Relevant Agent Context & Prompt Injection
-- **Definition**: The context provided to the counterfactual agent's local LLM prompt to seed the alternative path.
-- **Payload Structure**:
-  ```json
-  {
-    "task_id": "task_123",
-    "cutoff_entry_id": "entry_002",
-    "history_slice": [...],
-    "target_agent_id": "agent_alpha",
-    "divergent_hypothesis_prompt": "Re-evaluate the auscultation findings to propose an alternative explanation."
-  }
-  ```
+`RollbackOutcome` contains the original cutoff ID, an optional candidate entry, the tuple of newly generated replay entries, a terminal outcome (`consensus`, `deadlocked`, `turn_limit`, or `error`), an optional `delta_score`/`score_name`, and an optional failure reason. The candidate is the first element of `replayed_entries` when it exists. An error must preserve any partial replay.
 
-### Pillar 4: Simulation Output & Delta Scoring
-- **Definition**: Alternate entries produced inside the sandbox are tagged with `is_counterfactual_sim=True`. Scoring requires a separate evaluator and is not implemented by the current demo.
-- **Contract Model**: `CounterfactualResult`
-  - `agent_id` (`str`): Agent executing the simulation.
-  - `original_entry_id` (`str`): The historical entry rewritten.
-  - `simulated_entry` (`BoardEntry`): The alternative proposal generated.
-  - `delta_score` (`float | null`): Optional evaluator output. It must be `null` when no evaluator calculated a score; no scale or probability interpretation is currently defined.
-  - `applied_to_live` (`bool`): Whether this outcome was promoted to live execution.
-  - `timestamp` (`datetime`): UTC timestamp.
+An internal consensus-progress score is separate from correctness. Its definition and baseline must be recorded before interpreting a numeric delta. Without an evaluator, both score fields are `None`; do not substitute zero, a probability, or a fabricated improvement. Official benchmark scoring requires the appropriate independent evaluator. Generation, self-checks, rejected candidates, and replay calls all count toward cost.
 
-### Pillar 5: Proposed Live Update Mechanism
-- **Rule**: Counterfactual entries **NEVER** overwrite previous entries in the live history.
-- **Adoption**: If $\text{delta\_score} > \theta_{\text{threshold}}$, the agent creates a **new live entry** (`tag=PXPTag.REVISE`) citing the revised rationale, allowing downstream agents to ratify and escape the deadlock naturally.
-- **Audit Trail**: The `CounterfactualResult` is appended to `BlackboardState.counterfactual_events` via `board.record_counterfactual_result(...)` for full visibility and benchmarking.
+Simulation returns a proposal and never applies it. The later live controller may submit a fresh `REVISE` through the scheduler after acceptance, referencing the original live entry and citing the corrected reasoning. Live history is append-only. A `CounterfactualResult` audit record reports the original entry, alternative, score or null, and whether adoption actually occurred.
+
+## Shared integration requirements
+
+| Area | Current state and required integration |
+| --- | --- |
+| `3-Dhruva` | History forks, replay, and opt-in deadlock recovery through live prompt guidance are implemented. |
+| Board classification | Forked boards explicitly classify simulated entries. Live boards continue to exclude them from consensus. |
+| Deadlock lifecycle | Opt-in recovery reopens the board only if its saved state still matches the replay input, preserves deadlock records, and resumes through the scheduler. |
+| Scheduler state | Read access to active agent order, selected turn, and status is sufficient for the interface. A stable public recovery/debug API is still needed for integration. |
+| UI and audit | Live and simulated entries must remain distinguishable. Simulation lineage, usage, and outcome should be available to the event/metrics layer. |
+
+The replay generates an alternative and follows scheduler turns in the isolated board. Its agreement-progress score is the largest matching RATIFY group divided by active agents; delta compares that score against the live source snapshot. Errors retain partial replay and have no score. The score does not measure correctness. On acceptance, the original agent receives the alternative as guidance to assess against the original task and evidence. Evaluator and UI integration remain pending.

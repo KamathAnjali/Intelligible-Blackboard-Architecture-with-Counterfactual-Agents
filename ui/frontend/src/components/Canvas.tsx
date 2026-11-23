@@ -5,6 +5,8 @@ import type { PXPTag } from '../constants/tagColors';
 import { HistoryScrubber } from './HistoryScrubber';
 import { TokenTally } from './TokenTally';
 import type { TokenTallyReport } from './TokenTally';
+import type { CounterfactualBranchState } from '../types/sessionEvents';
+import { branchEmptyState, branchTitle, branchVerdict } from './counterfactualPresentation';
 
 export type { PXPTag };
 export { TAG_COLORS };
@@ -45,12 +47,18 @@ export type ViewMode = 'unified' | 'split';
 interface CanvasProps {
   wsStatus?: 'connected' | 'connecting' | 'disconnected';
   boardMode?: BoardMode;
+  syntheticStream?: boolean;
   nodes?: GraphNode[];
   links?: GraphLink[];
   streamDone?: boolean;
   tokenTally?: TokenTallyReport;
   scrubIndex?: number | null;
   onScrub?: (index: number | null) => void;
+  branches?: CounterfactualBranchState[];
+  liveScrubIndex?: number | null;
+  onLiveScrub?: (index: number | null) => void;
+  branchScrubIndex?: number | null;
+  onBranchScrub?: (index: number | null) => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -131,12 +139,18 @@ function detectBottlenecks(nodes: GraphNode[]): {
 export const Canvas: React.FC<CanvasProps> = ({
   wsStatus = 'disconnected',
   boardMode = null,
+  syntheticStream = false,
   nodes = [],
   links = [],
   streamDone = false,
   tokenTally = { total_tokens: 0, turn_count: 0, agents: {} },
   scrubIndex = null,
   onScrub = () => {},
+  branches = [],
+  liveScrubIndex = null,
+  onLiveScrub = () => {},
+  branchScrubIndex = null,
+  onBranchScrub = () => {},
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
@@ -235,10 +249,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     const sim = simulationRef.current!;
     const content = svg.select<SVGGElement>('.graph-content');
 
-    const visibleNodes =
-      scrubIndex !== null && scrubIndex < nodes.length - 1
-        ? nodes.slice(0, scrubIndex + 1)
-        : nodes;
+    const visibleNodes = nodes.filter((node) => {
+      const laneNodes = node.isCounterfactual ? cfNodes : mainNodes;
+      const laneIndex = node.isCounterfactual ? branchScrubIndex : liveScrubIndex;
+      return laneIndex === null || laneIndex >= laneNodes.length - 1 || laneNodes.indexOf(node) <= laneIndex;
+    });
     const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
     const visibleLinks = links.filter((l) => {
       const s = typeof l.source === 'object' ? (l.source as any).id : l.source;
@@ -524,7 +539,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         .selectAll<SVGGElement, GraphNode>('g.node-group')
         .attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
-  }, [nodes, links, dimensions, scrubIndex, layoutMode, viewMode, bottleneckNodeIds]);
+  }, [nodes, links, dimensions, scrubIndex, liveScrubIndex, branchScrubIndex, layoutMode, viewMode, bottleneckNodeIds, cfNodes, mainNodes]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const hasNodes = nodes.length > 0;
@@ -545,6 +560,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             {modeBadgeLabel(boardMode)}
           </span>
         )}
+        {syntheticStream && <span className="synthetic-fixture-banner">SYNTHETIC FIXTURE — NOT BENCHMARK EVIDENCE</span>}
 
         {/* WebSocket status */}
         <div className="status-badge">
@@ -605,12 +621,27 @@ export const Canvas: React.FC<CanvasProps> = ({
             <span className="panel-dot live-dot" />
             <strong>Live Mainline Board</strong>
             <span className="panel-count">({mainNodes.length} entries)</span>
+            {branches.filter((branch) => branch.cutoffEntryId).map((branch) => <span className="branch-cutoff-marker" key={branch.branchId}>
+              Cutoff marker: {branch.cutoffEntryId}
+            </span>)}
           </div>
           <div className="split-divider-line" />
           <div className="split-panel-title right-title">
             <span className="panel-dot cf-dot" />
             <strong>Rollback & Sandbox Simulation</strong>
             <span className="panel-count">({cfNodes.length} simulated entries)</span>
+          </div>
+          <div className="branch-activity-panel" aria-label="Counterfactual branch activity">
+            {branchEmptyState(branches) ? <span>{branchEmptyState(branches)}</span> : branches.map((branch) => (
+              <section className="branch-activity-card" key={branch.branchId}>
+                <strong>{branchTitle(branch)}</strong>
+                <span>Branch {branch.branchId}</span>
+                {branch.deltaScore !== undefined && <span>Delta score: {branch.deltaScore ?? 'unavailable'} · {branchVerdict(branch)}</span>}
+                {branch.reason && <span>{branch.reason}</span>}
+                {branch.entries.map((entry) => <span key={entry.entry_id}>SIMULATION · {entry.agent_id} · {entry.tag}: {entry.prediction}</span>)}
+                {branch.adjustments.map((adjustment) => <span key={adjustment.session_entry_id}>Live adjustment: {adjustment.agent_id} · {adjustment.method} · {adjustment.session_entry_id}</span>)}
+              </section>
+            ))}
           </div>
         </div>
       )}
@@ -687,11 +718,10 @@ export const Canvas: React.FC<CanvasProps> = ({
       )}
 
       {/* History Scrubber Controls */}
-      <HistoryScrubber
-        nodes={nodes}
-        scrubIndex={scrubIndex}
-        onScrub={onScrub}
-      />
+      {viewMode === 'split' ? <div className="split-history-scrubbers">
+        <HistoryScrubber nodes={mainNodes} scrubIndex={liveScrubIndex} onScrub={onLiveScrub} label="Live history" keyboardScope="live" />
+        {cfNodes.length > 0 && <HistoryScrubber nodes={cfNodes} scrubIndex={branchScrubIndex} onScrub={onBranchScrub} label="Branch history" keyboardScope="branch" />}
+      </div> : <HistoryScrubber nodes={nodes} scrubIndex={scrubIndex} onScrub={onScrub} />}
 
       {/* Footer counter */}
       <div className="hud-overlay footer-hud">

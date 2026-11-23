@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from pathlib import Path
 from typing import Callable
 
 from .models import (
@@ -25,7 +24,6 @@ from .models import (
     DeadlockEvent,
     IntelligibilityLevel,
     PXPTag,
-    TrialMetrics,
 )
 from .store import BackingStore, InMemoryJSONStore
 
@@ -37,8 +35,9 @@ _NEGATIVE_TAGS = {PXPTag.REFUTE, PXPTag.REJECT}
 class Blackboard:
     """Thread-safe PXP Blackboard."""
 
-    def __init__(self, task_id: str, store: BackingStore | None = None):
+    def __init__(self, task_id: str, store: BackingStore | None = None, *, is_simulation: bool = False):
         self.task_id = task_id
+        self._is_simulation = is_simulation
         self._store = store or InMemoryJSONStore()
         self._lock = threading.RLock()
         self._subscribers: list[Callable[[BoardEvent], None]] = []
@@ -120,7 +119,7 @@ class Blackboard:
 
             prev_intelligibility = self._state.intelligibility
             deadlock = self._check_deadlock(entry)
-            self._recompute_intelligibility(entry)
+            self._recompute_intelligibility()
             new_intelligibility = self._state.intelligibility
 
             if prev_intelligibility != new_intelligibility:
@@ -169,6 +168,35 @@ class Blackboard:
                 return list(self._state.entries)
             return [e for e in self._state.entries if e.agent_id == agent_id]
 
+    def reopen_for_review(self) -> bool:
+        """Return a consensus board to UNRESOLVED for a bounded evidence review."""
+        with self._lock:
+            previous = self._state.intelligibility
+            if previous not in (IntelligibilityLevel.STRONG, IntelligibilityLevel.ULTRA_STRONG):
+                return False
+            self._state.intelligibility = IntelligibilityLevel.UNRESOLVED
+            self._store.save(self._state)
+        self._emit(BoardEventType.INTELLIGIBILITY_CHANGED, {
+            "previous": previous.value,
+            "current": IntelligibilityLevel.UNRESOLVED.value,
+        })
+        return True
+
+    def reopen_after_deadlock(self, expected_state: BlackboardState | None = None) -> bool:
+        """Resume after an accepted recovery while retaining the deadlock record."""
+        with self._lock:
+            if (self._state.intelligibility != IntelligibilityLevel.DEADLOCKED
+                    or (expected_state is not None and self._state != expected_state)):
+                return False
+            self._recent_tags.clear()
+            self._state.intelligibility = IntelligibilityLevel.UNRESOLVED
+            self._store.save(self._state)
+        self._emit(BoardEventType.INTELLIGIBILITY_CHANGED, {
+            "previous": IntelligibilityLevel.DEADLOCKED.value,
+            "current": IntelligibilityLevel.UNRESOLVED.value,
+        })
+        return True
+
     # -- persistence & snapshot hooks (Week 2) -----------------------------
 
     def save_snapshot(self, tag: str | None = None):
@@ -212,7 +240,7 @@ class Blackboard:
 
     def fork_simulation_blackboard(
         self,
-        cutoff_entry_id: str,
+        cutoff_entry_id: str | None,
         sim_task_id: str | None = None,
     ) -> Blackboard:
         """
@@ -221,8 +249,11 @@ class Blackboard:
         without mutating the live board history.
         """
         with self._lock:
-            history_slice = self.get_history_slice(cutoff_entry_id=cutoff_entry_id, include_counterfactual=False)
-            task_name = sim_task_id or f"{self.task_id}_sim_{cutoff_entry_id[:8]}"
+            history_slice = (
+                self.get_history_slice(cutoff_entry_id=cutoff_entry_id, include_counterfactual=False)
+                if cutoff_entry_id is not None else []
+            )
+            task_name = sim_task_id or f"{self.task_id}_sim_{(cutoff_entry_id or 'empty')[:8]}"
             sim_state = BlackboardState(
                 task_id=task_name,
                 entries=history_slice,
@@ -231,7 +262,7 @@ class Blackboard:
             )
             sim_store = InMemoryJSONStore()
             sim_store.save(sim_state)
-            sim_board = Blackboard(task_id=task_name, store=sim_store)
+            sim_board = Blackboard(task_id=task_name, store=sim_store, is_simulation=True)
 
         self._emit(BoardEventType.ROLLBACK_FORKED, {
             "cutoff_entry_id": cutoff_entry_id,
@@ -263,13 +294,12 @@ class Blackboard:
             return event
         return None
 
-    def _recompute_intelligibility(self, latest: BoardEntry | None = None) -> None:
+    def _recompute_intelligibility(self) -> None:
         """
-        Refined Intelligibility Classification (Week 2 & Week 3 Deadlock Recovery):
+        Refined Intelligibility Classification (Week 2):
         
         Rules:
-        1. If already DEADLOCKED, status is preserved unless a constructive tag
-           (PXPTag.REVISE or PXPTag.RATIFY) is posted to initiate recovery.
+        1. If already DEADLOCKED, status is preserved.
         2. Consensus requires at least 2 active agents registered.
         3. Every active agent must have submitted at least one entry.
         4. The most recent entry from EACH active agent must be PXPTag.RATIFY.
@@ -282,11 +312,7 @@ class Blackboard:
         - STRONG: Unanimous consensus reached directly without any PXPTag.REVISE in history.
         """
         if self._state.intelligibility == IntelligibilityLevel.DEADLOCKED:
-            if latest is not None and latest.tag in {PXPTag.REVISE, PXPTag.RATIFY}:
-                self._state.intelligibility = IntelligibilityLevel.UNRESOLVED
-            else:
-                return
-
+            return
         if not self._state.entries:
             return
 
@@ -294,12 +320,10 @@ class Blackboard:
         if len(active_agent_ids) < 2:
             return
 
-        is_simulation_board = "sim" in self.task_id.lower()
-
         # Find the most recent entry from each active agent
         latest_by_agent: dict[str, BoardEntry] = {}
         for entry in self._state.entries:
-            if entry.agent_id in active_agent_ids and (is_simulation_board or not entry.is_counterfactual_sim):
+            if entry.agent_id in active_agent_ids and (self._is_simulation or not entry.is_counterfactual_sim):
                 latest_by_agent[entry.agent_id] = entry
 
         # All active agents must have posted at least once
@@ -318,66 +342,8 @@ class Blackboard:
 
         # Check if productive REVISE occurred in the history
         had_revise = any(
-            e.tag == PXPTag.REVISE for e in self._state.entries
-            if (is_simulation_board or not e.is_counterfactual_sim)
+            e.tag == PXPTag.REVISE for e in self._state.entries if self._is_simulation or not e.is_counterfactual_sim
         )
         self._state.intelligibility = (
             IntelligibilityLevel.ULTRA_STRONG if had_revise else IntelligibilityLevel.STRONG
         )
-
-    # -- trial logging & metrics (Week 3 Deliverable) ----------------------
-
-    def get_trial_metrics(self) -> TrialMetrics:
-        """
-        Aggregate session outcome, iteration count, deadlock occurrences,
-        and counterfactual simulation metrics for trial run reporting.
-        """
-        with self._lock:
-            live_entries = [e for e in self._state.entries if not e.is_counterfactual_sim]
-            converged = self._state.intelligibility in {
-                IntelligibilityLevel.STRONG,
-                IntelligibilityLevel.ULTRA_STRONG,
-            }
-            start_time = live_entries[0].timestamp if live_entries else None
-            end_time = live_entries[-1].timestamp if live_entries else None
-            duration = (end_time - start_time).total_seconds() if (start_time and end_time) else 0.0
-
-            return TrialMetrics(
-                task_id=self.task_id,
-                converged=converged,
-                intelligibility=self._state.intelligibility,
-                iteration_count=len(live_entries),
-                deadlock_count=len(self._state.deadlocks),
-                deadlock_flag=len(self._state.deadlocks) > 0,
-                counterfactual_attempts=len(self._state.counterfactual_events),
-                counterfactual_applied=any(
-                    cf.applied_to_live for cf in self._state.counterfactual_events
-                ),
-                participating_agents=sorted(list(self._state.agents.keys())),
-                start_time=start_time,
-                end_time=end_time,
-                duration_seconds=max(0.0, duration),
-            )
-
-    def log_trial_run(self, filepath: str | Path | None = None) -> TrialMetrics:
-        """
-        Log the completed trial run metrics, optionally persist to disk as JSON,
-        and emit a TRIAL_COMPLETED event for external observers.
-        """
-        metrics = self.get_trial_metrics()
-
-        target_path: Path | None = None
-        if filepath:
-            target_path = Path(filepath)
-        elif hasattr(self._store, "snapshot_dir"):
-            target_path = Path(self._store.snapshot_dir) / f"{self.task_id}_trial_metrics.json"
-
-        if target_path:
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            target_path.write_text(metrics.model_dump_json(indent=2))
-
-        self._emit(BoardEventType.TRIAL_COMPLETED, {
-            "metrics": metrics.model_dump(mode="json"),
-            "path": str(target_path) if target_path else None,
-        })
-        return metrics

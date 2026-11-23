@@ -34,7 +34,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from bench.ingest.krama_parser import TaskFormat, load_krama_dataset
+from bench.ingest.krama_parser import EvaluatorReference, TaskFormat, load_krama_dataset
 from bench.metrics.token_counter import TokenTallyTracker
 from blackboard.core import Blackboard
 from blackboard.models import AgentRecord, BoardEntry, IntelligibilityLevel, PXPTag
@@ -45,16 +45,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("trial-runner")
 
-TrialMode = Literal["example", "dry_run", "pilot", "full_study"]
-VALID_MODES: list[TrialMode] = ["example", "dry_run", "pilot", "full_study"]
+TrialMode = Literal["example", "dry_run"]
+VALID_MODES: list[TrialMode] = ["example", "dry_run"]
 SIMULATION_MODES = {"example", "dry_run"}
 
 
 def _require_supported_mode(mode: TrialMode) -> None:
     if mode not in SIMULATION_MODES:
-        raise NotImplementedError(
-            f"{mode!r} is disabled: this runner does not invoke the agent conversation or the official "
-            "KramaBench evaluator. Use --mode dry_run only for a clearly labelled simulation."
+        raise ValueError(
+            f"{mode!r} is not a synthetic mode. Use bench.orchestrator for real paired KramaBench runs."
         )
 
 
@@ -93,7 +92,7 @@ def run_single_task_trial(
             "dry_run": False,
             "timestamp": now_iso,
             "notes": "SYNTHETIC_EXAMPLE_FIXTURE",
-            "result_kind": "synthetic_fixture",
+            "result_kind": "SYNTHETIC_EXAMPLE_FIXTURE",
             "official_metric": "",
             "official_score": "",
             "token_source": "fixed_placeholder",
@@ -122,7 +121,7 @@ def run_single_task_trial(
         root = BoardEntry(
             agent_id="Agent_Alpha (Proposer)",
             tag=PXPTag.REVISE,
-            prediction=task.expected_answer or "Candidate solution",
+            prediction=task.evaluator_reference.expected_answer or "Candidate solution",
             explanation=f"Initial hypothesis for problem: {task.task_text}",
         )
         board.post_entry(root)
@@ -132,7 +131,7 @@ def run_single_task_trial(
         iteration = 1
 
         # Determine task complexity profile
-        subtask_count = len(task.reference_steps)
+        subtask_count = len(task.evaluator_reference.reference_steps)
         if task.difficulty == "hard" or subtask_count >= 4:
             complexity_level = 3  # High complexity
         elif task.difficulty == "medium" or subtask_count >= 2:
@@ -155,8 +154,8 @@ def run_single_task_trial(
         else: # 100%
             can_recover = True
 
-        if task.reference_steps:
-            for step_idx, step_text in enumerate(task.reference_steps, start=1):
+        if task.evaluator_reference.reference_steps:
+            for step_idx, step_text in enumerate(task.evaluator_reference.reference_steps, start=1):
                 iteration += 1
                 if iteration > max_iterations:
                     outcome = "iteration_limit"
@@ -262,7 +261,7 @@ def run_single_task_trial(
                 e2 = BoardEntry(
                     agent_id="Agent_Beta (Verifier)",
                     tag=PXPTag.RATIFY,
-                    prediction=f"Verified: {task.expected_answer or 'consistent'}",
+                    prediction=f"Verified: {task.evaluator_reference.expected_answer or 'consistent'}",
                     explanation=f"Domain check verified for {task.domain}.",
                     target_entry_id=root.entry_id,
                 )
@@ -281,7 +280,7 @@ def run_single_task_trial(
                 r_entry = BoardEntry(
                     agent_id=ag_id,
                     tag=PXPTag.RATIFY,
-                    prediction=task.expected_answer or "Verified Consensus",
+                    prediction=task.evaluator_reference.expected_answer or "Verified Consensus",
                     explanation=r_expl,
                     target_entry_id=prev_id,
                 )
@@ -328,7 +327,7 @@ def run_single_task_trial(
         "dry_run": (mode == "dry_run"),
         "timestamp": now_iso,
         "notes": notes,
-        "result_kind": "synthetic_simulation",
+        "result_kind": "SYNTHETIC_SIMULATION",
         "official_metric": "",
         "official_score": "",
         "token_source": "heuristic_estimate_over_simulated_board_text",
@@ -348,11 +347,11 @@ def run_batch_trials(
     """Write explicitly synthetic fixture/simulation rows to a mode-prefixed CSV."""
     _require_supported_mode(mode)
     today_str = datetime.date.today().isoformat()
-    out_dir = Path(results_base_dir) / phase
+    out_dir = Path(results_base_dir) / "synthetic" / phase
     out_dir.mkdir(parents=True, exist_ok=True)
 
     mode_prefix = "dryrun" if mode == "dry_run" else mode
-    csv_name = f"{mode_prefix}_run_{today_str}_config-{config_pct}pct.csv"
+    csv_name = f"SYNTHETIC_{mode_prefix}_run_{today_str}_config-{config_pct}pct.csv"
     out_csv = out_dir / csv_name
 
     fieldnames = [
@@ -377,6 +376,7 @@ def run_batch_trials(
         "token_source",
         "timing_scope",
         "ground_truth_used",
+        "synthetic",
     ]
 
     rows = []
@@ -387,6 +387,7 @@ def run_batch_trials(
             config_pct=config_pct,
             benchmark_source=benchmark_source,
         )
+        row["synthetic"] = True
         rows.append(row)
 
     with open(out_csv, "w", newline="", encoding="utf-8") as fh:
@@ -394,7 +395,7 @@ def run_batch_trials(
         writer.writeheader()
         writer.writerows(rows)
 
-    logger.info("✓ [%s | Config %d%%] Wrote %d result rows to %s", mode.upper(), config_pct, len(rows), out_csv)
+    logger.info("✓ [SYNTHETIC %s | Config %d%%] Wrote %d result rows to %s", mode.upper(), config_pct, len(rows), out_csv)
     return out_csv
 
 
@@ -435,71 +436,39 @@ def run_full_ablation_matrix(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _generate_synthetic_pilot_tasks(n: int) -> List[TaskFormat]:
-    """Generate a consistent set of N symbolic reasoning tasks."""
+    """Generate labelled synthetic-only inputs for the legacy simulator."""
     tasks = []
     for i in range(1, n + 1):
-        if i % 3 == 1:
-            tasks.append(TaskFormat(
-                task_id=f"kb_pilot_{i:03d}",
-                task_text=f"Task {i}: Quadratic constraint resolution x^2 = {i*i} under mixed domain bounds.",
-                expected_answer=f"x ∈ {{{-i}, {i}}}",
-                domain="algebra",
-                difficulty="hard",
-                reference_steps=[
-                    f"Agent A REVISE: x = {i}",
-                    f"Agent B RATIFY: verified positive root {i}",
-                    f"Agent C REFUTE: negative root -{i} omitted",
-                    f"Agent Delta REJECT: hypothetical zero root invalidated",
-                    f"Agent A REVISE: complete solution set {{{-i}, {i}}}",
-                    f"Agent B RATIFY: ratified solution set",
-                ],
-            ))
-        elif i % 3 == 2:
-            tasks.append(TaskFormat(
-                task_id=f"kb_pilot_{i:03d}",
-                task_text=f"Task {i}: Modal logic deduction over knowledge base KB_{i}.",
-                expected_answer=f"Theorem_{i} valid in frame S5",
-                domain="logic",
-                difficulty="medium",
-                reference_steps=[
-                    f"Agent A REVISE: Theorem_{i} holds unconditionally",
-                    f"Agent C REFUTE: counter-model found in frame S5",
-                    f"Agent A REVISE: Theorem_{i} restricted to reflexive frames",
-                    f"Agent B RATIFY: verified restricted theorem",
-                ],
-            ))
-        else:
-            tasks.append(TaskFormat(
-                task_id=f"kb_pilot_{i:03d}",
-                task_text=f"Task {i}: Compute optimal scheduling bound for pipeline P_{i}.",
-                expected_answer=f"Bound = {i*2.5:.1f}s",
-                domain="planning",
-                difficulty="easy",
-                reference_steps=[
-                    f"Agent A REVISE: Bound = {i*2.5:.1f}s",
-                    f"Agent B RATIFY: verified constraints",
-                ],
-            ))
+        tasks.append(TaskFormat(
+            task_id=f"SYNTHETIC_task_{i:03d}",
+            task_text=f"SYNTHETIC placeholder task {i}: inspect a generic constraint and describe a candidate.",
+            domain="SYNTHETIC_fixture",
+            difficulty="medium",
+            evaluator_reference=EvaluatorReference(
+                expected_answer=f"SYNTHETIC placeholder outcome {i}",
+                reference_steps=["SYNTHETIC placeholder review step", "SYNTHETIC placeholder closing step"],
+            ),
+        ))
     return tasks
 
 
 def _run_cli(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Benchmark Ablation Trial Runner")
+    parser = argparse.ArgumentParser(description="SYNTHETIC-only legacy trial runner; use bench.orchestrator for empirical runs.")
     parser.add_argument(
         "--mode", "-m",
         required=True,
         choices=VALID_MODES,
-        help="Mandatory execution mode: 'example' | 'dry_run' | 'pilot' | 'full_study'",
+        help="Synthetic-only mode: 'example' or 'dry_run'. Real runs use bench.orchestrator.",
     )
     parser.add_argument("--file", "-f", default=None, help="Path to input JSON/JSONL dataset file.")
     parser.add_argument("--n", "-n", type=int, default=None, help="Number of tasks per config.")
     parser.add_argument("--configs", "-c", default="0,33,66,100", help="Comma-separated configs (default: '0,33,66,100').")
-    parser.add_argument("--phase", default="week3_pilot", help="Results subfolder (default: week3_pilot).")
+    parser.add_argument("--phase", default="legacy", help="Synthetic-only results subfolder.")
     args = parser.parse_args(argv)
 
     try:
         _require_supported_mode(args.mode)
-    except NotImplementedError as exc:
+    except ValueError as exc:
         parser.error(str(exc))
 
     config_list = [int(c.strip()) for c in args.configs.split(",") if c.strip()]
@@ -523,7 +492,7 @@ def _run_cli(argv: list[str] | None = None) -> None:
     )
 
     print("\n═════════════════════════════════════════════════════════════════════")
-    print(f"✅  [{args.mode.upper()} Execution Complete] Generated {len(csv_paths)} CSV file(s):")
+    print(f"✅  [SYNTHETIC {args.mode.upper()} Complete] Generated {len(csv_paths)} SYNTHETIC CSV file(s):")
     for p in csv_paths:
         print(f"  📄  {p}")
     print("═════════════════════════════════════════════════════════════════════")

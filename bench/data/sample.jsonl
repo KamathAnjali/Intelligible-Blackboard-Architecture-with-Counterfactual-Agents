@@ -1,0 +1,5 @@
+{"id":"format_sample_001","problem_statement":"From a small table of monthly counts, calculate the total for the year.","domain":"environment","difficulty":"easy","answer_type":"numeric_exact","data_sources":["monthly_counts.csv"]}
+{"id":"format_sample_002","problem_statement":"Compare the reported measurements for two named observation periods.","domain":"astronomy","difficulty":"medium","answer_type":"numeric_approximate","data_sources":["observations.txt"]}
+{"id":"format_sample_003","problem_statement":"Identify which category has the largest number of records.","domain":"legal","difficulty":"easy","answer_type":"string_exact","data_sources":["category_counts.csv"]}
+{"id":"format_sample_004","problem_statement":"Count the records matching the specified status in the provided dataset.","domain":"biomedical","difficulty":"easy","answer_type":"numeric_exact","data_sources":["records.csv"]}
+{"id":"format_sample_005","problem_statement":"Summarize the measurements for the requested geographic region.","domain":"wildfire","difficulty":"hard","answer_type":"numeric_exact","data_sources":["regional_measurements.csv"]}

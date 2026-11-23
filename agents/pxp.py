@@ -7,7 +7,8 @@ from agents.pex import PEXGenerationError, PEXResponse
 
 
 class PXPResponse(PEXResponse):
-    tag: PXPTag
+    # FACT is an application-owned Blackboard entry, never a model action.
+    tag: Literal[PXPTag.RATIFY, PXPTag.REVISE, PXPTag.REFUTE, PXPTag.REJECT]
 
 
 class InitialPXPResponse(PXPResponse):

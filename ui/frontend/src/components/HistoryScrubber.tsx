@@ -5,20 +5,27 @@ interface HistoryScrubberProps {
   nodes: GraphNode[];
   scrubIndex: number | null; // null means LIVE mode
   onScrub: (index: number | null) => void;
+  label?: string;
+  keyboardScope?: 'live' | 'branch';
 }
 
 export const HistoryScrubber: React.FC<HistoryScrubberProps> = ({
   nodes,
   scrubIndex,
   onScrub,
+  label,
+  keyboardScope,
 }) => {
   const total = nodes.length;
+  const idPrefix = keyboardScope ?? 'history';
   const isLive = scrubIndex === null || scrubIndex === total - 1;
   const activeStep = scrubIndex !== null ? scrubIndex : Math.max(0, total - 1);
   const activeNode = nodes[activeStep];
 
-  // Global keyboard navigation for history scrubbing
+  // Keep the legacy global shortcuts for unified view. Split panes own their
+  // focused keyboard scope and never move the other pane's history cursor.
   useEffect(() => {
+    if (keyboardScope) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if typing in an input
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
@@ -47,22 +54,32 @@ export const HistoryScrubber: React.FC<HistoryScrubberProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [total, scrubIndex, onScrub]);
+  }, [total, scrubIndex, onScrub, keyboardScope]);
 
   if (total === 0) return null;
 
   return (
-    <div className={`history-scrubber-hud ${!isLive ? 'scrubbing-active' : ''}`}>
+    <div
+      className={`history-scrubber-hud ${!isLive ? 'scrubbing-active' : ''}`}
+      tabIndex={keyboardScope ? 0 : undefined}
+      aria-label={label}
+      onKeyDown={keyboardScope ? (event) => {
+        if (event.key === 'ArrowLeft') onScrub(scrubIndex === null ? Math.max(0, total - 2) : Math.max(0, scrubIndex - 1));
+        if (event.key === 'ArrowRight') onScrub(scrubIndex === null || scrubIndex >= total - 2 ? null : scrubIndex + 1);
+        if (event.key === 'Home') onScrub(0);
+        if (event.key === 'End') onScrub(null);
+      } : undefined}
+    >
       {/* Mode status & live jump button */}
       <div className="scrubber-header">
         <div className="scrubber-title">
           {!isLive ? (
             <span className="scrub-badge-active">
-              ⏪ <strong>History Scrub Inspector</strong> · Step {activeStep + 1} of {total}
+              ⏪ <strong>{label ?? 'History Scrub Inspector'}</strong> · Step {activeStep + 1} of {total}
             </span>
           ) : (
             <span className="scrub-badge-live">
-              <span className="pulse-dot-green" /> <strong>Live Board View</strong> (Tracking latest)
+              <span className="pulse-dot-green" /> <strong>{label ?? 'Live Board View'}</strong> (Tracking latest)
             </span>
           )}
           {activeNode && (
@@ -74,7 +91,7 @@ export const HistoryScrubber: React.FC<HistoryScrubberProps> = ({
 
         {!isLive && (
           <button
-            id="btn-jump-live"
+            id={`btn-jump-live-${idPrefix}`}
             className="btn-jump-live"
             onClick={() => onScrub(null)}
             title="Return to real-time live board view"
@@ -87,7 +104,7 @@ export const HistoryScrubber: React.FC<HistoryScrubberProps> = ({
       {/* Scrubber playback controls & slider */}
       <div className="scrubber-controls">
         <button
-          id="btn-scrub-first"
+          id={`btn-scrub-first-${idPrefix}`}
           className="scrub-btn"
           disabled={activeStep === 0}
           onClick={() => onScrub(0)}
@@ -96,7 +113,7 @@ export const HistoryScrubber: React.FC<HistoryScrubberProps> = ({
           ⏮
         </button>
         <button
-          id="btn-scrub-prev"
+          id={`btn-scrub-prev-${idPrefix}`}
           className="scrub-btn"
           disabled={activeStep === 0}
           onClick={() => onScrub(Math.max(0, activeStep - 1))}
@@ -107,7 +124,7 @@ export const HistoryScrubber: React.FC<HistoryScrubberProps> = ({
 
         <div className="scrubber-slider-track">
           <input
-            id="scrub-range-slider"
+            id={`scrub-range-slider-${idPrefix}`}
             type="range"
             min={0}
             max={total - 1}
@@ -135,7 +152,7 @@ export const HistoryScrubber: React.FC<HistoryScrubberProps> = ({
         </div>
 
         <button
-          id="btn-scrub-next"
+          id={`btn-scrub-next-${idPrefix}`}
           className="scrub-btn"
           disabled={activeStep >= total - 1 && isLive}
           onClick={() => {
@@ -150,7 +167,7 @@ export const HistoryScrubber: React.FC<HistoryScrubberProps> = ({
           ▶
         </button>
         <button
-          id="btn-scrub-last"
+          id={`btn-scrub-last-${idPrefix}`}
           className="scrub-btn"
           disabled={isLive}
           onClick={() => onScrub(null)}

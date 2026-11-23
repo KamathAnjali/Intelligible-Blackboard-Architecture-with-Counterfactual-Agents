@@ -10,13 +10,14 @@
  * Colors satisfy WCAG AA contrast against #0b0f19 background.
  */
 
-export type PXPTag = 'RATIFY' | 'REVISE' | 'REFUTE' | 'REJECT';
+export type PXPTag = 'RATIFY' | 'REVISE' | 'REFUTE' | 'REJECT' | 'FACT';
 
 export const TAG_COLORS: Record<PXPTag, string> = {
   RATIFY:  '#10b981',  // Emerald  — agreement / consensus (green)
   REVISE:  '#3b82f6',  // Blue     — productive self-correction (blue)
   REFUTE:  '#f59e0b',  // Amber    — rejects position, logs roadblock
   REJECT:  '#ef4444',  // Rose/Red — full conflict
+  FACT:    '#a78bfa',  // Violet   — application-posted evidence
 } as const;
 
 /** Background tint (12% opacity) per tag — for chip/badge backgrounds. */
@@ -25,4 +26,5 @@ export const TAG_BG_COLORS: Record<PXPTag, string> = {
   REVISE:  'rgba(59, 130, 246, 0.12)',
   REFUTE:  'rgba(245, 158, 11, 0.12)',
   REJECT:  'rgba(239, 68, 68, 0.12)',
+  FACT:    'rgba(167, 139, 250, 0.12)',
 } as const;

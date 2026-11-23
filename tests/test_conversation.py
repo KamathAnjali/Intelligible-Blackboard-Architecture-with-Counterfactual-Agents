@@ -94,6 +94,95 @@ def test_transport_failure_keeps_earlier_invalid_attempt_and_saves_without_serve
     assert {f["category"] for f in report["failures"]} == {"turn_error", "malformed_tag", "transport_error"}
 
 
+def test_reviewer_rejection_is_posted_and_scheduler_continues(tmp_path):
+    client = OllamaClient()
+    client.generate = Mock(side_effect=[response(), response(), response("RATIFY"), response("RATIFY")])
+    client.check_explanation = Mock(side_effect=[
+        {"parsed": {"supported": False, "reason": "No aggregate result supports this value."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+    ])
+    events = []
+    report, _ = run_conversation(
+        client, output_dir=tmp_path, max_retries=0,
+        on_rejection=lambda entry, review: events.append((entry.tag.value, review["reason"])),
+    )
+    tags = [item["tag"] for item in report["board"]["entries"]]
+    assert "REJECT" in tags
+    assert report["workflow_counters"]["reviewer_rejections"] == 1
+    assert events == [("REJECT", "No aggregate result supports this value.")]
+    assert report["outcome"] == "scheduler_consensus"
+
+
+def test_same_target_rejection_streak_runs_one_isolated_counterfactual(tmp_path):
+    client = OllamaClient()
+    client.generate = Mock(side_effect=[
+        response(), response(), response(prediction="alternative"), response(prediction="alternative"),
+    ])
+    client.check_explanation = Mock(side_effect=[
+        {"parsed": {"supported": False, "reason": "Evidence does not support the explanation."}, "error": None},
+        {"parsed": {"supported": False, "reason": "Evidence does not support the explanation."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+        {"parsed": {"supported": True, "reason": "Supported."}, "error": None},
+    ])
+    report, _ = run_conversation(
+        client,
+        output_dir=tmp_path,
+        max_turns=3,
+        max_retries=0,
+        counterfactual_fraction=1.0,
+        counterfactual_seed=9,
+    )
+    counters = report["workflow_counters"]
+    assert counters["reviewer_rejections"] == 2
+    assert counters["counterfactual_triggers"] == 1
+    assert counters["counterfactual_simulations"] == 1
+    assert counters["counterfactual_changed_outcome"] == 1
+    assert len(report["board"]["counterfactual_events"]) == 1
+    assert [entry["tag"] for entry in report["board"]["entries"]][:2] == ["REJECT", "REJECT"]
+    assert report["board"]["entries"][2]["tag"] == "REVISE"
+    simulated = report["board"]["counterfactual_events"][0]["simulated_entry"]
+    assert simulated["is_counterfactual_sim"] is True
+    assert report["counterfactual_attempts"][0]["simulated_entry"]["is_counterfactual_sim"] is True
+    assert report["counterfactual_attempts"][0]["revision_requested"] is True
+    assert report["counterfactual_attempts"][0]["live_revision_changed_prediction"] is True
+    simulated_prompt = json.loads(client.generate.call_args_list[2].args[0])
+    assert "Evidence does not support the explanation." in simulated_prompt["task"]
+    assert "Frame the explanation directly around the available evidence" in simulated_prompt["task"]
+    assert report["outcome"] == "turn_limit"
+
+
+def test_counterfactual_fraction_selection_is_seeded_and_zero_is_disabled(tmp_path):
+    _, first = run(tmp_path / "one", [response()], max_turns=1,
+                    counterfactual_fraction=0.33, counterfactual_seed=123)
+    _, second = run(tmp_path / "two", [response()], max_turns=1,
+                     counterfactual_fraction=0.33, counterfactual_seed=123)
+    assert first["counterfactual_capable_agents"] == second["counterfactual_capable_agents"]
+    assert len(first["counterfactual_capable_agents"]) == 1
+    _, disabled = run(tmp_path / "zero", [response()], max_turns=1,
+                      counterfactual_fraction=0.0, counterfactual_seed=123)
+    assert disabled["counterfactual_capable_agents"] == []
+    assert disabled["workflow_counters"]["counterfactual_triggers"] == 0
+
+
+def test_zero_counterfactual_fraction_keeps_rejection_path_without_simulation(tmp_path):
+    client = OllamaClient()
+    client.generate = Mock(side_effect=[response(), response()])
+    client.check_explanation = Mock(side_effect=[
+        {"parsed": {"supported": False, "reason": "Not supported."}, "error": None},
+        {"parsed": {"supported": False, "reason": "Not supported."}, "error": None},
+    ])
+    report, _ = run_conversation(
+        client, output_dir=tmp_path, max_turns=2, max_retries=0,
+        counterfactual_fraction=0.0,
+    )
+    assert client.generate.call_count == 2
+    assert report["workflow_counters"]["reviewer_rejections"] == 2
+    assert report["workflow_counters"]["counterfactual_simulations"] == 0
+    assert report["board"]["counterfactual_events"] == []
+
+
 def test_interrupt_saves_partial_transcript(tmp_path):
     _, report = run(tmp_path, [response(), KeyboardInterrupt()])
     assert report["outcome"] == "interrupted"
@@ -105,6 +194,28 @@ def test_conflicting_ratifications_are_flagged_despite_scheduler_stop(tmp_path):
     assert report["outcome"] == "turn_limit"
     assert len(report["failures"]) == 2
     assert all(f["category"] == "ratify_prediction_text_differs" for f in report["failures"])
+
+
+def test_evidence_guard_retries_at_most_twice_without_changing_model_turn_usage(tmp_path):
+    client, report = run(
+        tmp_path,
+        [response(), response("RATIFY"), response("RATIFY")] * 3,
+        initial_facts=["Verified data-tool FACT: complete category counts are available."],
+        termination_trace=[{"task_query": "What percentage of observations had an outcome?"}],
+        termination_guard=lambda trace, answer: False,
+        termination_guard_reason=lambda trace, answer: "refusal_despite_evidence",
+    )
+
+    assert report["outcome"] == "consensus_needs_review"
+    assert report["workflow_counters"]["guard_retries"] == 2
+    assert report["workflow_counters"]["refusal_despite_evidence_retries"] == 2
+    assert [item["retry_count"] for item in report["workflow_counters"]["guard_activations"]] == [1, 2]
+    assert len([turn for turn in report["turns"] if turn.get("attempts")]) == 9
+    # Existing accounting includes both generation and explanation-review calls.
+    assert sum(turn["usage"]["calls"] for turn in report["turns"]) == 18
+    assert len([entry for entry in report["board"]["entries"] if entry["tag"] == "FACT"]) == 1
+    assert len([entry for entry in report["board"]["entries"] if entry["tag"] == "REJECT"]) == 2
+    assert client.generate.call_count == 9
 
 
 @pytest.mark.parametrize("kwargs", [{"max_turns": 0}, {"max_turns": 13}, {"max_turns": True},
