@@ -121,8 +121,14 @@ def parse_record(record: Any, *, source_record: str, index: int) -> MSCoReTask:
         raise ValueError("missing_reference")
     source_parts = Path(source_record).parts
     source_key = source_record
-    if "MSCoRe-data" in source_parts:
-        source_key = "/".join(source_parts[source_parts.index("MSCoRe-data") + 1:])
+    # Normalize the dataset root case-insensitively so stable task IDs do not
+    # depend on a machine-specific absolute path or filesystem capitalization.
+    marker_index = next(
+        (i for i, part in enumerate(source_parts) if part.casefold() == "mscore-data"),
+        None,
+    )
+    if marker_index is not None:
+        source_key = "/".join(source_parts[marker_index + 1:])
     stable = hashlib.sha256(f"{source_key}:{index}".encode()).hexdigest()[:12]
     domain = _domain(source_record, record)
     safe_metadata = {
