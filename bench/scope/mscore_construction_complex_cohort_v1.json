@@ -1,0 +1,210 @@
+{
+  "cohort": "MSCoRe Construction Complex Judgment Cohort v1",
+  "benchmark": "MSCoRe",
+  "runner_label": "project-adapted; not upstream official harness",
+  "source_file": "Data2/Construction/complex/data.json",
+  "source_sha256": "91862727c6f3a3cae69e6f3f410765c648b98ff62d6d17075a260e08254b36a9",
+  "source_records": 5000,
+  "selection_rule": "Exclude previously exposed source row indices; select 30 midpoint-spaced rows across the remaining source order. This is systematic coverage, not outcome-based selection.",
+  "excluded_previous_rows": [
+    28,
+    77,
+    78,
+    364,
+    1419,
+    2006,
+    2580,
+    2583,
+    3708,
+    3711,
+    4593,
+    4596
+  ],
+  "split_rule": "Five evenly spaced selected slots are tuning (indices 2, 8, 14, 20, 26); the other 25 are pilot. Keep these splits fixed.",
+  "task_count": 30,
+  "tuning_count": 5,
+  "pilot_count": 25,
+  "tasks": [
+    {
+      "task_id": "mscore-8466d4c1bd14-86",
+      "source_row_index": 86,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-82c9c182fdc8-252",
+      "source_row_index": 252,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-0ef08f0860eb-419",
+      "source_row_index": 419,
+      "task_type": "judgment",
+      "split": "tuning"
+    },
+    {
+      "task_id": "mscore-c83a62272109-585",
+      "source_row_index": 585,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-ffe2c6bff096-752",
+      "source_row_index": 752,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-62f214bc81ce-918",
+      "source_row_index": 918,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-0437018e93f7-1084",
+      "source_row_index": 1084,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-9e0a40b03bf8-1251",
+      "source_row_index": 1251,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-ef79a3f9d43c-1417",
+      "source_row_index": 1417,
+      "task_type": "judgment",
+      "split": "tuning"
+    },
+    {
+      "task_id": "mscore-4df0e58767e9-1584",
+      "source_row_index": 1584,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-60cff2b91881-1750",
+      "source_row_index": 1750,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-cd318e1236d7-1917",
+      "source_row_index": 1917,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-fea1fcc1a233-2084",
+      "source_row_index": 2084,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-28b9236065c9-2250",
+      "source_row_index": 2250,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-64f714b5ac06-2416",
+      "source_row_index": 2416,
+      "task_type": "judgment",
+      "split": "tuning"
+    },
+    {
+      "task_id": "mscore-66f1334c9a88-2585",
+      "source_row_index": 2585,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-5bf0391087a0-2751",
+      "source_row_index": 2751,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-2d3bc08c48e7-2917",
+      "source_row_index": 2917,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-91b5d50f4c32-3083",
+      "source_row_index": 3083,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-3f9c3e9bf480-3250",
+      "source_row_index": 3250,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-54a5cd08a01a-3416",
+      "source_row_index": 3416,
+      "task_type": "judgment",
+      "split": "tuning"
+    },
+    {
+      "task_id": "mscore-365ebc9d02c7-3582",
+      "source_row_index": 3582,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-54da1ddd6775-3751",
+      "source_row_index": 3751,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-e6a125ade2b3-3917",
+      "source_row_index": 3917,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-06ee1524fb9c-4083",
+      "source_row_index": 4083,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-1a8a2fb6bf94-4249",
+      "source_row_index": 4249,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-e3806bbf737d-4416",
+      "source_row_index": 4416,
+      "task_type": "judgment",
+      "split": "tuning"
+    },
+    {
+      "task_id": "mscore-876864dd2a82-4582",
+      "source_row_index": 4582,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-8148946b1ec6-4750",
+      "source_row_index": 4750,
+      "task_type": "judgment",
+      "split": "pilot"
+    },
+    {
+      "task_id": "mscore-6ffb84f48c98-4916",
+      "source_row_index": 4916,
+      "task_type": "judgment",
+      "split": "pilot"
+    }
+  ],
+  "cohort_sha256": "7a8508ad65aaae0f17c083ee599e07852ee0d3b79879c3ba4fc7105783b62f23"
+}
