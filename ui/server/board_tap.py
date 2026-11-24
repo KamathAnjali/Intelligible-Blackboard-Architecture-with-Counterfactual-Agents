@@ -235,7 +235,7 @@ def _entry_to_event(entry_dict: dict) -> dict:
 # ── LIVE_TAP: bridge the actual Blackboard event emitter ─────────────────────
 
 def attach_live_board(board: Blackboard, loop: asyncio.AbstractEventLoop | None = None) -> None:
-    """Forward ENTRY_POSTED events from this actual board to subscribed WebSockets."""
+    """Forward live entries, scheduler events and counterfactual events to WebSockets."""
     global _live_board, _live_listener
     event_loop = loop or _live_loop
     if event_loop is None or not event_loop.is_running():
@@ -243,9 +243,19 @@ def attach_live_board(board: Blackboard, loop: asyncio.AbstractEventLoop | None 
     if _live_board is board:
         return
     detach_live_board()
-    reset_token_usage(task_id=board.task_id)
+    reset_token_usage(_usage_session_id, task_id=board.task_id)
 
     def on_board_event(board_event) -> None:
+        if board_event.event_type in {
+            BoardEventType.SCHEDULER_STATUS, BoardEventType.TURN_STARTED, BoardEventType.TURN_FINISHED,
+        }:
+            event = board_event.model_dump(mode="json", exclude_none=True)
+            event["source"] = "LIVE_TAP"
+            try:
+                asyncio.run_coroutine_threadsafe(bus.publish(event), event_loop)
+            except RuntimeError:
+                logger.exception("[LIVE_TAP] Could not publish scheduler event")
+            return
         if board_event.event_type is not BoardEventType.ENTRY_POSTED:
             branch_event = process_board_counterfactual_event(
                 board_event, session_id=_usage_session_id, task_id=board.task_id,

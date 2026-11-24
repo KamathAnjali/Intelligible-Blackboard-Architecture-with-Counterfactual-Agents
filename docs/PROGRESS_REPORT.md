@@ -4,7 +4,7 @@
 
 ## Implemented
 
-- The board validates PXP entries, serializes snapshots, emits events and provides isolated history forks. The scheduler enforces round-robin turn ownership and detects terminal states.
+- The board validates PXP entries, serializes snapshots, emits events and provides isolated history forks. The scheduler enforces round-robin turn ownership and sends run status and turn events to the dashboard. A recovery or evidence review can reopen the board under the same session ID.
 - Four Ollama personas produce validated predictions and explanations, with bounded retries and an explanation self-check. Two- and three-agent conversations save transcripts and usage.
 - Explanation review uses the task's facts for ordinary questions and requires supplied data-tool evidence for benchmark tasks. This fixes a regression introduced during integration; the earlier prompt-library freeze is a historical checkpoint.
 - A four-case local sanity workload and two controlled deadlock fixtures are available through `make sessions` and `make deadlocks`. `RetrospectiveSandbox` generates an alternative in an isolated history fork and replays scheduled agent turns. Its delta compares the largest matching RATIFY group as a fraction of active agents; this is agreement progress, not answer correctness.

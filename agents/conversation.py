@@ -112,7 +112,8 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                      counterfactual_streak_threshold: int = 2,
                      max_counterfactual_simulations: int = 1, agent_count=None,
                      retrospective_recovery: bool = False,
-                     counterfactual_include_first_agent: bool = False):
+                     counterfactual_include_first_agent: bool = False,
+                     session_id: str | None = None):
     """Run a bounded session and checkpoint the transcript after each turn.
 
     No fabricated fallback entries are posted if generation fails. Reports can
@@ -169,7 +170,6 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
     directory = directory / task_id
     store = InMemoryJSONStore(directory)
     board = Blackboard(task_id, store)
-    scheduler = Scheduler(board)
     participants = AGENT_ROSTERS[agent_count]
     participant_ids = [agent_id for agent_id, _ in participants]
     capability_count = math.ceil(len(participant_ids) * counterfactual_fraction)
@@ -183,9 +183,9 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
         agent = AgentRecord(agent_id=agent_id, persona=persona, model_name=client.model,
                             counterfactual_capable=agent_id in capable_ids)
         board.register_agent(agent)
-        scheduler.register_agent(agent)
     if on_board_created is not None:
         on_board_created(board)
+    scheduler = Scheduler(board, session_id=session_id, max_turns=max_turns)
     initial_facts = list(initial_facts or [])
     evidence_agent_id = None
     if initial_facts:
@@ -201,7 +201,6 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
             model_name="application",
             active=False,
         )
-        board.register_agent(evidence_agent)
         scheduler.register_agent(evidence_agent)
         for message in initial_facts:
             board.post_entry(BoardEntry(
@@ -490,8 +489,13 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                 for category in attempt_failures(attempt, initial=not state.entries):
                     report["failures"].append({"turn": number, "attempt": index, "category": category})
             if report["outcome"] == "error":
+                if not turn["posted"]:
+                    scheduler.finish_turn("error")
                 break
             if not scheduler.is_running():
+                if scheduler.status is IntelligibilityLevel.UNRESOLVED:
+                    report["outcome"] = "turn_limit"
+                    break
                 is_dl = scheduler.status in (IntelligibilityLevel.DEADLOCKED, "DEADLOCKED")
                 report["outcome"] = "deadlocked" if is_dl else "scheduler_consensus"
                 if is_dl and retrospective_recovery:
@@ -661,9 +665,10 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
                         maybe_run_counterfactual(
                             rejection, answer_entry, answer_entry.agent_id, rejection.explanation
                         )
-                        scheduler.prioritize_next_turn(answer_entry.agent_id)
                         report["workflow_counters"]["guard_activations"][-1]["rejection_entry_id"] = rejection.entry_id
                         effective_turn_limit += 3
+                        scheduler.max_turns = effective_turn_limit
+                        scheduler.prioritize_next_turn(answer_entry.agent_id)
                         report["effective_max_turns"] = effective_turn_limit
                         report["outcome"] = "running"
                         checkpoint()
@@ -679,6 +684,7 @@ def run_conversation(client, task=None, max_turns=6, max_retries=2,
     except KeyboardInterrupt:
         report["outcome"] = "interrupted"
     finally:
+        scheduler.close()
         if pending_recovery is not None:
             board.record_counterfactual_result(pending_recovery["audit"])
         report["finished_at"] = datetime.now(timezone.utc).isoformat()

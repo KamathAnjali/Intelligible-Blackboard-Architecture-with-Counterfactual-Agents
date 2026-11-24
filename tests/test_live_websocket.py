@@ -10,7 +10,7 @@ from ui.server import board_tap, main
 
 
 def test_live_websocket_receives_scheduler_post_from_real_board(monkeypatch):
-    """A scheduled board entry reaches /ws without replay or mock endpoints."""
+    """A scheduled board entry and its lifecycle events reach /ws."""
     monkeypatch.setattr(board_tap, "BOARD_MODE", "LIVE_TAP")
     monkeypatch.setattr(main, "BOARD_MODE", "LIVE_TAP")
 
@@ -23,9 +23,9 @@ def test_live_websocket_receives_scheduler_post_from_real_board(monkeypatch):
             assert ack["last_entry_id"] is None
 
             board = Blackboard(task_id="live-websocket-smoke")
+            board.register_agent(AgentRecord(agent_id="smoke-agent", persona="proposer"))
             board_tap.attach_live_board(board)
-            scheduler = Scheduler(board)
-            scheduler.register_agent(AgentRecord(agent_id="smoke-agent", persona="proposer"))
+            scheduler = Scheduler(board, session_id="smoke-session", max_turns=1)
             agent = scheduler.next_agent()
             entry = BoardEntry(
                 agent_id=agent.agent_id,
@@ -35,11 +35,27 @@ def test_live_websocket_receives_scheduler_post_from_real_board(monkeypatch):
             )
             scheduler.submit_entry(entry)
 
+            status = websocket.receive_json()
+            assert (status["type"], status["state"], status["session_id"]) == (
+                "scheduler_status", "running", "smoke-session",
+            )
+            started = websocket.receive_json()
+            assert (started["type"], started["agent_id"], started["turn"]) == (
+                "turn_started", agent.agent_id, 1,
+            )
             event = websocket.receive_json()
             assert event["type"] == "board_entry"
             assert event["entry"]["entry_id"] == entry.entry_id
             assert event["entry"]["prediction"] == "Smoke-test answer"
             assert event["entry"]["token_count_kind"] == "estimated_board_entry_text_only"
+            assert websocket.receive_json()["type"] == "token_tally"
+            finished = websocket.receive_json()
+            assert (finished["type"], finished["outcome"], finished["turn"]) == (
+                "turn_finished", "posted", 1,
+            )
+            status = websocket.receive_json()
+            assert (status["type"], status["state"]) == ("scheduler_status", "limit")
+            scheduler.close()
 
 
 def test_fake_emitter_forwards_counterfactual_events_without_changing_live_count(monkeypatch):

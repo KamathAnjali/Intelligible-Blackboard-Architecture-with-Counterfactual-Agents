@@ -390,12 +390,16 @@ def _publish_ui_board_events(board: Any) -> None:
                 raw_kind = getattr(event_type, "name", "")
             kind = raw_kind.lower()
             payload = getattr(board_event, "payload", {})
-            if kind not in branch_event_types or not isinstance(payload, dict) or not payload.get("branch_id"):
+            if kind in {"scheduler_status", "turn_started", "turn_finished"}:
+                envelope = board_event.model_dump(mode="json", exclude_none=True)
+            elif kind in branch_event_types and isinstance(payload, dict) and payload.get("branch_id"):
+                envelope = dict(payload)
+            else:
                 return
-            envelope = {
-                **payload, "type": kind, "source": "LIVE", "session_id": session_id,
+            envelope.update({
+                "type": kind, "source": "LIVE", "session_id": session_id,
                 "task_id": board.task_id,
-            }
+            })
             if kind == "branch_entry_posted" and not isinstance(envelope.get("entry"), dict):
                 return
             try:
@@ -405,7 +409,7 @@ def _publish_ui_board_events(board: Any) -> None:
                     stream.write(json.dumps(envelope, ensure_ascii=False, default=str) + "\n")
                     stream.flush()
             except OSError:
-                logger.exception("Could not write UI counterfactual-event bridge file")
+                logger.exception("Could not write UI scheduler or counterfactual event")
             return
         entry = board_event.payload.get("entry")
         if not isinstance(entry, dict):
@@ -740,6 +744,7 @@ class KramaBenchSystem:
                 output_dir=conversation_dir,
                 scenario="default",
                 task_id=query_id,
+                session_id=os.environ.get("KRAMA_UI_SESSION_ID") or run_id,
                 on_board_created=_publish_ui_board_events,
                 initial_facts=profile_messages + evidence_messages,
                 termination_trace=termination_trace,

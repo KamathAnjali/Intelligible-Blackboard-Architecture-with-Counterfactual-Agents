@@ -222,7 +222,7 @@ class OllamaClient:
                 attempt["error"] = candidate_validator(parsed)
             if parsed is not None and attempt["error"] is None:
                 attempt["parsed"] = parsed
-            if self.review_explanations and "parsed" in attempt:
+            if getattr(self, "review_explanations", True) and "parsed" in attempt:
                 try:
                     reviewer = self.check_explanation
                     if review_evidence is not None and (

@@ -7,6 +7,7 @@ from __future__ import annotations
 import queue
 import threading
 import time
+from uuid import uuid4
 
 from .core import Blackboard
 from .models import (
@@ -39,8 +40,21 @@ class Scheduler:
     running the selected agent and submitting its entry.
     """
 
-    def __init__(self, board: Blackboard):
+    def __init__(
+        self,
+        board: Blackboard,
+        *,
+        session_id: str | None = None,
+        max_turns: int | None = None,
+    ):
+        if max_turns is not None and max_turns < 1:
+            raise ValueError("max_turns must be at least 1 or None")
         self.board = board
+        self.session_id = session_id if session_id is not None else str(uuid4())
+        self.board.session_id = self.session_id
+        self.max_turns = max_turns
+        self._turn_count = 0
+        self._terminal_state: str | None = None
         self._last_agent_id: str | None = None
         self._expected_agent_id: str | None = None
         self._preferred_agent_id: str | None = None
@@ -51,6 +65,12 @@ class Scheduler:
         self.board.subscribe(self._board_listener)
         # Prompt an initial state check for agents registered before subscription.
         self._notifications.put(_INITIAL_NOTIFICATION)
+        initial_state = self._terminal_state_for_board()
+        if initial_state is None:
+            initial_state = "running"
+        else:
+            self._terminal_state = initial_state
+        self._emit_scheduler_status(initial_state)
 
     @property
     def status(self) -> IntelligibilityLevel:
@@ -68,10 +88,9 @@ class Scheduler:
 
     def next_agent(self) -> AgentRecord:
         """Select the next active agent immediately, without waiting for an event."""
+        self._refresh_terminal_state()
         with self._lock:
-            status = self.status
-            if status is not IntelligibilityLevel.UNRESOLVED:
-                raise RuntimeError(f"Scheduler is {status.value}")
+            self._raise_if_terminal()
             if self._expected_agent_id is not None:
                 raise RuntimeError(
                     f"Agent {self._expected_agent_id!r} already has the current turn"
@@ -94,7 +113,10 @@ class Scheduler:
                 agent = agents[0]
             self._last_agent_id = agent.agent_id
             self._expected_agent_id = agent.agent_id
-            return agent
+            self._turn_count += 1
+            turn = self._turn_count
+        self._emit_lifecycle_event(BoardEventType.TURN_STARTED, agent_id=agent.agent_id, turn=turn)
+        return agent
 
     def prioritize_next_turn(self, agent_id: str) -> None:
         """Schedule one bounded correction turn for a registered active agent."""
@@ -106,6 +128,7 @@ class Scheduler:
             if agent_id not in self.board.get_agents(active_only=True):
                 raise ValueError("Preferred next agent is not active on the board")
             self._preferred_agent_id = agent_id
+        self._refresh_terminal_state()
 
     def wait_for_next_agent(self, timeout: float | None = None) -> AgentRecord:
         """Wait for board activity, then return the next scheduled active agent.
@@ -130,9 +153,8 @@ class Scheduler:
             if self._closed.is_set():
                 raise RuntimeError("Scheduler is closed")
 
-            status = self.status
-            if status is not IntelligibilityLevel.UNRESOLVED:
-                raise RuntimeError(f"Scheduler is {status.value}")
+            self._refresh_terminal_state()
+            self._raise_if_terminal()
 
             remaining = None if deadline is None else deadline - time.monotonic()
             if remaining is not None and remaining <= 0:
@@ -161,6 +183,7 @@ class Scheduler:
 
             status = self.status
             if status is not IntelligibilityLevel.UNRESOLVED:
+                self._refresh_terminal_state()
                 raise RuntimeError(f"Scheduler is {status.value}")
 
             try:
@@ -186,10 +209,89 @@ class Scheduler:
             # Keep the turn assigned if posting fails so the agent can retry.
             deadlock = self.board.post_entry(entry)
             self._expected_agent_id = None
-            return deadlock
+            turn = self._turn_count
+        self._emit_turn_finished(expected_agent_id, turn, "posted")
+        self._refresh_terminal_state()
+        return deadlock
+
+    def finish_turn(self, outcome: str) -> None:
+        """Finish a selected turn that did not successfully post an entry.
+
+        The runner calls this with ``no_entry`` when an invocation returns no
+        entry, or ``error`` when invoking the agent fails.
+        """
+        if outcome not in {"no_entry", "error"}:
+            raise ValueError("outcome must be 'no_entry' or 'error'")
+        with self._lock:
+            agent_id = self._expected_agent_id
+            if agent_id is None:
+                raise RuntimeError("There is no scheduled turn to finish")
+            turn = self._turn_count
+            self._expected_agent_id = None
+        self._emit_turn_finished(agent_id, turn, outcome)
+        self._refresh_terminal_state()
 
     def is_running(self) -> bool:
-        return self.status is IntelligibilityLevel.UNRESOLVED
+        self._refresh_terminal_state()
+        return (
+            self._terminal_state is None
+            and self.status is IntelligibilityLevel.UNRESOLVED
+        )
+
+    def _raise_if_terminal(self) -> None:
+        status = self.status
+        if status is not IntelligibilityLevel.UNRESOLVED:
+            raise RuntimeError(f"Scheduler is {status.value}")
+        if self._expected_agent_id is None and self.max_turns is not None and self._turn_count >= self.max_turns:
+            raise RuntimeError("Scheduler is limit")
+
+    def _terminal_state_for_board(self) -> str | None:
+        status = self.status
+        if status in {IntelligibilityLevel.STRONG, IntelligibilityLevel.ULTRA_STRONG}:
+            return "consensus"
+        if status is IntelligibilityLevel.DEADLOCKED:
+            return "deadlock"
+        return None
+
+    def _refresh_terminal_state(self) -> None:
+        if self._expected_agent_id is not None:
+            return
+        terminal_state = self._terminal_state_for_board()
+        if terminal_state is None and self.max_turns is not None:
+            if self._turn_count >= self.max_turns:
+                terminal_state = "limit"
+        if self._terminal_state != terminal_state:
+            self._terminal_state = terminal_state
+            self._emit_scheduler_status(terminal_state or "running")
+
+    def _emit_lifecycle_event(self, event_type: BoardEventType, **fields) -> None:
+        event = BoardEvent(
+            event_type=event_type,
+            task_id=self.board.task_id,
+            session_id=self.session_id,
+            payload={},
+            **fields,
+        )
+        self.board._dispatch_event(event)
+
+    def _emit_turn_finished(self, agent_id: str, turn: int, outcome: str) -> None:
+        self._emit_lifecycle_event(
+            BoardEventType.TURN_FINISHED,
+            agent_id=agent_id,
+            turn=turn,
+            outcome=outcome,
+        )
+
+    def _emit_scheduler_status(self, state: str) -> None:
+        agents = [
+            {"agent_id": agent.agent_id, "persona": agent.persona}
+            for agent in self.board.get_agents().values()
+        ]
+        self._emit_lifecycle_event(
+            BoardEventType.SCHEDULER_STATUS,
+            state=state,
+            agents=agents,
+        )
 
     def close(self) -> None:
         """Unsubscribe from board events and wake any blocked waiter."""
