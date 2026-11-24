@@ -7,7 +7,8 @@ param(
     [string]$Persona = 'cautious_verifier',
     [ValidateRange(0, 5)][int]$Retries = 2,
     [ValidateRange(1, 12)][int]$Turns = 6,
-    [ValidateSet(2, 3)][int]$Agents = 2
+    [ValidateSet(2, 3)][int]$Agents = 2,
+    [ValidateSet('pilot', 'extended')][string]$CounterBenchSet = 'pilot'
 )
 $ErrorActionPreference = 'Stop'
 $model = 'qwen3:4b-instruct-2507-q4_K_M'
@@ -71,7 +72,7 @@ try {
     } elseif ($Task -eq 'deadlock-ab') {
         $clientArgs = @('-m', 'agents.deadlock_ab', '--turns', $Turns, '--retries', $Retries)
     } elseif ($Task -eq 'counterbench-setup' -or $Task -eq 'counterbench') {
-        $clientArgs = @('-m', 'bench.counterbench_pilot')
+        $clientArgs = @('-m', 'bench.counterbench_pilot', '--case-set', $CounterBenchSet)
         if ($Task -eq 'counterbench-setup') { $clientArgs += '--setup' }
         elseif ($PSBoundParameters.ContainsKey('Turns')) { $clientArgs += @('--turns', $Turns) }
         $clientArgs += @('--retries', $Retries)

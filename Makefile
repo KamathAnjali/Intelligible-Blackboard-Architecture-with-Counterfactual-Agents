@@ -15,6 +15,7 @@ RETRIES ?= 2
 TURNS ?= 6
 AB_TURNS ?= 10
 COUNTERBENCH_TURNS ?= 10
+COUNTERBENCH_SET ?= pilot
 AGENTS ?= 2
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
@@ -37,6 +38,7 @@ help:
 	@echo make deadlock-ab AB_TURNS=10 Compare recovery disabled and enabled
 	@echo make counterbench-setup   Download and verify CounterBench data
 	@echo make counterbench         Run five paired CounterBench cases
+	@echo make counterbench COUNTERBENCH_SET=extended  Run 30 paired CounterBench cases
 	@echo make disagreement TURNS=6  Run a seeded three-agent disagreement scenario
 	@echo make demo                  Require a clean three-turn RATIFY demonstration
 	@echo make test                  Run offline tests without requiring Ollama
@@ -67,10 +69,10 @@ deadlock-ab:
 	@$(RUNNER) deadlock-ab -Turns "$(AB_TURNS)" -Retries "$(RETRIES)"
 
 counterbench-setup:
-	@$(RUNNER) counterbench-setup
+	@$(RUNNER) counterbench-setup -CounterBenchSet "$(COUNTERBENCH_SET)"
 
 counterbench:
-	@$(RUNNER) counterbench -Turns "$(COUNTERBENCH_TURNS)" -Retries "$(RETRIES)"
+	@$(RUNNER) counterbench -CounterBenchSet "$(COUNTERBENCH_SET)" -Turns "$(COUNTERBENCH_TURNS)" -Retries "$(RETRIES)"
 
 disagreement:
 	@$(RUNNER) disagreement -Turns "$(TURNS)" -Retries "$(RETRIES)"

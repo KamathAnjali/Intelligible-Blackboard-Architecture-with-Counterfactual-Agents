@@ -189,11 +189,14 @@ Accuracy uses the final unanimous prediction, counts unresolved attempts as inco
 The pilot runs five published [CounterBench questions](https://huggingface.co/datasets/CounterBench/CounterBench/tree/c6225dfa00b7a89ccfeae67797b9a6d80e48e44c), one per question type. Each question uses the same three agents with recovery off and with all three eligible. The model sees the supplied causal facts and question. Final predictions are scored against the dataset's yes/no answers after inference.
 
 ```sh
-make counterbench-setup  # Download and verify both datasets without inference
-make counterbench        # Run the ten conversations using local Ollama
+make counterbench-setup                              # Download and verify data
+make counterbench                                    # Five questions, 10 conversations
+make counterbench COUNTERBENCH_SET=extended           # 30 questions, 60 conversations
 ```
 
-Start Windows Ollama before the live command. The initial limit is 10 scheduled turns and 2 retries per turn. Results under `results/counterbench/` include transcripts, per-run scores, and a summary of correct consensus, deadlocks, replay attempts, and model usage.
+The extended set contains 30 additional questions, with six per type, three yes and three no answers per type, and examples from all five graph sizes. `make counterbench-setup COUNTERBENCH_SET=extended` verifies the selected rows without inference.
+
+Start Windows Ollama before the live command. The initial limit is 10 scheduled turns and 2 retries per turn. Results under `results/counterbench/` include transcripts, per-run scores, and a summary of correct consensus, deadlocks, replay attempts, and model usage. Extended runs use a timestamped `extended-*` directory.
 
 On a Colab NVIDIA GPU runtime, run these from the `3-Dhruva` checkout:
 
