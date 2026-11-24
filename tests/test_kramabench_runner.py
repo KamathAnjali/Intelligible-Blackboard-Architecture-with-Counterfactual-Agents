@@ -113,9 +113,9 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
         assert kwargs["env"]["KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD"] == "2"
         assert kwargs["env"]["KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS"] == "1"
         assert kwargs["env"]["KRAMABENCH_MODEL_SEED"] == "73"
-        assert kwargs["env"]["KRAMABENCH_NUM_CTX"] == "4096"
+        assert kwargs["env"]["KRAMABENCH_NUM_CTX"] == "16384"
         assert kwargs["env"]["KRAMABENCH_NUM_PREDICT"] == "768"
-        assert kwargs["env"]["KRAMABENCH_REQUIRED_NUM_CTX"] == "4096"
+        assert kwargs["env"]["KRAMABENCH_REQUIRED_NUM_CTX"] == "16384"
         record_directory = Path(kwargs["cwd"]) / "system_scratch" / runner.SYSTEM_NAME / "krama_task_records"
         record_directory.mkdir(parents=True)
         (record_directory / "failed-task.json").write_text(json.dumps({
@@ -150,9 +150,9 @@ def test_failed_evaluator_subprocess_logs_and_exit_status_are_recorded_in_manife
     assert manifest["max_counterfactual_simulations"] == 1
     assert manifest["model_seed"] == 73
     assert manifest["model_options"]["seed"] == 73
-    assert manifest["model_options"]["num_ctx"] == 4096
+    assert manifest["model_options"]["num_ctx"] == 16384
     assert manifest["model_options"]["num_predict"] == 768
-    assert manifest["required_num_ctx"] == 4096
+    assert manifest["required_num_ctx"] == 16384
     assert manifest["evaluator_process"] == {
         "exit_status": 1,
         "stdout_log": "evaluator_stdout.log",

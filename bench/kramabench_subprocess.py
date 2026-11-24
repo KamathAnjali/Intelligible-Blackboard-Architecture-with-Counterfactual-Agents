@@ -103,8 +103,9 @@ def main() -> None:
         # The no-key path removes inherited credentials instead of inspecting them.
         os.environ.pop("OPENAI_API_KEY", None)
 
-    from agents.llm_client import MODEL, BASE_URL, OllamaClient
+    from agents.llm_client import MODEL, BASE_URL, DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS, OllamaClient
     from bench.kramabench_adapter import KramaBenchSystem
+    from bench.kramabench_data import DEFAULT_DATA_TOOL_INVOCATION_CAP
 
     model = os.environ.get("KRAMABENCH_MODEL", MODEL)
     model_seed = int(os.environ.get("KRAMABENCH_MODEL_SEED", "42"))
@@ -114,14 +115,24 @@ def main() -> None:
     base_url = os.environ.get("KRAMABENCH_BASE_URL", BASE_URL)
     max_turns = int(os.environ.get("KRAMABENCH_MAX_TURNS", "6"))
     max_retries = int(os.environ.get("KRAMABENCH_MAX_RETRIES", "1"))
+    data_tool_invocation_cap = int(os.environ.get(
+        "KRAMABENCH_DATA_TOOL_INVOCATION_CAP", str(DEFAULT_DATA_TOOL_INVOCATION_CAP)
+    ))
+    ollama_request_timeout_seconds = int(os.environ.get(
+        "KRAMABENCH_OLLAMA_REQUEST_TIMEOUT_SECONDS", str(DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS)
+    ))
     task_wall_clock_cap_seconds = int(os.environ.get("KRAMABENCH_TASK_WALL_CLOCK_CAP_SECONDS", "900"))
     counterfactual_fraction = float(os.environ.get("KRAMABENCH_COUNTERFACTUAL_FRACTION", "0"))
+    retrospective_recovery = os.environ.get("KRAMABENCH_RETROSPECTIVE_RECOVERY", "0") == "1"
     counterfactual_seed = int(os.environ.get("KRAMABENCH_COUNTERFACTUAL_SEED", "42"))
     counterfactual_streak_threshold = int(os.environ.get("KRAMABENCH_COUNTERFACTUAL_STREAK_THRESHOLD", "2"))
     max_counterfactual_simulations = int(os.environ.get("KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS", "1"))
     class ConfiguredKramaBenchSystem(KramaBenchSystem):
         def __init__(self, verbose: bool = False, output_dir=None):
-            client = OllamaClient(model=model, base_url=base_url, model_seed=model_seed)
+            client = OllamaClient(
+                model=model, base_url=base_url, model_seed=model_seed,
+                request_timeout_seconds=ollama_request_timeout_seconds,
+            )
             effective_options = apply_effective_model_options(
                 client, num_ctx=num_ctx, num_predict=num_predict,
                 required_num_ctx=required_num_ctx,
@@ -138,8 +149,10 @@ def main() -> None:
                 client=client,
                 max_turns=max_turns,
                 max_retries=max_retries,
+                data_tool_invocation_cap=data_tool_invocation_cap,
                 task_wall_clock_cap_seconds=task_wall_clock_cap_seconds,
                 counterfactual_fraction=counterfactual_fraction,
+                retrospective_recovery=retrospective_recovery,
                 counterfactual_seed=counterfactual_seed,
                 counterfactual_streak_threshold=counterfactual_streak_threshold,
                 max_counterfactual_simulations=max_counterfactual_simulations,

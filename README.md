@@ -2,7 +2,7 @@
 
 This project studies whether agents sharing predictions and explanations can reach correct, intelligible answers. Contributions use four PXP tags: `RATIFY`, `REVISE`, `REFUTE`, and `REJECT`. The planned counterfactual mechanism will explore altered earlier contributions in an isolated replay before updating a live session.
 
-`integration-main` contains all four workstreams:
+This branch combines the four workstreams:
 
 | Source branch | Integrated contribution |
 | --- | --- |
@@ -11,14 +11,16 @@ This project studies whether agents sharing predictions and explanations can rea
 | `3-Dhruva` | Local Ollama inference, four personas, structured output validation, retries, explanation self-checks, conversations, and published run records. |
 | `4-Tanisha` | FastAPI/WebSocket backend, React/D3 interface, replay, task ingestion, token estimates, and benchmark infrastructure. |
 
-See the [progress report](docs/PROGRESS_REPORT.md) for implemented behavior and the [milestones](docs/PROJECT_MILESTONES.md) for planned work. Counterfactual scoring, live adoption, and official benchmark evaluation remain pending.
+See the [progress report](docs/PROGRESS_REPORT.md) for implemented behavior and the [milestones](docs/PROJECT_MILESTONES.md) for planned work. Official benchmark evaluation remains pending.
+
+`agents.counterfactual.RetrospectiveSandbox` can generate an alternative and replay later turns on an isolated board. Its agreement-progress delta does not measure answer correctness. The opt-in conversation recovery path provides an accepted alternative as unverified guidance on a new live turn.
 
 ## Setup from WSL
 
-Use one checkout of `integration-main`. For a new checkout:
+Use the project checkout. For a new checkout of this branch:
 
 ```sh
-git clone --branch integration-main https://github.com/KamathAnjali/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents.git
+git clone --branch 3-Dhruva https://github.com/KamathAnjali/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents.git
 cd Intelligible-Blackboard-Architecture-with-Counterfactual-Agents
 ```
 
@@ -42,6 +44,14 @@ make conversation TURNS=6 RETRIES=2
 make disagreement TURNS=6 RETRIES=2
 ```
 
+To enable retrospective recovery during a conversation from WSL, run:
+
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '& .\.venv\Scripts\python.exe -m agents.conversation --turns 12 --counterfactual-fraction 1 --retrospective-recovery'
+```
+
+Recovery requires a deadlock, an eligible earlier proposal, and an isolated replay that reaches consensus with a positive agreement delta. It is opt-in and is not yet enabled by the KramaBench adapter.
+
 `conversation` runs two agents on the default task. `disagreement` registers a proposer, evidence auditor, and counterexample challenger against a marked synthetic incorrect claim; subsequent responses come from the model. Its check requires correction to the expected answer and agreement by all three agents.
 
 | Recipe | Purpose |
@@ -55,6 +65,10 @@ make disagreement TURNS=6 RETRIES=2
 | `make pex PERSONA=evidence_auditor RETRIES=2` | Generate a validated prediction and explanation. |
 | `make entry PERSONA=counterexample_challenger` | Generate a BoardEntry without posting it. |
 | `make conversation TURNS=6 RETRIES=2` | Run a bounded two-agent session. |
+| `make conversation AGENTS=3 TURNS=6 RETRIES=2` | Run an unseeded three-agent session. |
+| `make sessions TURNS=6 RETRIES=2` | Run the four-case three-agent sanity workload. |
+| `make deadlocks` | Produce two controlled deadlock fixtures without model calls. |
+| `make deadlock-ab AB_TURNS=10 RETRIES=1` | Compare the same injected deadlock with recovery off and on; save transcripts and a summary under `results/sessions/`. |
 | `make disagreement TURNS=6 RETRIES=2` | Run the three-agent scenario; turns must be 5-12. |
 | `make demo` | Check the existing three-turn live sequence. |
 | `make personas` / `make test` | Run existing live persona checks / offline checks. |
@@ -106,3 +120,89 @@ all allowlisted input hashes, and leaves the checkout clean. The reviewed
 compatibility evaluator patch is stored in `bench/kramabench_runner.py` and is
 applied automatically to an isolated staged copy for each compatibility run;
 the pinned checkout is not patched.
+
+For a standard blackboard baseline on the five KramaBench tuning tasks, start
+Windows Ollama, then in WSL run `bash bench/baseline_pilot.sh` (optional:
+`TURNS=12 bash bench/baseline_pilot.sh`). This uses the no-key compatibility
+evaluator, disables counterfactuals and saves individual run records under
+`~/blackboard-baseline-*`. The launcher uses the evaluator environment above for
+preflight so XLSX and PDF parsers are available. Results can include
+unfinished tasks; they are not full official benchmark scores. Run `make stop`
+afterwards to unload the model.
+
+The no-key runner accepts 76 tasks whose pinned inputs passed preflight.
+`bash bench/baseline_pilot.sh --list-tasks` prints their `workload:task-id`
+pairs without connecting to Ollama. Pass selected pairs as positional arguments
+to the launcher when ready to run them.
+
+The local client requests a 16,384-token context. Oversized prompts may still
+be truncated by Ollama; run manifests record the actual model settings.
+The default pilot scope uses a 16,384-token context. The original 4,096-token
+scope remains available for reference; results from the two settings are separate.
+
+`python -m bench.monitor_runs <results-directory>` reports task outcomes,
+answer scores, errors, and counterfactual activity from saved manifests and
+transcripts. The paired orchestrator uses retrospective recovery and refuses
+to run if its frozen model settings differ from the local client.
+
+### Colab model comparison
+
+Select an NVIDIA GPU runtime in Colab. Clone the `3-Dhruva` branch, then
+run these commands from the repository root in separate notebook cells:
+
+```sh
+bash bench/colab_pilot.sh setup
+bash bench/colab_pilot.sh run qwen3:8b
+bash bench/colab_pilot.sh run qwen3:14b-q4_K_M
+```
+
+Setup checks the pinned data and runs offline checks without model weights.
+Each run downloads its model into the Colab VM, verifies full GPU placement
+at the 16,384-token context, and runs the same five tuning tasks with
+counterfactual recovery disabled. Each result folder under
+`/content/blackboard-results` includes `summary.jsonl`, model and GPU
+metadata, and task records. Download the results before resetting the VM.
+
+### MATH-500 recovery pilot
+
+The text-only pilot sends pinned integer-answer problems directly to the model and the blackboard. It runs the first 12 by default, with 24 available. Each problem has one solo answer and four six-agent runs with 0, 2, 3, or 4 agents eligible for retrospective recovery (0%, 33%, 50%, and 66%, rounded labels).
+
+```sh
+bash bench/colab_pilot.sh math-setup
+MATH_TASKS=3 bash bench/colab_pilot.sh math-run qwen3:8b  # optional smoke run
+bash bench/colab_pilot.sh math-run qwen3:8b
+bash bench/colab_pilot.sh math-run qwen3:14b-q4_K_M
+```
+
+Setup verifies the dataset and runs offline checks. To see live output in a Colab cell, use `!env MATH_TASKS=3 bash /content/blackboard/bench/colab_pilot.sh math-run qwen3:8b`. Results under `/content/blackboard-results/math500` include `progress.log`, per-run scores in `summary.jsonl`, `summary.json`, and transcripts.
+
+Set `MATH_TASKS=24` for the extended set or use `MATH_START` (one-based) and `MATH_TASKS` to select a batch. Set `COLAB_PILOT_RESULTS` to a directory under mounted Google Drive to save scores and transcripts across Colab runtimes. Each invocation creates a separate results directory.
+
+For a targeted follow-up, run `bash bench/colab_pilot.sh math-run qwen3:14b-q4_K_M --deadlocks-from /path/to/prior/summary.jsonl`. Pass all original summaries to select the union of their deadlocked problems. Nonzero settings give the first proposer replay eligibility, and the summary records replay sources, skip reasons, and whether a replay was applied.
+
+Set `PILOT_EXPLANATION_REVIEW=0` in the Colab launcher for either pilot, or pass `--no-explanation-review` to the Python conversation or pilot command. This disables model review before posting in live and simulated turns. Entries still follow the PXP schema, agents review each other's claims on the board, and the saved results record the setting.
+
+Accuracy uses the final unanimous prediction, counts unresolved attempts as incorrect, and tracks earlier PXP tag warnings separately. To regrade a saved run with its transcripts, use `python -m bench.math_pilot --rescore <run-directory>` from the repository root with the math environment active.
+
+### CounterBench pilot
+
+The pilot runs five published [CounterBench questions](https://huggingface.co/datasets/CounterBench/CounterBench/tree/c6225dfa00b7a89ccfeae67797b9a6d80e48e44c), one per question type. Each question uses the same three agents with recovery off and with all three eligible. The model sees the supplied causal facts and question. Final predictions are scored against the dataset's yes/no answers after inference.
+
+```sh
+make counterbench-setup                              # Download and verify data
+make counterbench                                    # Five questions, 10 conversations
+make counterbench COUNTERBENCH_SET=extended           # 30 questions, 60 conversations
+```
+
+The extended set contains 30 additional questions, with six per type, three yes and three no answers per type, and examples from all five graph sizes. `make counterbench-setup COUNTERBENCH_SET=extended` verifies the selected rows without inference.
+
+Start Windows Ollama before the live command. The initial limit is 10 scheduled turns and 2 retries per turn. Results under `results/counterbench/` include transcripts, per-run scores, and a summary of correct consensus, deadlocks, replay attempts, and model usage. Extended runs use a timestamped `extended-*` directory.
+
+On a Colab NVIDIA GPU runtime, run these from the `3-Dhruva` checkout:
+
+```sh
+bash bench/colab_pilot.sh counterbench-setup
+bash bench/colab_pilot.sh counterbench-run
+```
+
+The Colab launcher defaults to the same Qwen3 4B model as the local pilot. It also accepts `qwen3:8b` or `qwen3:14b-q4_K_M` after `counterbench-run`. The launcher verifies GPU placement and records the Git commit, transcripts, and scores under `/content/blackboard-results/counterbench/`.

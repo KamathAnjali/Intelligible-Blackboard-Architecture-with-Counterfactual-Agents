@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +54,9 @@ class BoardEventType(str, Enum):
     INTELLIGIBILITY_CHANGED = "INTELLIGIBILITY_CHANGED"
     SNAPSHOT_SAVED = "SNAPSHOT_SAVED"
     ROLLBACK_FORKED = "ROLLBACK_FORKED"
+    TURN_STARTED = "turn_started"
+    TURN_FINISHED = "turn_finished"
+    SCHEDULER_STATUS = "scheduler_status"
 
 
 class BoardEvent(BaseModel):
@@ -61,8 +64,22 @@ class BoardEvent(BaseModel):
 
     event_type: BoardEventType
     task_id: str
+    session_id: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
+    agent_id: str | None = None
+    turn: int | None = None
+    reason: str | None = None
+    priority_score: float | None = None
+    outcome: str | None = None
+    state: str | None = None
+    agents: list[dict[str, str]] | None = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @computed_field
+    @property
+    def type(self) -> str:
+        """Expose the event name using the scheduler contract's ``type`` key."""
+        return self.event_type.value
 
 
 # ---------------------------------------------------------------------------

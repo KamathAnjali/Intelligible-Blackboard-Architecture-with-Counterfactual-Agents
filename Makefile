@@ -13,9 +13,13 @@ RUNS ?= 3
 PERSONA ?= cautious_verifier
 RETRIES ?= 2
 TURNS ?= 6
+AB_TURNS ?= 10
+COUNTERBENCH_TURNS ?= 10
+COUNTERBENCH_SET ?= pilot
+AGENTS ?= 2
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
-.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas test stop
+.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas sessions deadlocks deadlock-ab counterbench-setup counterbench test stop
 
 help:
 	@echo make start                 Start Ollama if needed
@@ -28,6 +32,13 @@ help:
 	@echo make personas              Check all four personas on three tasks each
 	@echo make entry                 Preview one complete BoardEntry without posting
 	@echo make conversation TURNS=6  Run a live two-agent blackboard session
+	@echo make conversation AGENTS=3 Run an unseeded three-agent session
+	@echo make sessions             Run four live three-agent GSM8K and mSCoRe cases
+	@echo make deadlocks            Record two controlled deadlock fixtures, without Ollama
+	@echo make deadlock-ab AB_TURNS=10 Compare recovery disabled and enabled
+	@echo make counterbench-setup   Download and verify CounterBench data
+	@echo make counterbench         Run five paired CounterBench cases
+	@echo make counterbench COUNTERBENCH_SET=extended  Run 30 paired CounterBench cases
 	@echo make disagreement TURNS=6  Run a seeded three-agent disagreement scenario
 	@echo make demo                  Require a clean three-turn RATIFY demonstration
 	@echo make test                  Run offline tests without requiring Ollama
@@ -46,7 +57,22 @@ entry:
 	@$(RUNNER) entry -Persona "$(PERSONA)" -Retries "$(RETRIES)"
 
 conversation:
-	@$(RUNNER) conversation -Turns "$(TURNS)" -Retries "$(RETRIES)"
+	@$(RUNNER) conversation -Turns "$(TURNS)" -Retries "$(RETRIES)" -Agents "$(AGENTS)"
+
+sessions:
+	@$(RUNNER) sessions -Turns "$(TURNS)" -Retries "$(RETRIES)"
+
+deadlocks:
+	@$(RUNNER) deadlocks
+
+deadlock-ab:
+	@$(RUNNER) deadlock-ab -Turns "$(AB_TURNS)" -Retries "$(RETRIES)"
+
+counterbench-setup:
+	@$(RUNNER) counterbench-setup -CounterBenchSet "$(COUNTERBENCH_SET)"
+
+counterbench:
+	@$(RUNNER) counterbench -CounterBenchSet "$(COUNTERBENCH_SET)" -Turns "$(COUNTERBENCH_TURNS)" -Retries "$(RETRIES)"
 
 disagreement:
 	@$(RUNNER) disagreement -Turns "$(TURNS)" -Retries "$(RETRIES)"

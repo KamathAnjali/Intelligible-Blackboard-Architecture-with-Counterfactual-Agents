@@ -42,6 +42,7 @@ from bench.evidence import (
 from bench.metrics.token_counter import UsageLedger, UsageRecord, count_tokens_for_entry
 from bench.kramabench_data import (
     DATA_TOOL_SYSTEM_PROMPT,
+    DEFAULT_DATA_TOOL_INVOCATION_CAP,
     DEFAULT_TIMEOUT_SECONDS,
     DataAccessError,
     DataToolWorkflowError,
@@ -138,6 +139,11 @@ def resolve_subset_files(dataset_directory: str | os.PathLike,
                         for actual, expected in zip(suffix_parts, pattern_parts)
                     ):
                         matches.append(candidate)
+        if not matches and relative.suffix.casefold() == ".txt" and not glob.has_magic(pattern):
+            # The OMNI2 documentation is named .text in the pinned data.
+            text_variant = (root / relative).with_suffix(".text")
+            if text_variant.is_file():
+                matches.append(text_variant)
         expanded: list[Path] = []
         for match in matches:
             if match.is_dir():
@@ -301,6 +307,7 @@ def _prompt_version() -> str:
         digest.update(name.encode("utf-8"))
         digest.update((prompts_dir / name).read_bytes())
     digest.update(DATA_TOOL_SYSTEM_PROMPT.encode("utf-8"))
+    digest.update(inspect.getsource(gather_dataset_evidence).encode("utf-8"))
     digest.update((ROOT / "bench" / "evidence.py").read_bytes())
     digest.update(inspect.getsource(build_agent_task).encode("utf-8"))
     return digest.hexdigest()
@@ -386,17 +393,14 @@ def _publish_ui_board_events(board: Any) -> None:
             payload = getattr(board_event, "payload", {})
             if kind in scheduler_event_types:
                 scheduler_session_id = getattr(board_event, "session_id", None)
-                envelope = {
+                envelope = board_event.model_dump(mode="json", exclude_none=True)
+                envelope.update({
                     "type": kind, "source": "LIVE",
                     "session_id": session_id or scheduler_session_id,
                     "task_id": board.task_id,
-                }
+                })
                 if session_id and scheduler_session_id and session_id != scheduler_session_id:
                     envelope["scheduler_session_id"] = scheduler_session_id
-                for field in ("agent_id", "turn", "reason", "priority_score", "outcome", "state", "agents"):
-                    value = getattr(board_event, field, None)
-                    if value is not None:
-                        envelope[field] = value
                 try:
                     target = Path(event_path)
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -406,12 +410,14 @@ def _publish_ui_board_events(board: Any) -> None:
                 except OSError:
                     logger.exception("Could not write UI scheduler-event bridge file")
                 return
-            if kind not in branch_event_types or not isinstance(payload, dict) or not payload.get("branch_id"):
+            if kind in branch_event_types and isinstance(payload, dict) and payload.get("branch_id"):
+                envelope = dict(payload)
+            else:
                 return
-            envelope = {
-                **payload, "type": kind, "source": "LIVE", "session_id": session_id,
+            envelope.update({
+                "type": kind, "source": "LIVE", "session_id": session_id,
                 "task_id": board.task_id,
-            }
+            })
             if kind == "branch_entry_posted" and not isinstance(envelope.get("entry"), dict):
                 return
             try:
@@ -421,7 +427,7 @@ def _publish_ui_board_events(board: Any) -> None:
                     stream.write(json.dumps(envelope, ensure_ascii=False, default=str) + "\n")
                     stream.flush()
             except OSError:
-                logger.exception("Could not write UI counterfactual-event bridge file")
+                logger.exception("Could not write UI scheduler or counterfactual event")
             return
         entry = board_event.payload.get("entry")
         if not isinstance(entry, dict):
@@ -527,9 +533,13 @@ class KramaBenchSystem:
                  counterfactual_fraction: float = 0.0,
                  counterfactual_seed: int = 42,
                  counterfactual_streak_threshold: int = 2,
-                 max_counterfactual_simulations: int = 1):
+                 max_counterfactual_simulations: int = 1,
+                 retrospective_recovery: bool = False,
+                 data_tool_invocation_cap: int = DEFAULT_DATA_TOOL_INVOCATION_CAP):
         if type(task_wall_clock_cap_seconds) is not int or task_wall_clock_cap_seconds <= 0:
             raise ValueError("task_wall_clock_cap_seconds must be a positive integer")
+        if type(data_tool_invocation_cap) is not int or not 2 <= data_tool_invocation_cap <= 24:
+            raise ValueError("data_tool_invocation_cap must be an integer between 2 and 24")
         self.name = "KramaBenchPXPSystem"
         self.dataset_directory: Path | None = None
         self.verbose = bool(verbose)
@@ -539,6 +549,7 @@ class KramaBenchSystem:
         self.pipeline_generator = pipeline_generator
         self.max_turns = max_turns
         self.max_retries = max_retries
+        self.data_tool_invocation_cap = data_tool_invocation_cap
         self.pipeline_evaluation_enabled = bool(pipeline_evaluation_enabled)
         self.task_wall_clock_cap_seconds = task_wall_clock_cap_seconds
         if counterfactual_fraction not in (0, 0.33, 0.66, 1.0):
@@ -546,6 +557,7 @@ class KramaBenchSystem:
         if type(counterfactual_seed) is not int:
             raise ValueError("counterfactual_seed must be an integer")
         self.counterfactual_fraction = float(counterfactual_fraction)
+        self.retrospective_recovery = bool(retrospective_recovery)
         self.counterfactual_seed = counterfactual_seed
         if type(counterfactual_streak_threshold) is not int or counterfactual_streak_threshold < 2:
             raise ValueError("counterfactual_streak_threshold must be at least 2")
@@ -605,11 +617,13 @@ class KramaBenchSystem:
             "prompt_version": _prompt_version(),
             "pipeline_evaluation_enabled": self.pipeline_evaluation_enabled,
             "counterfactual_fraction": self.counterfactual_fraction,
+            "retrospective_recovery": self.retrospective_recovery,
             "counterfactual_seed": self.counterfactual_seed,
             "counterfactual_streak_threshold": self.counterfactual_streak_threshold,
             "max_counterfactual_simulations": self.max_counterfactual_simulations,
             "max_turns": self.max_turns,
             "max_retries": self.max_retries,
+            "data_tool_invocation_cap": self.data_tool_invocation_cap,
             "data_operation_timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
             "task_wall_clock_cap_seconds": self.task_wall_clock_cap_seconds,
             "started_at": started_at.isoformat(),
@@ -682,6 +696,7 @@ class KramaBenchSystem:
             record["precomputed_file_profiles"] = toolbox.precomputed_profiles()
             prepared = gather_dataset_evidence(
                 data_usage_client, query, toolbox,
+                max_calls=self.data_tool_invocation_cap,
                 precomputed_profiles=record["precomputed_file_profiles"],
             )
             data_attempts = prepared["attempts"]
@@ -747,6 +762,7 @@ class KramaBenchSystem:
                 output_dir=conversation_dir,
                 scenario="default",
                 task_id=query_id,
+                session_id=os.environ.get("KRAMA_UI_SESSION_ID") or run_id,
                 on_board_created=_publish_ui_board_events,
                 initial_facts=profile_messages + evidence_messages,
                 termination_trace=termination_trace,
@@ -757,6 +773,7 @@ class KramaBenchSystem:
                     "entry": entry.model_dump(mode="json"), "review": dict(review),
                 }),
                 counterfactual_fraction=self.counterfactual_fraction,
+                retrospective_recovery=self.retrospective_recovery,
                 counterfactual_seed=self.counterfactual_seed,
                 counterfactual_streak_threshold=self.counterfactual_streak_threshold,
                 max_counterfactual_simulations=self.max_counterfactual_simulations,

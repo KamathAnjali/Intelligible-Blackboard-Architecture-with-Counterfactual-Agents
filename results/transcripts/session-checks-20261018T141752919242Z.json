@@ -1,0 +1,228 @@
+{
+  "source": "live_ollama",
+  "created_at": "2026-10-18T14:17:52.919242+00:00",
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "base_url": "http://127.0.0.1:11434",
+  "options": {
+    "num_ctx": 4096,
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 256
+  },
+  "prompt_library": "v1",
+  "prompt_sha256": {
+    "aggressive_proposer.txt": "4af4c36f8ca30a1eeb5df1f9db8564959211f953c2e1ee1902bfcb758dbf5760",
+    "cautious_verifier.txt": "fa2f0bff44772f2b24494bfe2df9514c070858b61827733d1a97a8d623170913",
+    "counterexample_challenger.txt": "843b02f8c609a07b2cdc9d4ed765478b3f0755ae1484fbc5b5e5f32590b7ad4b",
+    "evidence_auditor.txt": "3b9ef87b43b5907edb3d153b8cd0c7410e07cd06f19e6ebba24c53dc1015fac3",
+    "explanation_check.txt": "0c66bc79cf340f9c375a090606bdfd9f087fcdad416ea7f52699f6a49eb9c45e",
+    "pex_template.txt": "b0691354e3d9d238670233f61f3d9611b5c563b8d3b7fee75f459a713155daec",
+    "pxp_template.txt": "327318ecdd2af733e6f12ede59f32c6b10c45c4493b522dc406c3b38f2703d78"
+  },
+  "max_turns": 6,
+  "max_retries": 2,
+  "planned_cases": 6,
+  "records": [
+    {
+      "case_id": "badge_deduction",
+      "task": "Every cobalt badge grants access to the archive. Leena has a cobalt badge. Do the supplied rules grant Leena access to the archive? Use yes or no as prediction.",
+      "expected": "yes",
+      "outcome": "scheduler_consensus",
+      "turns": 4,
+      "failures": [],
+      "usage": {
+        "calls": 8,
+        "prompt_tokens": 4576,
+        "output_tokens": 268,
+        "wall_seconds": 87.708
+      },
+      "transcript": "results\\sessions\\session-checks-20261018T141752919242Z\\badge_deduction\\conversation-20261018T141753078409Z\\transcript.json",
+      "unanimous_ratify": true,
+      "correct_consensus": true,
+      "latest_by_agent": {
+        "proposer": {
+          "tag": "RATIFY",
+          "prediction": "yes"
+        },
+        "auditor": {
+          "tag": "RATIFY",
+          "prediction": "yes"
+        },
+        "challenger": {
+          "tag": "RATIFY",
+          "prediction": "yes"
+        }
+      }
+    },
+    {
+      "case_id": "inventory_total",
+      "task": "A workshop starts the morning with 9 unused bolts. A delivery adds 8 unused bolts. No bolts are used or removed. How many unused bolts are now in the workshop? Use only the integer as prediction.",
+      "expected": "17",
+      "outcome": "scheduler_consensus",
+      "turns": 4,
+      "failures": [
+        {
+          "turn": 1,
+          "attempt": 1,
+          "category": "unsupported_explanation"
+        }
+      ],
+      "usage": {
+        "calls": 10,
+        "prompt_tokens": 5604,
+        "output_tokens": 358,
+        "wall_seconds": 61.819
+      },
+      "transcript": "results\\sessions\\session-checks-20261018T141752919242Z\\inventory_total\\conversation-20261018T141920837831Z\\transcript.json",
+      "unanimous_ratify": true,
+      "correct_consensus": true,
+      "latest_by_agent": {
+        "proposer": {
+          "tag": "RATIFY",
+          "prediction": "17"
+        },
+        "auditor": {
+          "tag": "RATIFY",
+          "prediction": "17"
+        },
+        "challenger": {
+          "tag": "RATIFY",
+          "prediction": "17"
+        }
+      }
+    },
+    {
+      "case_id": "closed_bridge",
+      "task": "The rules say nobody may cross the river bridge while it is closed. The bridge is closed now, and Arun wants to cross now. Under these rules, may Arun cross? Use yes or no as prediction.",
+      "expected": "no",
+      "outcome": "scheduler_consensus",
+      "turns": 4,
+      "failures": [],
+      "usage": {
+        "calls": 8,
+        "prompt_tokens": 4592,
+        "output_tokens": 249,
+        "wall_seconds": 47.138
+      },
+      "transcript": "results\\sessions\\session-checks-20261018T141752919242Z\\closed_bridge\\conversation-20261018T142022730832Z\\transcript.json",
+      "unanimous_ratify": true,
+      "correct_consensus": true,
+      "latest_by_agent": {
+        "proposer": {
+          "tag": "RATIFY",
+          "prediction": "no"
+        },
+        "auditor": {
+          "tag": "RATIFY",
+          "prediction": "no"
+        },
+        "challenger": {
+          "tag": "RATIFY",
+          "prediction": "no"
+        }
+      }
+    },
+    {
+      "case_id": "quantifier_gap",
+      "task": "Some museum members receive a guest pass. Noor is a museum member. Do the supplied facts determine whether Noor receives a guest pass? Use yes, no, or insufficient information as prediction; choose insufficient information when Noor's guest-pass status is undetermined.",
+      "expected": "insufficient information",
+      "outcome": "scheduler_consensus",
+      "turns": 4,
+      "failures": [],
+      "usage": {
+        "calls": 8,
+        "prompt_tokens": 4736,
+        "output_tokens": 301,
+        "wall_seconds": 53.336
+      },
+      "transcript": "results\\sessions\\session-checks-20261018T141752919242Z\\quantifier_gap\\conversation-20261018T142109911952Z\\transcript.json",
+      "unanimous_ratify": true,
+      "correct_consensus": true,
+      "latest_by_agent": {
+        "proposer": {
+          "tag": "RATIFY",
+          "prediction": "insufficient information"
+        },
+        "auditor": {
+          "tag": "RATIFY",
+          "prediction": "insufficient information"
+        },
+        "challenger": {
+          "tag": "RATIFY",
+          "prediction": "insufficient information"
+        }
+      }
+    },
+    {
+      "case_id": "conflicting_notes",
+      "task": "Two notes describe the same sealed box at the same instant. One says the box is empty; the other says the box is not empty. Both are asserted as facts. Are these notes consistent or inconsistent? Use consistent or inconsistent as prediction.",
+      "expected": "inconsistent",
+      "outcome": "scheduler_consensus",
+      "turns": 4,
+      "failures": [],
+      "usage": {
+        "calls": 8,
+        "prompt_tokens": 4662,
+        "output_tokens": 268,
+        "wall_seconds": 49.81
+      },
+      "transcript": "results\\sessions\\session-checks-20261018T141752919242Z\\conflicting_notes\\conversation-20261018T142203289755Z\\transcript.json",
+      "unanimous_ratify": true,
+      "correct_consensus": true,
+      "latest_by_agent": {
+        "proposer": {
+          "tag": "RATIFY",
+          "prediction": "inconsistent"
+        },
+        "auditor": {
+          "tag": "RATIFY",
+          "prediction": "inconsistent"
+        },
+        "challenger": {
+          "tag": "RATIFY",
+          "prediction": "inconsistent"
+        }
+      }
+    },
+    {
+      "case_id": "number_constraint",
+      "task": "A lock accepts exactly one number from [2, 5, 8]. Its number must be odd and greater than 3. Which number satisfies both requirements? Use only the integer as prediction.",
+      "expected": "5",
+      "outcome": "scheduler_consensus",
+      "turns": 4,
+      "failures": [],
+      "usage": {
+        "calls": 8,
+        "prompt_tokens": 4688,
+        "output_tokens": 317,
+        "wall_seconds": 53.919
+      },
+      "transcript": "results\\sessions\\session-checks-20261018T141752919242Z\\number_constraint\\conversation-20261018T142253138355Z\\transcript.json",
+      "unanimous_ratify": true,
+      "correct_consensus": true,
+      "latest_by_agent": {
+        "proposer": {
+          "tag": "RATIFY",
+          "prediction": "5"
+        },
+        "auditor": {
+          "tag": "RATIFY",
+          "prediction": "5"
+        },
+        "challenger": {
+          "tag": "RATIFY",
+          "prediction": "5"
+        }
+      }
+    }
+  ],
+  "complete": true,
+  "ollama": {
+    "version": "0.35.0"
+  },
+  "finished_at": "2026-10-18T14:23:47.102360+00:00",
+  "consensus_cases": 6,
+  "correct_consensus_cases": 6,
+  "required_cases": 3,
+  "target_met": true
+}

@@ -531,15 +531,14 @@ async def start_live_conversation(request: ConversationStartRequest):
                 "on_board_created": attach_live_board,
             }
             try:
-                parameters = inspect.signature(run_conversation).parameters.values()
-                supports_usage = any(
-                    parameter.name == "on_usage" or parameter.kind == inspect.Parameter.VAR_KEYWORD
-                    for parameter in parameters
-                )
+                parameters = inspect.signature(run_conversation).parameters
             except (TypeError, ValueError):
-                supports_usage = False
-            if supports_usage:
+                parameters = {}
+            supports_extra = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in parameters.values())
+            if supports_extra or "on_usage" in parameters:
                 conversation_kwargs["on_usage"] = on_usage
+            if supports_extra or "session_id" in parameters:
+                conversation_kwargs["session_id"] = session_id
             report, transcript_path = await asyncio.to_thread(
                 run_conversation,
                 OllamaClient(),

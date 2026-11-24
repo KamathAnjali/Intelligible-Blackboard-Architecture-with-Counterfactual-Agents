@@ -27,7 +27,10 @@ from bench.scope.load_scope import scope_sha256
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PINNED_URL = "https://github.com/mitdbg/KramaBench.git"
-SUPPORTED_SUFFIXES = {".csv", ".tsv", ".json", ".jsonl", ".html", ".htm", ".txt", ".md", ".xml", ".sql", ".log", ".xlsx", ".pdf"}
+SUPPORTED_SUFFIXES = {
+    ".csv", ".tsv", ".json", ".jsonl", ".html", ".htm", ".txt", ".text", ".md",
+    ".xml", ".sql", ".log", ".tle", ".dat", ".xlsx", ".pdf",
+}
 DETERMINISTIC_METRICS = {
     "success", "mean_absolute_error", "mean_squared_error", "rae_score", "precision", "recall", "f1"
 }

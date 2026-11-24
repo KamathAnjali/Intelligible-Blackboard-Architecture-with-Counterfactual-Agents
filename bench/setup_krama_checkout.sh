@@ -13,6 +13,14 @@ readonly CHECKOUT="${KRAMABENCH_ROOT:-${HOME}/kramabench-pinned}"
 readonly EVALUATOR_VENV="${KRAMABENCH_EVALUATOR_VENV:-${HOME}/kramabench-eval-venv}"
 readonly PYTHON="${PYTHON:-python3}"
 
+reuse=false
+if [[ "${1:-}" == "--reuse" && "$#" -eq 1 ]]; then
+  reuse=true
+elif [[ "$#" -ne 0 ]]; then
+  echo "Usage: bash bench/setup_krama_checkout.sh [--reuse]" >&2
+  exit 2
+fi
+
 case "${CHECKOUT}:${EVALUATOR_VENV}" in
   /private/tmp*|*/private/tmp*)
     echo "Refusing paths under /private/tmp; choose stable paths outside temporary storage." >&2
@@ -20,17 +28,19 @@ case "${CHECKOUT}:${EVALUATOR_VENV}" in
     ;;
 esac
 
-if [[ -e "${CHECKOUT}" ]]; then
+if [[ -e "${CHECKOUT}" && "$reuse" == false ]]; then
   echo "Refusing to overwrite existing checkout: ${CHECKOUT}" >&2
   exit 2
 fi
-if [[ -e "${EVALUATOR_VENV}" ]]; then
+if [[ -e "${EVALUATOR_VENV}" && "$reuse" == false ]]; then
   echo "Refusing to overwrite existing evaluator venv: ${EVALUATOR_VENV}" >&2
   exit 2
 fi
 
-git clone "${REPOSITORY_URL}" "${CHECKOUT}"
-git -C "${CHECKOUT}" checkout --detach "${PINNED_REVISION}"
+if [[ ! -e "${CHECKOUT}" ]]; then
+  git clone "${REPOSITORY_URL}" "${CHECKOUT}"
+  git -C "${CHECKOUT}" checkout --detach "${PINNED_REVISION}"
+fi
 
 actual_revision="$(git -C "${CHECKOUT}" rev-parse HEAD)"
 if [[ "${actual_revision}" != "${PINNED_REVISION}" ]]; then
@@ -82,8 +92,14 @@ for entry in document["entries"]:
 print(f"Verified {checked} allowlisted input file hash(es).")
 PY
 
-"${PYTHON}" -m venv "${EVALUATOR_VENV}"
-"${EVALUATOR_VENV}/bin/python" -m pip install --upgrade pip
+if [[ ! -x "${EVALUATOR_VENV}/bin/python" ]]; then
+  "${PYTHON}" -m venv --without-pip "${EVALUATOR_VENV}"
+fi
+# Colab's Python can leave a valid venv interpreter behind when ensurepip fails.
+# Use the host pip to bootstrap that environment, including on a setup retry.
+if ! "${EVALUATOR_VENV}/bin/python" -I -m pip --version >/dev/null 2>&1; then
+  "${PYTHON}" -m pip --python "${EVALUATOR_VENV}/bin/python" install pip
+fi
 "${EVALUATOR_VENV}/bin/python" -m pip install \
   "pandas==3.0.6" \
   "numpy==2.5.4" \

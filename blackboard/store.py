@@ -60,7 +60,7 @@ class InMemoryJSONStore(BackingStore):
         
         filename = f"{task_id}_{tag}.json" if tag else f"{task_id}.json"
         path = self.snapshot_dir / filename
-        path.write_text(state.model_dump_json(indent=2))
+        path.write_text(state.model_dump_json(indent=2), encoding="utf-8")
         return path
 
     def load_snapshot_from_disk(self, task_id: str, filepath: str | Path | None = None) -> BlackboardState:
@@ -69,7 +69,12 @@ class InMemoryJSONStore(BackingStore):
         If filepath is not provided, defaults to `<snapshot_dir>/<task_id>.json`.
         """
         path = Path(filepath) if filepath else self.snapshot_dir / f"{task_id}.json"
-        data = json.loads(path.read_text())
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            # Older snapshots used the platform's default encoding.
+            text = path.read_text()
+        data = json.loads(text)
         state = BlackboardState.model_validate(data)
         self._states[task_id] = state
         return state

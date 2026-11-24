@@ -24,7 +24,8 @@ from blackboard.models import AgentRecord, BlackboardState, BoardEntry, PXPTag
 
 MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 BASE_URL = "http://127.0.0.1:11434"
-OPTIONS = {"num_ctx": 4096, "temperature": 0, "seed": 42, "num_predict": 768}
+OPTIONS = {"num_ctx": 16384, "temperature": 0, "seed": 42, "num_predict": 768}
+DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS = 300
 ROOT = Path(__file__).resolve().parents[1]
 PERSONAS = ("cautious_verifier", "aggressive_proposer",
             "evidence_auditor", "counterexample_challenger")
@@ -53,10 +54,16 @@ def sanitized_base_url(value):
 
 
 class OllamaClient:
-    def __init__(self, model=MODEL, base_url=BASE_URL, model_seed=42):
+    def __init__(self, model=MODEL, base_url=BASE_URL, model_seed=42,
+                 request_timeout_seconds=DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS, *,
+                 review_explanations: bool = True):
+        if not isinstance(review_explanations, bool):
+            raise ValueError("review_explanations must be a bool")
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.options = {**OPTIONS, "seed": model_seed}
+        self.request_timeout_seconds = request_timeout_seconds
+        self.review_explanations = review_explanations
         self.task_deadline = None
 
     def set_task_deadline(self, deadline):
@@ -66,7 +73,7 @@ class OllamaClient:
         data = None if payload is None else json.dumps(payload).encode("utf-8")
         request = Request(self.base_url + path, data=data,
                           headers={"Content-Type": "application/json"})
-        timeout = 300
+        timeout = self.request_timeout_seconds
         if self.task_deadline is not None:
             timeout = min(timeout, self.task_deadline - time.monotonic())
             if timeout <= 0:
@@ -89,21 +96,25 @@ class OllamaClient:
             "model": self.model, "prompt": prompt, "system": system,
             "stream": False, "keep_alive": "10m", "options": self.options,
         }
+        if self.model in {"qwen3:8b", "qwen3:14b-q4_K_M"}:
+            payload["think"] = False
         if schema is not None:
             payload["format"] = schema
         result = self.request("/api/generate", payload)
+        # Board history is sent as text; Ollama's token IDs are not reused.
+        result.pop("context", None)
         result["wall_seconds"] = time.perf_counter() - started
         return result
 
     def generate_pex(self, prompt, persona=None, max_retries=2):
-        """Return validated, self-checked PEX and every generation/review attempt."""
+        """Return validated PEX and every generation or review attempt."""
         return self._generate_structured(
             prompt, persona, max_retries, "pex_template.txt", PEXResponse, PEXGenerationError,
         )
 
     def generate_entry(self, task, state: BlackboardState, agent_id: str,
                        target_entry_id=None, max_retries=2, is_counterfactual_sim=False,
-                       review_evidence=None):
+                       review_evidence=None, guidance=None, enforce_target_agreement=False):
         """Build one BoardEntry from a snapshot without posting or mutating it.
 
         The application selects the target (latest entry by default). The model
@@ -126,16 +137,29 @@ class OllamaClient:
             entry.entry_id == target_entry_id for entry in snapshot.entries
         ):
             raise ValueError("target_entry_id must exist in the supplied board snapshot")
-        prompt = json.dumps({
+        payload = {
             "task": task, "task_id": snapshot.task_id, "acting_agent_id": agent_id,
             "target_entry_id": target_entry_id,
             "history": [entry.model_dump(mode="json") for entry in snapshot.entries],
-        }, ensure_ascii=False)
+        }
+        if guidance is not None:
+            if not isinstance(guidance, str) or not guidance.strip():
+                raise ValueError("guidance must be a nonempty string")
+            payload["guidance"] = guidance
+        prompt = json.dumps(payload, ensure_ascii=False)
         has_prior_agent_entry = any(entry.tag != PXPTag.FACT for entry in snapshot.entries)
         schema = PXPResponse if has_prior_agent_entry else InitialPXPResponse
+        target = next((entry for entry in snapshot.entries if entry.entry_id == target_entry_id), None)
+
+        def validate_target(parsed):
+            if (enforce_target_agreement and target is not None and parsed["tag"] == "RATIFY"
+                    and parsed["prediction"].strip().casefold() != target.prediction.strip().casefold()):
+                return "RATIFY changes the live target prediction; use REVISE for a changed answer."
+            return None
+
         result = self._generate_structured(
             prompt, agent.persona, max_retries, "pxp_template.txt", schema, PXPGenerationError,
-            task=task, review_evidence=review_evidence,
+            task=task, review_evidence=review_evidence, candidate_validator=validate_target,
         )
         # Explicitly copy model-owned fields; never unpack arbitrary model metadata.
         parsed = result["parsed"]
@@ -148,9 +172,12 @@ class OllamaClient:
 
     def check_explanation(self, task, answer, evidence=None):
         """Review task support separately from the actor's board history."""
-        prompt = json.dumps({"task": task, "prediction": answer["prediction"],
-                             "explanation": answer["explanation"],
-                             "data_tool_results": evidence or []}, ensure_ascii=False)
+        review = {"task": task, "prediction": answer["prediction"],
+                  "explanation": answer["explanation"],
+                  "review_mode": "task_facts" if evidence is None else "data_tool_results"}
+        if evidence is not None:
+            review["data_tool_results"] = evidence
+        prompt = json.dumps(review, ensure_ascii=False)
         system = (ROOT / "agents/prompts/explanation_check.txt").read_text(encoding="utf-8")
         raw = self.generate(prompt, system=system, schema=ExplanationCheck.model_json_schema())
         try:
@@ -160,12 +187,13 @@ class OllamaClient:
             return {"raw": raw, "error": str(exc)}
 
     def _generate_structured(self, prompt, persona, max_retries, template_name,
-                             response_model, error_class, task=None, review_evidence=None):
+                             response_model, error_class, task=None, review_evidence=None,
+                             candidate_validator=None):
         """Validate and review each candidate within the existing retry budget.
 
-        A valid candidate gets one model self-check before it can be returned.
-        Rejected or malformed reviews trigger regeneration; transport failures
-        preserve the attempts and stop. Independent evaluation is still needed.
+        When enabled, a model self-check reviews each valid candidate. Rejected
+        or malformed reviews trigger regeneration. Transport failures preserve
+        the attempts and stop.
         """
         if type(max_retries) is not int or not 0 <= max_retries <= 5:
             raise ValueError("max_retries must be an integer between 0 and 5")
@@ -190,8 +218,11 @@ class OllamaClient:
                 parsed = parse_response(raw, response_model).model_dump(mode="json")
             except ValueError as exc:
                 attempt["error"] = str(exc)
-            if parsed is not None:
+            if parsed is not None and candidate_validator is not None:
+                attempt["error"] = candidate_validator(parsed)
+            if parsed is not None and attempt["error"] is None:
                 attempt["parsed"] = parsed
+            if getattr(self, "review_explanations", True) and "parsed" in attempt:
                 try:
                     reviewer = self.check_explanation
                     if review_evidence is not None and (

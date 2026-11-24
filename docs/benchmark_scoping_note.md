@@ -9,6 +9,12 @@ KramaBench is an end-to-end benchmark for data-science agents. Its records descr
 
 The parser can load task records, but loading a dataset is not an evaluation. The legacy trial runner's `example` and `dry_run` modes are synthetic fixture/simulation modes and cannot produce benchmark evidence. Real paired execution is implemented in `bench.orchestrator`, which delegates each task/configuration to the per-task runner and uses evaluator measures—not subprocess exit status—for correctness. No simulator agreement rate should be reported as benchmark accuracy.
 
+### MSCoRe and MedAgentBench integration status
+
+`bench.ingest.mscore_parser` now separates MSCoRe agent prompts from evaluator references, reports source hashes and rejected records, and detects unhydrated Git LFS pointer files. `bench.mscore_runner` runs a seeded, bounded sample through the project's two-agent blackboard and writes transcripts, per-task records, a CSV, and a manifest. Its deterministic exact scoring is explicitly adapted for objective judgment, choice, and ordering labels. Open-ended QA is retained as `completed_unscored` until a semantic evaluator is configured; this runner is not the upstream official harness and its scores must be labelled adapted. No MSCoRe model pilot has been run by this change.
+
+MedAgentBench remains unintegrated. Its tasks require an interactive FHIR environment and action protocol, so its source loader cannot be treated as another file parser. A separate adapter must run the FHIR task lifecycle, preserve reference isolation, and validate against the benchmark's reference-solution evaluator. A direct HTTP connection to Ollama only establishes model connectivity; it does not establish a MedAgentBench result.
+
 ## Proposed design (not yet executed)
 
 - Use a fixed, documented set of valid KramaBench tasks, recording source revision and task IDs.

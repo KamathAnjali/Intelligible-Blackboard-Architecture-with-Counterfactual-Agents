@@ -1,0 +1,204 @@
+[
+  {
+    "case_id": "missing_premise",
+    "source": "controlled_fixture",
+    "model_calls": 0,
+    "task": "Some museum members receive a guest pass. Noor is a museum member. Do the supplied facts determine whether Noor receives a guest pass? Use yes, no, or insufficient information as prediction; choose insufficient information when Noor's guest-pass status is undetermined.",
+    "cutoff_entry_id": "120f21324e904580977cceba7a654be6",
+    "deadlock_verified": true,
+    "snapshot": "results\\sessions\\session-checks-20261018T141802737398Z\\missing_premise\\fixture-missing_premise.json",
+    "board": {
+      "task_id": "fixture-missing_premise",
+      "entries": [
+        {
+          "entry_id": "120f21324e904580977cceba7a654be6",
+          "agent_id": "proposer",
+          "tag": "REVISE",
+          "prediction": "yes",
+          "explanation": "Every museum member receives a guest pass.",
+          "target_entry_id": null,
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.738934Z"
+        },
+        {
+          "entry_id": "8ccaeb5911d84756976d57e3f24a736a",
+          "agent_id": "auditor",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The needed premise about Noor is missing; this contribution offers no correction.",
+          "target_entry_id": "120f21324e904580977cceba7a654be6",
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.740483Z"
+        },
+        {
+          "entry_id": "1517147c6f5d41a4a1492e197d02a991",
+          "agent_id": "challenger",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The needed premise about Noor is missing; this contribution offers no correction.",
+          "target_entry_id": "8ccaeb5911d84756976d57e3f24a736a",
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.740483Z"
+        },
+        {
+          "entry_id": "47009fe9bf964d2983bc9cb68a5078a1",
+          "agent_id": "proposer",
+          "tag": "REFUTE",
+          "prediction": "yes",
+          "explanation": "The needed premise about Noor is missing; this contribution offers no correction.",
+          "target_entry_id": "1517147c6f5d41a4a1492e197d02a991",
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.740483Z"
+        },
+        {
+          "entry_id": "6efe0c3dd07c4fa4a322b16c0b591cbc",
+          "agent_id": "auditor",
+          "tag": "REJECT",
+          "prediction": "yes",
+          "explanation": "The needed premise about Noor is missing; this contribution offers no correction.",
+          "target_entry_id": "47009fe9bf964d2983bc9cb68a5078a1",
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.740483Z"
+        }
+      ],
+      "agents": {
+        "proposer": {
+          "agent_id": "proposer",
+          "persona": "aggressive_proposer",
+          "counterfactual_capable": false,
+          "model_name": "controlled-fixture",
+          "active": true
+        },
+        "auditor": {
+          "agent_id": "auditor",
+          "persona": "evidence_auditor",
+          "counterfactual_capable": false,
+          "model_name": "controlled-fixture",
+          "active": true
+        },
+        "challenger": {
+          "agent_id": "challenger",
+          "persona": "counterexample_challenger",
+          "counterfactual_capable": false,
+          "model_name": "controlled-fixture",
+          "active": true
+        }
+      },
+      "intelligibility": "DEADLOCKED",
+      "deadlocks": [
+        {
+          "triggered_at_entry_id": "6efe0c3dd07c4fa4a322b16c0b591cbc",
+          "loop_length": 4,
+          "involved_agent_ids": [
+            "proposer",
+            "challenger",
+            "auditor"
+          ],
+          "timestamp": "2026-10-18T14:18:02.740483Z"
+        }
+      ],
+      "counterfactual_events": []
+    }
+  },
+  {
+    "case_id": "contradictory_premises",
+    "source": "controlled_fixture",
+    "model_calls": 0,
+    "task": "Two notes describe the same sealed box at the same instant. One says the box is empty; the other says the box is not empty. Both are asserted as facts. Are these notes consistent or inconsistent? Use consistent or inconsistent as prediction.",
+    "cutoff_entry_id": "d56bf227662c4a9b8145d287a5058c1b",
+    "deadlock_verified": true,
+    "snapshot": "results\\sessions\\session-checks-20261018T141802737398Z\\contradictory_premises\\fixture-contradictory_premises.json",
+    "board": {
+      "task_id": "fixture-contradictory_premises",
+      "entries": [
+        {
+          "entry_id": "d56bf227662c4a9b8145d287a5058c1b",
+          "agent_id": "proposer",
+          "tag": "REVISE",
+          "prediction": "consistent",
+          "explanation": "The box is empty and not empty, so both notes can be accepted together.",
+          "target_entry_id": null,
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.743570Z"
+        },
+        {
+          "entry_id": "ce5eb9c81a434a05acfbc694dd9d10e2",
+          "agent_id": "auditor",
+          "tag": "REFUTE",
+          "prediction": "consistent",
+          "explanation": "The claims conflict at the same instant; this contribution offers no correction.",
+          "target_entry_id": "d56bf227662c4a9b8145d287a5058c1b",
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.743570Z"
+        },
+        {
+          "entry_id": "b7609fb6e0b74bfa8b52d35f4aad3aef",
+          "agent_id": "challenger",
+          "tag": "REJECT",
+          "prediction": "consistent",
+          "explanation": "The claims conflict at the same instant; this contribution offers no correction.",
+          "target_entry_id": "ce5eb9c81a434a05acfbc694dd9d10e2",
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.743570Z"
+        },
+        {
+          "entry_id": "1e5ccec5949541ae855d324f9adb6b0d",
+          "agent_id": "proposer",
+          "tag": "REFUTE",
+          "prediction": "consistent",
+          "explanation": "The claims conflict at the same instant; this contribution offers no correction.",
+          "target_entry_id": "b7609fb6e0b74bfa8b52d35f4aad3aef",
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.745106Z"
+        },
+        {
+          "entry_id": "d634f971e86b481b91f0dac16021150a",
+          "agent_id": "auditor",
+          "tag": "REJECT",
+          "prediction": "consistent",
+          "explanation": "The claims conflict at the same instant; this contribution offers no correction.",
+          "target_entry_id": "1e5ccec5949541ae855d324f9adb6b0d",
+          "is_counterfactual_sim": false,
+          "timestamp": "2026-10-18T14:18:02.745106Z"
+        }
+      ],
+      "agents": {
+        "proposer": {
+          "agent_id": "proposer",
+          "persona": "aggressive_proposer",
+          "counterfactual_capable": false,
+          "model_name": "controlled-fixture",
+          "active": true
+        },
+        "auditor": {
+          "agent_id": "auditor",
+          "persona": "evidence_auditor",
+          "counterfactual_capable": false,
+          "model_name": "controlled-fixture",
+          "active": true
+        },
+        "challenger": {
+          "agent_id": "challenger",
+          "persona": "counterexample_challenger",
+          "counterfactual_capable": false,
+          "model_name": "controlled-fixture",
+          "active": true
+        }
+      },
+      "intelligibility": "DEADLOCKED",
+      "deadlocks": [
+        {
+          "triggered_at_entry_id": "d634f971e86b481b91f0dac16021150a",
+          "loop_length": 4,
+          "involved_agent_ids": [
+            "proposer",
+            "challenger",
+            "auditor"
+          ],
+          "timestamp": "2026-10-18T14:18:02.745106Z"
+        }
+      ],
+      "counterfactual_events": []
+    }
+  }
+]

@@ -35,8 +35,10 @@ _NEGATIVE_TAGS = {PXPTag.REFUTE, PXPTag.REJECT}
 class Blackboard:
     """Thread-safe PXP Blackboard."""
 
-    def __init__(self, task_id: str, store: BackingStore | None = None):
+    def __init__(self, task_id: str, store: BackingStore | None = None, *, is_simulation: bool = False):
         self.task_id = task_id
+        self._is_simulation = is_simulation
+        self.session_id: str | None = None
         self._store = store or InMemoryJSONStore()
         self._lock = threading.RLock()
         self._subscribers: list[Callable[[BoardEvent], None]] = []
@@ -70,8 +72,13 @@ class Blackboard:
         event = BoardEvent(
             event_type=event_type,
             task_id=self.task_id,
+            session_id=self.session_id,
             payload=payload,
         )
+        self._dispatch_event(event)
+
+    def _dispatch_event(self, event: BoardEvent) -> None:
+        """Dispatch a prepared event to subscribers without changing board state."""
         for listener in list(self._subscribers):
             try:
                 listener(event)
@@ -181,6 +188,21 @@ class Blackboard:
         })
         return True
 
+    def reopen_after_deadlock(self, expected_state: BlackboardState | None = None) -> bool:
+        """Resume after an accepted recovery while retaining the deadlock record."""
+        with self._lock:
+            if (self._state.intelligibility != IntelligibilityLevel.DEADLOCKED
+                    or (expected_state is not None and self._state != expected_state)):
+                return False
+            self._recent_tags.clear()
+            self._state.intelligibility = IntelligibilityLevel.UNRESOLVED
+            self._store.save(self._state)
+        self._emit(BoardEventType.INTELLIGIBILITY_CHANGED, {
+            "previous": IntelligibilityLevel.DEADLOCKED.value,
+            "current": IntelligibilityLevel.UNRESOLVED.value,
+        })
+        return True
+
     # -- persistence & snapshot hooks (Week 2) -----------------------------
 
     def save_snapshot(self, tag: str | None = None):
@@ -246,7 +268,7 @@ class Blackboard:
             )
             sim_store = InMemoryJSONStore()
             sim_store.save(sim_state)
-            sim_board = Blackboard(task_id=task_name, store=sim_store)
+            sim_board = Blackboard(task_id=task_name, store=sim_store, is_simulation=True)
 
         self._emit(BoardEventType.ROLLBACK_FORKED, {
             "cutoff_entry_id": cutoff_entry_id,
@@ -307,7 +329,7 @@ class Blackboard:
         # Find the most recent entry from each active agent
         latest_by_agent: dict[str, BoardEntry] = {}
         for entry in self._state.entries:
-            if entry.agent_id in active_agent_ids and not entry.is_counterfactual_sim:
+            if entry.agent_id in active_agent_ids and (self._is_simulation or not entry.is_counterfactual_sim):
                 latest_by_agent[entry.agent_id] = entry
 
         # All active agents must have posted at least once
@@ -326,7 +348,7 @@ class Blackboard:
 
         # Check if productive REVISE occurred in the history
         had_revise = any(
-            e.tag == PXPTag.REVISE for e in self._state.entries if not e.is_counterfactual_sim
+            e.tag == PXPTag.REVISE for e in self._state.entries if self._is_simulation or not e.is_counterfactual_sim
         )
         self._state.intelligibility = (
             IntelligibilityLevel.ULTRA_STRONG if had_revise else IntelligibilityLevel.STRONG
