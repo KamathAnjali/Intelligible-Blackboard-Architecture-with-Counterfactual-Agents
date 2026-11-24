@@ -1,0 +1,136 @@
+% Based on the supplied CS F407 report template.
+% Course announcement (22 Nov 2026) permits four double-column pages total,
+% including references. Template typography, margins and spacing are preserved.
+\documentclass[11pt,a4paper,twocolumn]{article}
+
+\usepackage[margin=2cm,columnsep=0.8cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+
+\titleformat{\section}{\normalsize\bfseries}{\thesection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.2ex plus 0.3ex}{0.6ex}
+\setlist{nosep,leftmargin=*}
+\setlength{\parskip}{0.3ex}
+
+\newcommand{\coursename}{CS F407 Artificial Intelligence, AY 2026--27 Semester I}
+\newcommand{\teamno}{Team number not present in supplied materials}
+\newcommand{\githuburl}{https://github.com/KamathAnjali/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+  {\large\bfseries Intelligible Blackboard with Counterfactual Agents}\\[1ex]
+  \teamno\\
+  Anjali (Student 1), Lopez (Student 2), Dhruva (Student 3), Tanisha (Student 4)\\[0.5ex]
+  {\small \coursename, BITS Pilani, K.K. Birla Goa Campus}\\[1.5ex]
+  \begin{minipage}{0.85\textwidth}
+    \small
+    \centerline{\bfseries Abstract}\vspace{0.5ex}
+    Multi-agent language-model systems can produce a shared answer without making disagreement or revision easy to inspect. We present an implemented prototype that places each agent's prediction and explanation on a shared, event-emitting blackboard. A round-robin scheduler enforces turns, while a deterministic classifier distinguishes direct agreement, agreement after revision, and deadlock. A FastAPI/WebSocket service and React/D3 dashboard expose the live or replayed board state. The code also contains a bounded counterfactual path: after a configured rejection streak, an enabled agent can propose one alternative in an isolated history fork; the simulation is recorded separately from canonical live history. This report documents architecture and implementation only. Parser-dependent benchmark outcomes, comparative accuracy, and counterfactual benefit are omitted because they are not yet established by sufficiently reliable evidence.
+  \end{minipage}
+\end{center}
+\vspace{1.5ex}
+}]
+
+\section{Introduction}
+A group of language-model agents may converge on an answer while hiding how its reasoning changed or whether disagreement was resolved. This project makes that process inspectable: agents share a chronological board, attach an explicit prediction and explanation to each contribution, and respond using four PXP tags: RATIFY, REVISE, REFUTE, and REJECT. The input is a task prompt; the system output is a sequence of attributed contributions and a board-level terminal classification, rather than an answer alone.
+
+The implemented contribution is an integrated software prototype: typed board records and event streaming; turn-taking and consensus/deadlock rules; structured local-model interactions; a bounded isolated alternative-proposal mechanism; and a dashboard for live events and replay. We do not claim that this architecture improves answer accuracy. The benchmark/parser path is deliberately outside the claims of this report. Implementation claims below describe the reviewed project prototype.
+
+\section{Background and related work}
+Blackboard systems coordinate specialized problem-solving components through shared, incrementally updated state~\cite{corkill1991}. Our board follows that coordination pattern: agents read the common history and post typed contributions, while the scheduler controls access to the next turn. Recent work on multi-agent debate likewise has models propose, critique, and revise answers before reaching a common response~\cite{du2023}. That work motivates making interaction explicit, but its reported results do not establish performance for this implementation.
+
+This prototype emphasizes inspectability and recovery boundaries. It records the ``what'' and ``why'' of each move and distinguishes live entries from simulated entries. Its current counterfactual mechanism is a bounded proposal experiment, not a validated scoring or automatic adoption method.
+
+\section{Method}
+\textbf{Shared state.} A board entry contains an agent identifier, PXP tag, prediction, explanation, optional target-entry identifier, timestamp, and a flag identifying counterfactual simulation. The board stores entries chronologically and emits events to observers. State is held in memory with JSON snapshots; a distributed store is deferred in the documented storage decision.
+
+\textbf{Turn-taking and termination.} The scheduler selects active agents in round-robin order and enforces one outstanding turn at a time. Agreement is classified only when at least two active agents have each contributed and their latest entries RATIFY the same prediction. The board labels direct unanimous agreement STRONG and unanimous agreement after a REVISE entry \texttt{ULTRA\_STRONG}. A repeated negative-tag window (REFUTE/REJECT) can mark the session DEADLOCKED. These labels describe interaction structure, not answer correctness.
+
+\textbf{Model interaction.} The local inference client uses Ollama's generation interface, structured PXP output validation, persona-specific prompts, bounded retries, and a separate explanation self-check. The default model tag in the code is \texttt{qwen3:4b-instruct-2507-q4\_K\_M}; the default generation settings are deterministic temperature 0 with seed 42. These are software defaults, not evidence that every recorded run used identical effective settings. No fine-tuning is used.
+
+\textbf{Counterfactual path.} When enabled, a same-target REJECT/REFUTE streak can trigger one alternative proposal after the configured threshold. The board creates a history slice ending at the targeted entry, and the enabled agent receives the reviewer's reason plus an evidence-focused framing. The alternative is marked as simulated and stored as a CounterfactualResult; it is not appended to canonical live history. If its prediction differs, the scheduler may request a bounded live revision. The stored result currently has no evaluator-derived score and is marked not applied to live automatically. Thus simulation is implemented, while validated recovery, scoring, and adoption are not established.
+
+\section{Experimental setup}
+This report is primarily an implementation report, not a benchmark study. A small exploratory run using a separate pilot configuration is reported below; it is not a representative accuracy estimate. KramaBench inputs and compatibility evaluation depend on a parser and evaluator path that remain under validation. Synthetic fixtures and demo records are not used as evidence in this report.
+
+\section{Results}
+The result established here is the implemented system structure, not a measured performance gain.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\columnwidth}{@{}lX@{}}
+\toprule
+Component & Supported implementation claim \\
+\midrule
+Blackboard & Typed PXP entries, chronological history, board events, snapshots and isolated history forks. \\
+Scheduler & Round-robin turn ownership; deterministic agreement and deadlock classifications. \\
+Agent path & Local Ollama client, persona prompts, structured-output validation, retries and explanation self-check. \\
+Counterfactual & Bounded alternative proposal in a fork; simulation recorded outside live history. No validated score/adoption claim. \\
+UI & FastAPI/WebSocket event path and React/D3 view; supports live-session state and labelled replay/mock modes. \\
+Benchmark & No accuracy or comparative result claimed; parser/evaluator-dependent outcomes are excluded. \\
+\bottomrule
+\end{tabularx}
+\caption{Implementation claims from the current repository; not benchmark measurements.}
+\label{tab:implementation}
+\end{table}
+
+\noindent\textbf{Exploratory multi-agent runs.} A separate pilot configuration with optional explanation review and paired evaluation was used to run one pinned MATH-500 algebra item (revision \texttt{6e4ed1a}) and one CounterBench causal item (revision \texttt{c6225dfa}), each at counterfactual fractions 0 and 1. All four sessions used Qwen3 4B Q4\_K\_M (digest \texttt{0edcdef3}), temperature 0, seed 42, six-turn and zero-retry limits. MATH-500 produced value 16 in both conditions, but both sessions reached the turn limit and had no scored final prediction; each used 12 calls and about 11.4k prompt tokens. CounterBench reached consensus on the correct answer \texttt{no} in both conditions, with no replay triggered; each used 8 calls and about 5.8k prompt tokens. These four sessions are exploratory, not a parser comparison or a general performance estimate: both datasets provide text reasoning tasks and do not exercise file parsing. Focused tests for the pilot configuration passed (30 passed, 1 skipped); the full suite was not green (287 passed, 9 failed, 22 skipped), including failures related to changed client settings and interfaces. Raw records and transcripts are in \path{output/dhruva_exploratory_20261124/summary.json} and adjacent task directories.
+\section{Discussion and limitations}
+The board makes disagreement legible by retaining both predictions and explanations and linking replies to prior entries. Deterministic terminal rules also prevent repeated agreement by one agent from impersonating multi-agent consensus. The counterfactual fork provides a boundary for trying an alternative without rewriting canonical history.
+
+These properties do not imply that the agents reason correctly. Agents share one model family by default, so personas are prompt roles rather than independent trained systems. Agreement is a protocol state, not a correctness test. This exploratory comparison is too small to establish a counterfactual benefit: no replay occurred, and the MATH-500 sessions did not terminate in a scored consensus. The runs also do not test parsing of CSV, PDF, or spreadsheet inputs. A genuine comparison of ingestion approaches needs the same tasks, files, model settings, and evaluator across conditions. The UI's replay and mock modes must remain distinguishable from live sessions. Parser behavior, task coverage, evaluator mode, and the validity of aggregate scores need to be settled before any accuracy or ablation claim is made.
+
+Next, the team should validate the task adapter against pinned inputs, preserve failure records, verify evaluator provenance, and run a paired task set with fixed model settings. Only after that should it report accuracy, deadlocks, runtime, token use, or counterfactual recovery rates. Those measurements are planned work, not results of this report.
+
+\section{Conclusion}
+We implemented a PXP blackboard prototype that combines explicit explanations, enforced turn-taking, deterministic session classifications, local model calls, and a separated counterfactual proposal path. The dashboard exposes session activity, but this report makes no claim of improved accuracy or benchmark performance. Establishing those claims requires validated task ingestion and paired evaluation.
+
+\section*{Individual member contributions}
+{\small
+\begin{tabularx}{\linewidth}{@{}p{0.27\linewidth} >{\raggedright\arraybackslash}X@{}}
+\toprule
+Name & Contribution recorded in repository workstream summary \\
+\midrule
+Anjali (Student 1) & Blackboard contracts, synchronized state, events, consensus classification, snapshots and isolated board forks. \\
+Lopez (Student 2) & Round-robin scheduling, turn ownership and terminal-state handling. \\
+Dhruva (Student 3) & Local inference, personas, structured output, self-checks, conversations and counterfactual workflow. \\
+Tanisha (Student 4) & FastAPI/WebSocket backend, React/D3 interface, ingestion and benchmark infrastructure. \\
+\bottomrule
+\end{tabularx}}
+
+\smallskip
+\noindent Team number and student IDs were not present in the supplied materials. The members' agreement with this report has not been independently confirmed; obtain confirmation before submission.
+
+\section*{Generative AI disclosure}
+OpenAI Codex (GPT-6-based assistant in this session) was used to inspect repository documentation and source, draft and edit this report, and prepare its LaTeX. It was not used to generate project benchmark data or results. The project team should check the report against its implementation and take responsibility for the submitted content.
+
+\section*{Code availability}
+\noindent Repository URL listed in the project README:\
+\href{\githuburl}{Project repository on GitHub}\\
+The repository's public accessibility and clean reproduction instructions were not verified for this report.
+
+\begin{thebibliography}{9}
+\small
+\bibitem{corkill1991}
+D.~D. Corkill.
+\newblock Blackboard systems.
+\newblock \emph{AI Expert}, 6(9), 1991.
+
+\bibitem{du2023}
+Y.~Du, S.~Li, A.~Torralba, J.~B. Tenenbaum, and I.~Mordatch.
+\newblock Improving factuality and reasoning in language models through multiagent debate.
+\newblock arXiv:2305.14325, 2023.
+\end{thebibliography}
+
+\end{document}

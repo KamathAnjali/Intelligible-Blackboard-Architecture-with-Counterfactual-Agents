@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-2f63d3b903bc-677",
+  "entries": [
+    {
+      "entry_id": "4c5e6944331946be8e927afe5d51c01c",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "变更是基于结构安全和工程质量的必要调整，符合工程实践原则。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:06.944380Z"
+    },
+    {
+      "entry_id": "cd1c0543f59b4771874d21923161a2df",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "变更是基于结构安全和工程质量的必要调整，符合工程实践原则。'}",
+      "target_entry_id": "4c5e6944331946be8e927afe5d51c01c",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:08.907438Z"
+    },
+    {
+      "entry_id": "e3cd9dfb90f3486587c93ab08d1e4d4d",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "变更是基于结构安全和工程质量的必要调整，符合工程实践原则。'}",
+      "target_entry_id": "cd1c0543f59b4771874d21923161a2df",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:10.989590Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

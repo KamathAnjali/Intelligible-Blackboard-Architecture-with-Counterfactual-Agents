@@ -154,6 +154,316 @@ def _load_json(path: Path) -> dict | None:
         return None
 
 
+_MSCORE_RESULTS_ROOT = Path(__file__).resolve().parents[2] / "results" / "mscore-paired-100-v1"
+
+
+def _mscore_results_root() -> Path:
+    return Path(os.environ.get("MSCORE_RESULTS_DIR", str(_MSCORE_RESULTS_ROOT))).expanduser().resolve()
+
+
+def _parse_mscore_result_row(row: dict[str, str]) -> dict:
+    number_fields = {
+        "counterfactual_fraction", "attempt", "score", "iterations", "deadlock_count",
+        "reviewer_rejections", "counterfactual_triggers", "counterfactual_simulations",
+        "counterfactual_changed_outcome", "num_ctx", "num_predict", "temperature", "model_seed",
+        "live_prompt_tokens", "live_completion_tokens", "simulation_prompt_tokens",
+        "simulation_completion_tokens", "total_prompt_tokens", "total_completion_tokens",
+        "total_tokens", "live_elapsed_seconds", "simulation_elapsed_seconds", "elapsed_seconds",
+    }
+    boolean_fields = {"retrospective_recovery", "completed_without_crash", "scored", "correct", "adapted"}
+    parsed: dict = {}
+    for key, value in row.items():
+        if value == "":
+            parsed[key] = None
+        elif key in number_fields:
+            try:
+                parsed[key] = float(value) if "." in value else int(value)
+            except ValueError:
+                parsed[key] = None
+        elif key in boolean_fields:
+            parsed[key] = value.casefold() == "true"
+        elif key == "counterfactual_capable_agents":
+            try:
+                parsed[key] = json.loads(value)
+            except json.JSONDecodeError:
+                parsed[key] = []
+        else:
+            parsed[key] = value
+    return parsed
+
+
+@app.get("/api/benchmark-results/mscore")
+async def mscore_results_index():
+    """Read the imported paired MSCoRe run without touching evaluator data."""
+    root = _mscore_results_root()
+    manifest = _load_json(root / "results_manifest.json")
+    csv_path = root / "results.csv"
+    if not root.is_dir() or manifest is None or not csv_path.is_file():
+        raise HTTPException(status_code=404, detail=f"MSCoRe results not found under {root}")
+    try:
+        with csv_path.open(encoding="utf-8", newline="") as stream:
+            rows = [_parse_mscore_result_row(row) for row in csv.DictReader(stream)]
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not read MSCoRe results: {exc}") from exc
+    task_ids = sorted({row["task_id"] for row in rows if row.get("task_id")})
+    summaries = {}
+    for condition in ("cf00", "cf100"):
+        subset = [row for row in rows if row.get("condition") == condition]
+        summaries[condition] = {
+            "attempts": len(subset),
+            "scored": sum(row.get("scored") is True for row in subset),
+            "correct": sum(row.get("correct") is True for row in subset),
+            "failed_before_scoring": sum(row.get("evaluation_status") == "failed_before_scoring" for row in subset),
+            "unscored": sum(row.get("evaluation_status") == "not_scored" for row in subset),
+            "counterfactual_simulations": sum(row.get("counterfactual_simulations") or 0 for row in subset),
+        }
+    return {"manifest": manifest, "task_count": len(task_ids), "rows": rows, "by_condition": summaries}
+
+
+@app.get("/api/benchmark-dashboard/catalog")
+async def benchmark_dashboard_catalog():
+    """Return task IDs and result availability without exposing benchmark references."""
+    mscore_root = _mscore_results_root()
+    mscore_ids: set[str] = set()
+    mscore_runs: dict[str, int] = {}
+    mscore_attempts: dict[str, list[dict]] = {}
+    mscore_manifest = _load_json(mscore_root / "results_manifest.json") or {}
+    mscore_csv = mscore_root / "results.csv"
+    if mscore_csv.is_file():
+        with mscore_csv.open(encoding="utf-8", newline="") as stream:
+            for row in csv.DictReader(stream):
+                task_id = row.get("task_id")
+                if task_id:
+                    mscore_ids.add(task_id)
+                    mscore_runs[task_id] = mscore_runs.get(task_id, 0) + 1
+                    condition = row.get("condition", "")
+                    attempt_dir = (mscore_root / str(row.get("attempt_dir") or "")).resolve()
+                    transcript_rel = Path(str(row.get("transcript") or ""))
+                    transcript_path = (attempt_dir / transcript_rel).resolve()
+                    transcript_available = (
+                        mscore_root in attempt_dir.parents
+                        and attempt_dir in transcript_path.parents
+                        and transcript_path.name == "transcript.json"
+                        and transcript_path.is_file()
+                    )
+                    mscore_attempts.setdefault(task_id, []).append({
+                        "run_id": condition,
+                        "condition": condition,
+                        "status": row.get("attempt_status"),
+                        "outcome": row.get("outcome"),
+                        "score": (float(row["score"]) if row.get("scored", "").casefold() == "true"
+                                  and row.get("score") not in (None, "") else None),
+                        "prediction": row.get("prediction"),
+                        "model": mscore_manifest.get("model"),
+                        "evaluator_mode": row.get("evaluator_mode"),
+                        "adapted": row.get("adapted", "").casefold() == "true",
+                        "failure_reason": row.get("failure_reason") or row.get("error"),
+                        "counterfactual_fraction": float(row["counterfactual_fraction"])
+                            if row.get("counterfactual_fraction") not in (None, "") else None,
+                        "counterfactual_simulations": int(row["counterfactual_simulations"] or 0),
+                        "transcript_available": transcript_available,
+                    })
+
+    archive_root = Path(__file__).resolve().parents[2] / "archive"
+    archived_krama: dict[str, list[dict]] = {}
+    if archive_root.is_dir():
+        for manifest_path in archive_root.glob("*/run_manifest.json"):
+            manifest = _load_json(manifest_path) or {}
+            task_id = manifest.get("task_id")
+            if task_id:
+                task_record = None
+                records_root = manifest_path.parent / "system_scratch" / "KramaBenchPXPSystem" / "krama_task_records"
+                if records_root.is_dir():
+                    for record_path in records_root.glob("*.json"):
+                        candidate = _load_json(record_path)
+                        if candidate and candidate.get("task_id") == task_id:
+                            task_record = candidate
+                            break
+                score = None
+                for measure_path in manifest_path.parent.rglob("*_measures_*.csv"):
+                    try:
+                        with measure_path.open(encoding="utf-8", newline="") as stream:
+                            for measure in csv.DictReader(stream):
+                                if measure.get("metric") == "success" and measure.get("value") not in (None, ""):
+                                    score = float(measure["value"])
+                    except (OSError, ValueError):
+                        continue
+                errors = (task_record or {}).get("errors") or []
+                failure_reason = " | ".join(str(item.get("message", item)) if isinstance(item, dict) else str(item) for item in errors)
+                transcript_value = (task_record or {}).get("conversation_transcript")
+                transcript_path = Path(str(transcript_value)).expanduser() if transcript_value else None
+                archived_krama.setdefault(str(task_id), []).append({
+                    "run_id": manifest.get("run_id"), "status": manifest.get("status", (task_record or {}).get("status")),
+                    "outcome": (task_record or {}).get("execution_outcome") or (task_record or {}).get("agent_conversation_outcome"),
+                    "score": score, "prediction": (task_record or {}).get("agent_answer"),
+                    "model": manifest.get("model"), "evaluator_mode": manifest.get("evaluator_mode"),
+                    "adapted": manifest.get("evaluator_mode") != "official", "failure_reason": failure_reason,
+                    "counterfactual_fraction": (task_record or {}).get("counterfactual_fraction", manifest.get("counterfactual_fraction")),
+                    "counterfactual_simulations": ((task_record or {}).get("workflow_counters") or {}).get("counterfactual_simulations", 0),
+                    "transcript_available": bool(transcript_path and transcript_path.is_file()),
+                })
+    try:
+        scope = _load_task_scope()
+        krama_tasks = [{
+            "task_id": item["task_id"], "split": item.get("split"),
+            "evaluator_mode": item.get("evaluator_mode"), "adapted": item.get("adapted", False),
+            "result_count": len(archived_krama.get(item["task_id"], [])),
+            "attempts": archived_krama.get(item["task_id"], []),
+            "runnable_in_ui": True,
+        } for item in scope.get("tasks", [])]
+    except (OSError, ScopeError, ValueError):
+        krama_tasks = []
+
+    medagent_path = Path(os.environ.get(
+        "MEDAGENTBENCH_TASKS_PATH",
+        str(Path.home() / "benchmark-sources" / "MedAgentBench" / "data" / "medagentbench" / "test_data_v2.json"),
+    )).expanduser()
+    medagent_tasks = []
+    if medagent_path.is_file():
+        try:
+            source_rows = json.loads(medagent_path.read_text(encoding="utf-8"))
+            if isinstance(source_rows, list):
+                medagent_tasks = [{"task_id": str(row["id"]), "result_count": 0, "runnable_in_ui": False}
+                                  for row in source_rows if isinstance(row, dict) and row.get("id") is not None]
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            medagent_tasks = []
+
+    return {
+        "benchmarks": [
+            {"id": "kramabench", "name": "KramaBench", "task_source": "frozen pilot scope",
+             "task_count": len(krama_tasks), "result_count": sum(len(items) for items in archived_krama.values()),
+             "tasks": krama_tasks, "run_support": "UI task runner available for frozen scope tasks"},
+            {"id": "mscore", "name": "MSCoRe", "task_source": "imported paired cohort",
+             "task_count": len(mscore_ids), "result_count": sum(mscore_runs.values()),
+             "tasks": [{"task_id": task_id, "result_count": mscore_runs.get(task_id, 0),
+                        "attempts": mscore_attempts.get(task_id, []),
+                        "runnable_in_ui": False} for task_id in sorted(mscore_ids)],
+             "run_support": "saved results are viewable; UI execution is not wired"},
+            {"id": "medagentbench", "name": "MedAgentBench", "task_source": "local test_data_v2.json · task IDs only",
+             "task_count": len(medagent_tasks), "result_count": 0, "tasks": medagent_tasks,
+             "run_support": "task IDs only; no project adapter/scored run results are available"},
+        ]
+    }
+
+
+@app.get("/api/benchmark-dashboard/krama/{task_id}")
+async def krama_saved_task_detail(task_id: str, run_id: str | None = None):
+    """Load a saved Krama attempt and its own recorded board history."""
+    archive_root = (Path(__file__).resolve().parents[2] / "archive").resolve()
+    selected_manifest: Path | None = None
+    selected_record: dict | None = None
+    for manifest_path in archive_root.glob("*/run_manifest.json"):
+        manifest = _load_json(manifest_path) or {}
+        if manifest.get("task_id") != task_id:
+            continue
+        if run_id and manifest.get("run_id") != run_id:
+            continue
+        record_dir = manifest_path.parent / "system_scratch" / "KramaBenchPXPSystem" / "krama_task_records"
+        record = None
+        if record_dir.is_dir():
+            for path in record_dir.glob("*.json"):
+                candidate = _load_json(path)
+                if candidate and candidate.get("task_id") == task_id:
+                    record = candidate
+                    break
+        selected_manifest, selected_record = manifest_path, record
+        if record:
+            break
+    if selected_manifest is None:
+        raise HTTPException(status_code=404, detail="No archived KramaBench attempt exists for this task")
+    manifest = _load_json(selected_manifest) or {}
+    record = selected_record or {}
+    score = None
+    for measure_path in selected_manifest.parent.rglob("*_measures_*.csv"):
+        try:
+            with measure_path.open(encoding="utf-8", newline="") as stream:
+                for measure in csv.DictReader(stream):
+                    if measure.get("metric") == "success" and measure.get("value") not in (None, ""):
+                        score = float(measure["value"])
+        except (OSError, ValueError):
+            continue
+    transcript_path = Path(str(record.get("conversation_transcript") or "")).expanduser()
+    allowed_external_root = (Path.home() / "krama-results").resolve()
+    transcript = None
+    try:
+        resolved = transcript_path.resolve()
+        if (allowed_external_root in resolved.parents or archive_root in resolved.parents) and resolved.is_file():
+            transcript = _load_json(resolved)
+    except OSError:
+        transcript = None
+    board = (transcript or {}).get("board") or {}
+    entries = board.get("entries") if isinstance(board, dict) else None
+    if not isinstance(entries, list):
+        entries = record.get("board_evidence_entries") or []
+    return {
+        "run": {
+            "run_id": manifest.get("run_id"), "status": manifest.get("status", record.get("status")),
+            "outcome": record.get("execution_outcome") or record.get("agent_conversation_outcome"),
+            "answer_source": record.get("answer_source"), "prediction": record.get("agent_answer"),
+            "model": manifest.get("model"), "evaluator_mode": manifest.get("evaluator_mode"),
+            "adapted": manifest.get("evaluator_mode") != "official", "score": score,
+            "counterfactual_fraction": record.get("counterfactual_fraction", manifest.get("counterfactual_fraction")),
+            "workflow_counters": record.get("workflow_counters", {}),
+            "failure_reason": " | ".join(str(item.get("message", item)) if isinstance(item, dict) else str(item)
+                                           for item in (record.get("errors") or [])),
+        },
+        "transcript_available": transcript is not None,
+        "task": (transcript or {}).get("task"),
+        "outcome": (transcript or {}).get("outcome"),
+        "entries": entries,
+        "counterfactual_events": board.get("counterfactual_events", []) if isinstance(board, dict) else [],
+        "deadlocks": board.get("deadlocks", []) if isinstance(board, dict) else [],
+        "counterfactual_attempts": (transcript or {}).get("counterfactual_attempts", []),
+        "counterfactual_skips": (transcript or {}).get("counterfactual_skips", []),
+    }
+
+
+@app.get("/api/benchmark-results/mscore/tasks/{task_id}")
+async def mscore_result_detail(task_id: str, condition: Literal["cf00", "cf100"]):
+    root = _mscore_results_root()
+    csv_path = root / "results.csv"
+    if not csv_path.is_file():
+        raise HTTPException(status_code=404, detail="MSCoRe results are not available")
+    with csv_path.open(encoding="utf-8", newline="") as stream:
+        row = next((item for item in csv.DictReader(stream)
+                    if item.get("task_id") == task_id and item.get("condition") == condition), None)
+    if row is None:
+        raise HTTPException(status_code=404, detail="No result exists for this task and condition")
+    parsed = _parse_mscore_result_row(row)
+    attempt_root = (root / str(parsed["attempt_dir"])).resolve()
+    if root not in attempt_root.parents:
+        raise HTTPException(status_code=400, detail="Invalid result artifact path")
+    transcript_rel = Path(str(parsed.get("transcript") or ""))
+    transcript_path = (attempt_root / transcript_rel).resolve()
+    if attempt_root not in transcript_path.parents or transcript_path.name != "transcript.json":
+        raise HTTPException(status_code=400, detail="Invalid transcript path")
+    transcript = _load_json(transcript_path)
+    if transcript is None:
+        raise HTTPException(status_code=404, detail="Transcript is missing or unreadable")
+    # Return only post-run agent/session evidence. Gold/reference fields are omitted.
+    return {
+        "result": parsed,
+        "transcript": {
+            "created_at": transcript.get("created_at"),
+            "finished_at": transcript.get("finished_at"),
+            "task": transcript.get("task"),
+            "turns": transcript.get("turns", []),
+            "outcome": transcript.get("outcome"),
+            "workflow_counters": transcript.get("workflow_counters", {}),
+            "counterfactual_attempts": transcript.get("counterfactual_attempts", []),
+            "counterfactual_skips": transcript.get("counterfactual_skips", []),
+            "counterfactual_capable_agents": transcript.get("counterfactual_capable_agents", []),
+            "scheduler_status": transcript.get("scheduler_status"),
+            "board": {
+                "entries": (transcript.get("board") or {}).get("entries", []),
+                "counterfactual_events": (transcript.get("board") or {}).get("counterfactual_events", []),
+                "deadlocks": (transcript.get("board") or {}).get("deadlocks", []),
+                "intelligibility": (transcript.get("board") or {}).get("intelligibility"),
+            },
+        },
+    }
+
+
 def _find_run_artifacts(output_root: Path, task_id: str, metric_name: str = "success") -> tuple[Path | None, dict | None, dict | None, float | None]:
     manifests = sorted(output_root.rglob("run_manifest.json"), key=lambda path: path.stat().st_mtime)
     manifest_path = manifests[-1] if manifests else None

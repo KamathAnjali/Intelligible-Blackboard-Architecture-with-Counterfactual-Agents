@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-14f953922503-1427",
+  "entries": [
+    {
+      "entry_id": "08d02ea06eda4662ad50b429416334a0",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "为确保项目安全性，调整消防通道设置是必要且合理的措施。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:20:54.279732Z"
+    },
+    {
+      "entry_id": "9598d580cc0e4de3a2a659c961948bc0",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "为确保项目安全性，调整消防通道设置是必要且合理的措施。",
+      "target_entry_id": "08d02ea06eda4662ad50b429416334a0",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:20:56.184666Z"
+    },
+    {
+      "entry_id": "11abb14b7bd94e409330d9778a56b26e",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "为确保项目安全性，调整消防通道设置是必要且合理的措施。'}",
+      "target_entry_id": "9598d580cc0e4de3a2a659c961948bc0",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:20:58.348260Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

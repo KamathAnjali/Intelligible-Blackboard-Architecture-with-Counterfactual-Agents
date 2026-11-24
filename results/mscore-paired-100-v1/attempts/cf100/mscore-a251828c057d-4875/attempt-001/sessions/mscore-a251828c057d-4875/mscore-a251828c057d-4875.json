@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-a251828c057d-4875",
+  "entries": [
+    {
+      "entry_id": "b2ac176ac8574713adf99d5b24cf4bef",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "不合理",
+      "explanation": "更换高成本材料超出预算且无实质提升项目定位，故建议不合理。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:38:25.802713Z"
+    },
+    {
+      "entry_id": "7cbe7d9b5d1c4e1c96d412d413b58b42",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "不合理",
+      "explanation": "更换高成本材料超出预算且无实质提升项目定位，故建议不合理。'}",
+      "target_entry_id": "b2ac176ac8574713adf99d5b24cf4bef",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:38:27.826089Z"
+    },
+    {
+      "entry_id": "b4da908e2bae436ebf817a021aa07c14",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "不合理",
+      "explanation": "更换高成本材料超出预算且无实质提升项目定位，故建议不合理。'}",
+      "target_entry_id": "7cbe7d9b5d1c4e1c96d412d413b58b42",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:38:29.858100Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

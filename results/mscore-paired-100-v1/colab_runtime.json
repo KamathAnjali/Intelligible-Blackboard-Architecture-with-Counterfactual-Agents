@@ -1,0 +1,8 @@
+{
+  "gpu": "Tesla T4",
+  "git_branch": "4-Tanisha",
+  "git_commit": "03e4089ac758863dec07897ab88c169cc68b7139",
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "model_digest": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+  "dataset_sha256": "91862727c6f3a3cae69e6f3f410765c648b98ff62d6d17075a260e08254b36a9"
+}

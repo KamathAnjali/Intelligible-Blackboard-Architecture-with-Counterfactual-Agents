@@ -20,17 +20,32 @@ html, body, #root {
 .canvas-container {
   position: relative;
   width: 100vw;
-  height: 100vh;
+  height: 100%;
   background: radial-gradient(circle at 50% 50%, #111827 0%, #0b0f19 100%);
   user-select: none;
 }
 
-.app-root { position: relative; width: 100vw; height: 100vh; }
+.app-root { position: relative; display:flex; flex-direction:column; width:100vw; height:100vh; overflow:hidden; }
+.app-view-nav { position:relative; z-index:40; flex:0 0 54px; display:flex; align-items:center; gap:8px; padding:0 18px; border-bottom:1px solid rgba(148,163,184,.2); background:#080d15; }
+.app-view-nav .app-brand { margin-right:12px; color:#9aabb9; font-size:10px; font-weight:800; letter-spacing:.13em; }
+.app-view-nav button { height:32px; padding:0 12px; border:1px solid transparent; border-radius:6px; background:transparent; color:#9aaaba; cursor:pointer; font-size:11px; }
+.app-view-nav button:hover { background:#172330; color:#e5edf5; }
+.app-view-nav button.active { border-color:#2b514d; background:#15322f; color:#a1e5d2; }
 .session-control-panel {
-  position: absolute; z-index: 25; top: 76px; left: 16px; width: min(720px, calc(100vw - 32px));
-  padding: 12px 14px; border: 1px solid rgba(148,163,184,.35); border-radius: 10px;
-  background: rgba(15,23,42,.95); color: #e2e8f0; font-size: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.35);
+  position: absolute; z-index: 30; max-height: min(70vh, 680px); overflow:auto; width: min(760px, calc(100vw - 32px));
+  padding: 0 12px 12px; border: 1px solid rgba(148,163,184,.42); border-radius: 10px;
+  background: rgba(15,23,42,.97); color: #e2e8f0; font-size: 12px; box-shadow: 0 12px 38px rgba(0,0,0,.48); resize: both;
 }
+.runner-view { display:flex; flex:1 1 auto; min-height:0; flex-direction:column; }
+.runner-view { position:relative; }
+.runner-view .canvas-container { position:absolute; inset:0; width:100%; height:100%; min-height:0; }
+.runner-view .viewport-svg { width:100%; height:100%; }
+.session-control-panel.collapsed { width: min(320px, calc(100vw - 32px)); max-height:56px; overflow:hidden; resize:none; padding-bottom:0; }
+.session-control-grip { position:sticky; top:0; z-index:1; display:flex; align-items:center; gap:9px; height:40px; margin:0 -12px 10px; padding:0 12px; border-bottom:1px solid rgba(148,163,184,.22); border-radius:10px 10px 0 0; background:#111d2d; cursor:grab; touch-action:none; user-select:none; }
+.session-control-grip:active { cursor:grabbing; }.session-control-grip strong { font-size:11px; }.grip-icon { color:#75d2bb; font-size:17px; }.grip-help { margin-left:auto; color:#8396a8; font-size:9px; }
+.session-control-grip button { width:24px; height:24px; border:1px solid #475569; border-radius:5px; background:#1b2938; color:#dce7ef; cursor:pointer; }
+.session-control-content { max-height:calc(min(70vh, 680px) - 54px); overflow:auto; }
+.runner-replay-note { margin:0 0 10px; padding:7px 9px; border-left:3px solid #e6a85d; background:#2a2118; color:#e9c696; font-size:10px; line-height:1.4; }
 .session-control-row { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
 .session-control-row label { display: grid; gap: 4px; color: #cbd5e1; font-size: 10px; text-transform: uppercase; }
 .session-control-row select, .session-control-row button { min-height: 32px; padding: 5px 8px; border-radius: 5px; border: 1px solid #475569; background: #111827; color: #f8fafc; font-size: 11px; }
@@ -53,7 +68,7 @@ html, body, #root {
 .viewport-svg {
   display: block;
   width: 100vw;
-  height: 100vh;
+  height: 100%;
 }
 
 /* HUD Overlay Elements */

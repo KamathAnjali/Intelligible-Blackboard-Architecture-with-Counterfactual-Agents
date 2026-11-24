@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-32b9d014b961-4725",
+  "entries": [
+    {
+      "entry_id": "baf5fdcd60fe4b9f836528ef2d328fb9",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "高温地区需良好隔热，更改外墙材质可有效提升性能。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:39:12.267836Z"
+    },
+    {
+      "entry_id": "0cf15bdf1e8d4bda84cf56dae8782d25",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "高温地区需良好隔热，更改外墙材质可有效提升隔热性能。",
+      "target_entry_id": "baf5fdcd60fe4b9f836528ef2d328fb9",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:39:14.198125Z"
+    },
+    {
+      "entry_id": "74c8a257998246b49614fac986390adb",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "高温地区需良好隔热，更改外墙材质可有效提升隔热性能。'}",
+      "target_entry_id": "0cf15bdf1e8d4bda84cf56dae8782d25",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:39:16.229583Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

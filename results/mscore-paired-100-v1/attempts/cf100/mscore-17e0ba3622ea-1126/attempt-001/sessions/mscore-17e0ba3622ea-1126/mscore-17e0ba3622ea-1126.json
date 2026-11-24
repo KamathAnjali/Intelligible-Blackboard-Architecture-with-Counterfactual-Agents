@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-17e0ba3622ea-1126",
+  "entries": [
+    {
+      "entry_id": "746acecb17c94b47a69a199aa36d7fb8",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "重新采购耐久性符合要求的材料是保障建筑长期质量的必要措施。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:24:55.038114Z"
+    },
+    {
+      "entry_id": "441bd26b3abb4188b050207e7e52f936",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "重新采购耐久性符合要求的材料是保障建筑长期质量的必要措施。",
+      "target_entry_id": "746acecb17c94b47a69a199aa36d7fb8",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:24:56.929264Z"
+    },
+    {
+      "entry_id": "3d15dbbb209f4a108c1e0e1db53f79f9",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "重新采购耐久性符合要求的材料是保障建筑长期质量的必要措施。'}",
+      "target_entry_id": "441bd26b3abb4188b050207e7e52f936",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:24:58.909660Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

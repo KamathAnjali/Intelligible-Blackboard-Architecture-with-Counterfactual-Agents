@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-f771ec413af1-1975",
+  "entries": [
+    {
+      "entry_id": "1e822dd2757f4a65b1e2947c17abf06f",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "市场调研显示停车位需求旺盛，设计变更能提升项目价值和销售价格，成本增加在可接受范围内。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:09:08.975350Z"
+    },
+    {
+      "entry_id": "d17c69b034ce413fb2eead14e6c3763e",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "市场调研显示停车位需求旺盛，设计变更能提升项目价值和销售价格，成本增加在可接受范围内。'}",
+      "target_entry_id": "1e822dd2757f4a65b1e2947c17abf06f",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:09:11.058307Z"
+    },
+    {
+      "entry_id": "36797e246b3742549753d942a40912ea",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "市场调研显示停车位需求旺盛，设计变更能提升项目价值和销售价格，成本增加在可接受范围内。'}",
+      "target_entry_id": "d17c69b034ce413fb2eead14e6c3763e",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:09:13.199853Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

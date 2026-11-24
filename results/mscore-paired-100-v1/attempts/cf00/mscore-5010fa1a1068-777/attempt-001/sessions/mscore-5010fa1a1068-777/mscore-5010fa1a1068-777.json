@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-5010fa1a1068-777",
+  "entries": [
+    {
+      "entry_id": "88f0827a5d5241be8f294f27eacbd0c4",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "发现地下管线与设计不符，暂停施工并重新设计可避免返工，符合工程安全与质量要求。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:50.881117Z"
+    },
+    {
+      "entry_id": "c8cc701c5a0a468294fe0c06ec4cf3a9",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "发现管线与设计不符，暂停施工并重新设计可避免返工，符合工程安全与质量要求。'}",
+      "target_entry_id": "88f0827a5d5241be8f294f27eacbd0c4",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:53.075251Z"
+    },
+    {
+      "entry_id": "583f89f2b6a0486cb1c6e7f6883e5bb4",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "发现管线与设计不符，暂停施工并重新设计可避免返工，符合工程安全与质量要求。'}",
+      "target_entry_id": "c8cc701c5a0a468294fe0c06ec4cf3a9",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:55.407322Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

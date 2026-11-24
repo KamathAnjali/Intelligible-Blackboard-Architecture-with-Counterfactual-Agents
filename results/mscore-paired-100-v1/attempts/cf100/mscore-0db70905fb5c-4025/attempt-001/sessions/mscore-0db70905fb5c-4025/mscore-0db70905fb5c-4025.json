@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-0db70905fb5c-4025",
+  "entries": [
+    {
+      "entry_id": "45896c10d70545f381279b6d293d0c37",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "是",
+      "explanation": "为确保结构安全，停工重做基础是必要且合理的措施。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:19:28.830445Z"
+    },
+    {
+      "entry_id": "44129429c5e44f088bac8903062f04a6",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "为确保结构安全，停工重做基础是必要且合理的措施。",
+      "target_entry_id": "45896c10d70545f381279b6d293d0c37",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:19:30.819902Z"
+    },
+    {
+      "entry_id": "a2bd8c151d3f4655a4526a710ade9110",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "为确保结构安全，停工重做基础是必要且合理的措施。'}",
+      "target_entry_id": "44129429c5e44f088bac8903062f04a6",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:19:32.938517Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

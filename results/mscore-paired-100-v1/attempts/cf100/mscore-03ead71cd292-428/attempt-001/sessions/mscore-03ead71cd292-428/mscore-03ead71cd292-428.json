@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-03ead71cd292-428",
+  "entries": [
+    {
+      "entry_id": "c094065b115a4c9183996520f003ef34",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "在确保按时完工压力较大时，加快施工可减少延误，因此调整是合理的。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:23:51.725691Z"
+    },
+    {
+      "entry_id": "3419f79c2bbd498f85165dcbb35ddc86",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "确保按时完工压力大时，加快施工可减少延误，因此调整是合理的。'}",
+      "target_entry_id": "c094065b115a4c9183996520f003ef34",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:23:53.846792Z"
+    },
+    {
+      "entry_id": "0f5868b9bd3f425a90f59bcf0a54b63f",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "确保按时完工压力大时，加快施工可减少延误，因此调整是合理的。'}",
+      "target_entry_id": "3419f79c2bbd498f85165dcbb35ddc86",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:23:55.966927Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

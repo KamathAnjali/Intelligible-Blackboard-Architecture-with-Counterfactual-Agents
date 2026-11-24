@@ -5,6 +5,7 @@ import type { GraphLink, GraphNode, PXPTag } from './components/Canvas';
 import type { TokenTallyReport } from './components/TokenTally';
 import type { BackendEvent, BoardEntryPayload, SessionMode } from './types/sessionEvents';
 import { initialSessionState, reconnectDelayMs, sessionReducer } from './types/sessionReducer';
+import { BenchmarkDashboard } from './components/BenchmarkDashboard';
 
 interface ScopeTask {
   task_id: string;
@@ -44,6 +45,7 @@ const wsUrl = import.meta.env.VITE_WS_URL || (() => {
 const apiRoot = import.meta.env.VITE_API_URL || '';
 
 export const App: React.FC = () => {
+  const [activeView, setActiveView] = useState<'dashboard' | 'runner'>('dashboard');
   const [session, dispatch] = useReducer(sessionReducer, initialSessionState);
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [links, setLinks] = useState<GraphLink[]>([]);
@@ -57,6 +59,10 @@ export const App: React.FC = () => {
   const [taskLoadError, setTaskLoadError] = useState<string | null>(null);
   const [runPending, setRunPending] = useState(false);
   const [apiSessionId, setApiSessionId] = useState<string | null>(null);
+  const [controlsPosition, setControlsPosition] = useState({ x: 18, y: 96 });
+  const [controlsCollapsed, setControlsCollapsed] = useState(false);
+  const runnerViewRef = useRef<HTMLDivElement | null>(null);
+  const controlDragRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const seenNodeIdsRef = useRef<Set<string>>(new Set());
   const seenLinkKeysRef = useRef<Set<string>>(new Set());
@@ -188,6 +194,40 @@ export const App: React.FC = () => {
     finally { setRunPending(false); }
   };
 
+  const openKramaRunner = (taskId: string) => {
+    setSelectedTask(taskId);
+    setTaskLoadError(null);
+    setActiveView('runner');
+  };
+
+  const startControlsDrag = (event: React.PointerEvent<HTMLElement>) => {
+    if ((event.target as HTMLElement).closest('button')) return;
+    const panel = event.currentTarget.closest('.session-control-panel');
+    const bounds = panel?.getBoundingClientRect();
+    if (!bounds) return;
+    controlDragRef.current = { offsetX: event.clientX - bounds.left, offsetY: event.clientY - bounds.top };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveControls = (event: React.PointerEvent<HTMLElement>) => {
+    if (!controlDragRef.current || !runnerViewRef.current) return;
+    const parent = runnerViewRef.current.getBoundingClientRect();
+    const panel = event.currentTarget.closest('.session-control-panel')?.getBoundingClientRect();
+    const width = panel?.width ?? 760;
+    const height = panel?.height ?? 60;
+    const x = event.clientX - parent.left - controlDragRef.current.offsetX;
+    const y = event.clientY - parent.top - controlDragRef.current.offsetY;
+    setControlsPosition({
+      x: Math.max(0, Math.min(x, Math.max(0, parent.width - width))),
+      y: Math.max(0, Math.min(y, Math.max(0, parent.height - Math.min(height, 100)))),
+    });
+  };
+
+  const stopControlsDrag = (event: React.PointerEvent<HTMLElement>) => {
+    controlDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
   const wsStatus = session.status === 'connecting' ? 'connecting' : session.status === 'disconnected' ? 'disconnected' : 'connected';
   const branchNodes = Object.values(session.branches).flatMap((branch) => branch.entries.map((entry) => ({
     ...entryToNode(entry), isCounterfactual: true,
@@ -196,7 +236,19 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-root">
-      <section className="session-control-panel" aria-label="KramaBench session controls">
+      <nav className="app-view-nav" aria-label="Project views">
+        <span className="app-brand">INTELLIGIBLE BLACKBOARD</span>
+        <button type="button" className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>Benchmark dashboard</button>
+        <button type="button" className={activeView === 'runner' ? 'active' : ''} onClick={() => setActiveView('runner')}>Live Krama run</button>
+      </nav>
+      {activeView === 'dashboard' ? <BenchmarkDashboard onOpenKramaRunner={openKramaRunner} /> : <div className="runner-view" ref={runnerViewRef}>
+      <section className={`session-control-panel${controlsCollapsed ? ' collapsed' : ''}`} aria-label="KramaBench session controls" style={{ left: controlsPosition.x, top: controlsPosition.y }}>
+        <div className="session-control-grip" onPointerDown={startControlsDrag} onPointerMove={moveControls} onPointerUp={stopControlsDrag} onPointerCancel={stopControlsDrag} title="Drag to move this panel">
+          <span className="grip-icon" aria-hidden="true">⠿</span><strong>Krama task controls</strong><span className="grip-help">drag to move</span>
+          <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setControlsCollapsed((value) => !value)} aria-expanded={!controlsCollapsed} aria-label={controlsCollapsed ? 'Expand task controls' : 'Collapse task controls'}>{controlsCollapsed ? '＋' : '−'}</button>
+        </div>
+        {!controlsCollapsed && <div className="session-control-content">
+        {session.mode === 'REPLAY' && !apiSessionId && <div className="runner-replay-note">This is the board’s general replay stream, not a selected task’s saved result. For task-specific agent playback across benchmarks, use Benchmark dashboard. This page monitors a new, approved KramaBench model run.</div>}
         <div className="session-control-row">
           <label>Frozen task
             <select value={selectedTask} onChange={(event) => setSelectedTask(event.target.value)} disabled={runPending || session.status === 'running'}>
@@ -222,6 +274,7 @@ export const App: React.FC = () => {
         {session.status === 'completed' && session.summary?.evaluator_score_available && <div className="score-banner">Evaluator score: {session.summary.evaluator_score} · {session.summary.evaluator_mode}{session.summary.adapted ? ' · adapted' : ' · standard'}</div>}
         {session.errorMessage && <div className="session-error-banner" role="alert">Session error: {session.errorMessage}</div>}
         {taskLoadError && <div className="session-error-banner" role="alert">UI/API error: {taskLoadError}</div>}
+        </div>}
       </section>
       <Canvas
         wsStatus={wsStatus}
@@ -235,6 +288,7 @@ export const App: React.FC = () => {
         branchScrubIndex={branchScrubIndex} onBranchScrub={setBranchScrubIndex}
         schedulerState={session.schedulerState}
       />
+      </div>}
     </div>
   );
 };

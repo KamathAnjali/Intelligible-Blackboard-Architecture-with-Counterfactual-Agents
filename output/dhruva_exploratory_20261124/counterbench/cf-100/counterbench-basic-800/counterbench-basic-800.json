@@ -1,0 +1,71 @@
+{
+  "task_id": "counterbench-basic-800",
+  "entries": [
+    {
+      "entry_id": "ee1bfb7f774d4f46a3f5973d2a022ede",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "no",
+      "explanation": "Wrox depends on Druk, which depends on Blen, which depends on Splee, which depends on Nuv. Without Nuv, the chain breaks at the start.",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:22:57.070858Z"
+    },
+    {
+      "entry_id": "8fb2d0851a21452abef53525cea9eaac",
+      "agent_id": "auditor",
+      "tag": "RATIFY",
+      "prediction": "no",
+      "explanation": "The causal chain starts with Nuv; without it, no subsequent effect occurs, so Wrox does not happen.",
+      "target_entry_id": "ee1bfb7f774d4f46a3f5973d2a022ede",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:23:05.591434Z"
+    },
+    {
+      "entry_id": "7cb5a4d8d15b41fbb3ba3bfa9f36c1e7",
+      "agent_id": "challenger",
+      "tag": "RATIFY",
+      "prediction": "no",
+      "explanation": "Wrox depends on Druk, which requires Blen, Splee, and ultimately Nuv. Without Nuv, the chain breaks at the origin.",
+      "target_entry_id": "8fb2d0851a21452abef53525cea9eaac",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:23:16.062343Z"
+    },
+    {
+      "entry_id": "d93425f02e204ebda458a9016b92d7f0",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "no",
+      "explanation": "Wrox depends on Druk, which requires Blen, Splee, and Nuv. Without Nuv, the chain fails at its origin.",
+      "target_entry_id": "7cb5a4d8d15b41fbb3ba3bfa9f36c1e7",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:23:29.910875Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "auditor": {
+      "agent_id": "auditor",
+      "persona": "evidence_auditor",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "challenger": {
+      "agent_id": "challenger",
+      "persona": "counterexample_challenger",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

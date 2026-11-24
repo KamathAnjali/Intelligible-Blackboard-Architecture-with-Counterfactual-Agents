@@ -1,0 +1,231 @@
+{
+  "run_type": "EXPLORATORY_REAL_MODEL_RUNS_NOT_BENCHMARK_ESTIMATE",
+  "branch_commit": "e9d825f",
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "model_digest": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+  "base_url": "http://127.0.0.1:11434",
+  "model_options": {
+    "num_ctx": 16384,
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 768
+  },
+  "dataset_revisions": {
+    "math500": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "counterbench": "c6225dfa00b7a89ccfeae67797b9a6d80e48e44c"
+  },
+  "cases": [
+    {
+      "dataset": "math500",
+      "task_id": "test/algebra/694.json"
+    },
+    {
+      "dataset": "math500",
+      "task_id": "test/algebra/694.json"
+    },
+    {
+      "dataset": "counterbench",
+      "task_id": "800"
+    },
+    {
+      "dataset": "counterbench",
+      "task_id": "800"
+    }
+  ],
+  "conditions": [
+    {
+      "name": "cf-00",
+      "counterfactual_fraction": 0.0
+    },
+    {
+      "name": "cf-100",
+      "counterfactual_fraction": 1.0
+    }
+  ],
+  "limits": {
+    "turns_per_run": 6,
+    "retries_per_turn": 0
+  },
+  "interpretation": "One item per dataset and two settings; exploratory only, not a general accuracy estimate or file-parser comparison.",
+  "runs": [
+    {
+      "dataset": "math500",
+      "task_id": "test/algebra/694.json",
+      "condition": "cf-00",
+      "counterfactual_fraction": 0.0,
+      "turn_limit": 6,
+      "retry_limit": 0,
+      "agent_count": 6,
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "model_digest": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+      "model_options": {
+        "num_ctx": 16384,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      },
+      "outcome": "turn_limit",
+      "prediction": null,
+      "trace": "/Users/tanishasinghal/Downloads/Reasoning_Agents_AI_Project/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents/output/dhruva_exploratory_20261124/math500/cf-00/math500-algebra-694/transcript.json",
+      "turns": 6,
+      "self_check_enabled": true,
+      "eligible_agents": [],
+      "eligibility_seed": 42,
+      "deadlocks": 0,
+      "replays": 0,
+      "accepted_replays": 0,
+      "applied_replays": 0,
+      "replay_sources": [],
+      "counterfactual_skips": [],
+      "usage": {
+        "calls": 12,
+        "prompt_tokens": 11441,
+        "output_tokens": 818
+      },
+      "expected_answer_recorded_after_run": 16,
+      "score_computed_after_run": {
+        "parsed_answer": null,
+        "correct": false
+      },
+      "wall_seconds": 148.859,
+      "status": "completed"
+    },
+    {
+      "dataset": "math500",
+      "task_id": "test/algebra/694.json",
+      "condition": "cf-100",
+      "counterfactual_fraction": 1.0,
+      "turn_limit": 6,
+      "retry_limit": 0,
+      "agent_count": 6,
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "model_digest": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+      "model_options": {
+        "num_ctx": 16384,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      },
+      "outcome": "turn_limit",
+      "prediction": null,
+      "trace": "/Users/tanishasinghal/Downloads/Reasoning_Agents_AI_Project/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents/output/dhruva_exploratory_20261124/math500/cf-100/math500-algebra-694/transcript.json",
+      "turns": 6,
+      "self_check_enabled": true,
+      "eligible_agents": [
+        "auditor",
+        "challenger",
+        "proposer",
+        "second_proposer",
+        "second_verifier",
+        "verifier"
+      ],
+      "eligibility_seed": 42,
+      "deadlocks": 0,
+      "replays": 0,
+      "accepted_replays": 0,
+      "applied_replays": 0,
+      "replay_sources": [],
+      "counterfactual_skips": [],
+      "usage": {
+        "calls": 12,
+        "prompt_tokens": 11446,
+        "output_tokens": 803
+      },
+      "expected_answer_recorded_after_run": 16,
+      "score_computed_after_run": {
+        "parsed_answer": null,
+        "correct": false
+      },
+      "wall_seconds": 117.748,
+      "status": "completed"
+    },
+    {
+      "dataset": "counterbench",
+      "task_id": "800",
+      "condition": "cf-00",
+      "counterfactual_fraction": 0.0,
+      "turn_limit": 6,
+      "retry_limit": 0,
+      "agent_count": 3,
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "model_digest": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+      "model_options": {
+        "num_ctx": 16384,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      },
+      "outcome": "scheduler_consensus",
+      "prediction": "no",
+      "trace": "/Users/tanishasinghal/Downloads/Reasoning_Agents_AI_Project/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents/output/dhruva_exploratory_20261124/counterbench/cf-00/counterbench-basic-800/transcript.json",
+      "turns": 4,
+      "self_check_enabled": true,
+      "eligible_agents": [],
+      "eligibility_seed": 42,
+      "deadlocks": 0,
+      "replays": 0,
+      "accepted_replays": 0,
+      "applied_replays": 0,
+      "replay_sources": [],
+      "counterfactual_skips": [],
+      "usage": {
+        "calls": 8,
+        "prompt_tokens": 5813,
+        "output_tokens": 349
+      },
+      "expected_answer_recorded_after_run": "no",
+      "score_computed_after_run": {
+        "parsed_answer": "no",
+        "correct": true
+      },
+      "wall_seconds": 48.374,
+      "status": "completed"
+    },
+    {
+      "dataset": "counterbench",
+      "task_id": "800",
+      "condition": "cf-100",
+      "counterfactual_fraction": 1.0,
+      "turn_limit": 6,
+      "retry_limit": 0,
+      "agent_count": 3,
+      "model": "qwen3:4b-instruct-2507-q4_K_M",
+      "model_digest": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+      "model_options": {
+        "num_ctx": 16384,
+        "temperature": 0,
+        "seed": 42,
+        "num_predict": 768
+      },
+      "outcome": "scheduler_consensus",
+      "prediction": "no",
+      "trace": "/Users/tanishasinghal/Downloads/Reasoning_Agents_AI_Project/Intelligible-Blackboard-Architecture-with-Counterfactual-Agents/output/dhruva_exploratory_20261124/counterbench/cf-100/counterbench-basic-800/transcript.json",
+      "turns": 4,
+      "self_check_enabled": true,
+      "eligible_agents": [
+        "auditor",
+        "challenger",
+        "proposer"
+      ],
+      "eligibility_seed": 42,
+      "deadlocks": 0,
+      "replays": 0,
+      "accepted_replays": 0,
+      "applied_replays": 0,
+      "replay_sources": [],
+      "counterfactual_skips": [],
+      "usage": {
+        "calls": 8,
+        "prompt_tokens": 5793,
+        "output_tokens": 345
+      },
+      "expected_answer_recorded_after_run": "no",
+      "score_computed_after_run": {
+        "parsed_answer": "no",
+        "correct": true
+      },
+      "wall_seconds": 40.483,
+      "status": "completed"
+    }
+  ]
+}

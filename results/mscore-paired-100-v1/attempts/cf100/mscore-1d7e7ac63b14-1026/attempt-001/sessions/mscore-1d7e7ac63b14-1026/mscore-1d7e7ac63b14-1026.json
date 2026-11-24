@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-1d7e7ac63b14-1026",
+  "entries": [
+    {
+      "entry_id": "45b4f75d69974150862764a437a841bc",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "否",
+      "explanation": "超出预算且质量受影响，坚持进口材料违背预算和质量目标。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:48:47.389072Z"
+    },
+    {
+      "entry_id": "d057235842204792be0dc23a6ce47405",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "超出预算且质量受影响，坚持进口材料违背预算和质量目标。'}",
+      "target_entry_id": "45b4f75d69974150862764a437a841bc",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:48:49.398862Z"
+    },
+    {
+      "entry_id": "bab0269ddfc14893be428cd15c27bbf9",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "超出预算且质量受影响，坚持进口材料违背预算和质量目标。'}",
+      "target_entry_id": "d057235842204792be0dc23a6ce47405",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:48:51.425499Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

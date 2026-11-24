@@ -1,0 +1,17 @@
+.trace-graph-wrap { margin:8px 0; border:1px solid #1d2d39; border-radius:6px; background:#0b131c; overflow:hidden; }
+.trace-graph-title { display:flex; justify-content:space-between; gap:8px; padding:7px 9px; border-bottom:1px solid #1d2d39; color:#9eb1c0; font-size:9px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+.trace-graph-title span { color:#71889b; font-size:8px; font-weight:500; letter-spacing:0; text-transform:none; }
+.trace-playback-controls { display:flex; align-items:center; gap:5px; padding:7px 9px; border-bottom:1px solid #1d2d39; }
+.trace-playback-controls button { padding:4px 7px; border:1px solid #2a3b4b; border-radius:5px; background:#111c28; color:#c9d5df; cursor:pointer; font-size:10px; }
+.trace-playback-controls button:hover { border-color:#5e9a8d; color:#dffff7; }
+.trace-playback-controls .trace-play-button { padding-inline:9px; border-color:#37645d; color:#a8e5d5; }
+.trace-playback-controls span { margin-left:auto; color:#8ea1b1; font-size:9px; white-space:nowrap; }
+.trace-graph-scroll { max-width:100%; overflow-x:auto; padding:7px 0; }.trace-graph-scroll svg { display:block; }
+.trace-current-action { display:grid; grid-template-columns:auto auto auto 1fr; align-items:center; gap:5px 8px; padding:9px; border-top:1px solid #1d2d39; color:#a9bac8; font-size:9px; }
+.trace-current-action strong,.trace-current-action p { grid-column:1/-1; margin:0; overflow-wrap:anywhere; }
+.trace-current-action strong { color:#e4edf5; font-size:11px; }
+.trace-current-action p { color:#a2b2bf; line-height:1.45; }
+.trace-tag { padding:2px 5px; border-radius:4px; background:#273746; color:#d9e4ee; }
+.trace-tag-ratify { background:#124635;color:#9ce4c4; }.trace-tag-refute,.trace-tag-reject { background:#4a252b;color:#ffb0b8; }.trace-tag-revise { background:#48391f;color:#f4d18b; }.trace-sim-label { color:#d1b5ff; font-weight:800; }
+.trace-empty { padding:12px 8px; color:#8193a4; font-size:10px; }
+@media(max-width:540px) { .trace-graph-title { flex-direction:column; }.trace-current-action { grid-template-columns:auto auto 1fr; }.trace-playback-controls { flex-wrap:wrap; }.trace-playback-controls span { width:100%; margin-left:0; } }

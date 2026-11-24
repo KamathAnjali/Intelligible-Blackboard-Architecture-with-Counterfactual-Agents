@@ -1,0 +1,74 @@
+{
+  "task_id": "mscore-9c9d6ab0d9dd-2574",
+  "entries": [
+    {
+      "entry_id": "3b26b739b65f400e8c4c40e182930eca",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "临时替代材料用于弥补设计缺陷，符合确保施工进度的必要性。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:27.270610Z"
+    },
+    {
+      "entry_id": "adddb93778e04b379470837d1624db2f",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "临时替代材料用于弥补设计缺陷，符合确保施工进度的必要性。'}",
+      "target_entry_id": "3b26b739b65f400e8c4c40e182930eca",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:29.262901Z"
+    },
+    {
+      "entry_id": "8c425c4eed8945539d6d418273f04ef3",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "临时替代材料用于弥补设计缺陷，符合确保施工进度的必要性。'}",
+      "target_entry_id": "adddb93778e04b379470837d1624db2f",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:31.259651Z"
+    },
+    {
+      "entry_id": "eca8625c76b9492bb23f21ad9bb0b6f4",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "临时替代材料用于弥补设计缺陷，符合确保施工进度的必要性。",
+      "target_entry_id": "8c425c4eed8945539d6d418273f04ef3",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:33.300488Z"
+    },
+    {
+      "entry_id": "e202cfe9118742d393251f4cfcf35a53",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "临时替代材料用于弥补设计缺陷，符合确保施工进度的必要性。'}",
+      "target_entry_id": "eca8625c76b9492bb23f21ad9bb0b6f4",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:35.541430Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}
