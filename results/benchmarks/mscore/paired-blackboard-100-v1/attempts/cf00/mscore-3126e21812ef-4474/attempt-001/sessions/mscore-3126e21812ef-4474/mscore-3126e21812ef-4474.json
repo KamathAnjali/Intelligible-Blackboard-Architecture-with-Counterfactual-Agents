@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-3126e21812ef-4474",
+  "entries": [
+    {
+      "entry_id": "bbe36f176e5f4f7e9e47758cae1f017f",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "是",
+      "explanation": "额外排水措施必要，以确保地铁运营安全。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:20:01.000420Z"
+    },
+    {
+      "entry_id": "ed93eff278724dcc8acdc067ef733ae4",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "额外排水措施必要，以确保地铁运营安全。",
+      "target_entry_id": "bbe36f176e5f4f7e9e47758cae1f017f",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:20:02.810647Z"
+    },
+    {
+      "entry_id": "6eb1247a420744b19638904a32d22752",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "额外排水措施必要，以确保地铁运营安全。",
+      "target_entry_id": "ed93eff278724dcc8acdc067ef733ae4",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:20:04.589039Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

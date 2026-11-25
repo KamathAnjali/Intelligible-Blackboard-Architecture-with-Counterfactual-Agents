@@ -6,12 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from bench.scope.build_scope import select_task_splits, write_outputs
+from bench.scope.build_scope import MODEL_OPTIONS, select_task_splits, write_outputs
 from bench.scope.load_scope import (
     ScopeError,
     counterfactual_selection_view,
     load_scope,
     result_reporting_labels,
+    scope_sha256,
     task_scope_view,
 )
 
@@ -89,6 +90,28 @@ def test_loader_rejects_modified_frozen_scope(tmp_path):
     changed_path = tmp_path / "scope.json"
     changed_path.write_text(json.dumps(changed), encoding="utf-8")
     with pytest.raises(ScopeError, match="hash mismatch"):
+        load_scope(changed_path)
+
+
+def test_scope_loader_accepts_context_fix_options_and_rejects_mismatch(tmp_path):
+    path = Path(__file__).parents[1] / "bench" / "scope" / "pilot_scope_v1.json"
+    changed = json.loads(path.read_text(encoding="utf-8"))
+    changed["scope_id"] = "SYNTHETIC_context_options_test"
+    changed["model_options"].update({"num_ctx": 8192, "num_predict": 2048})
+    changed["stopping_rules"].update({
+        "model_context_tokens": 8192,
+        "max_output_tokens_per_generation": 2048,
+    })
+    changed["content_sha256"] = scope_sha256(changed)
+    changed_path = tmp_path / "scope-v2.json"
+    changed_path.write_text(json.dumps(changed), encoding="utf-8")
+    assert load_scope(changed_path)["model_options"]["num_ctx"] == 8192
+    assert MODEL_OPTIONS == {"num_ctx": 8192, "temperature": 0, "num_predict": 2048, "seed": 42}
+
+    changed["stopping_rules"]["model_context_tokens"] = 4096
+    changed["content_sha256"] = scope_sha256(changed)
+    changed_path.write_text(json.dumps(changed), encoding="utf-8")
+    with pytest.raises(ScopeError, match="model context limit does not match"):
         load_scope(changed_path)
 
 

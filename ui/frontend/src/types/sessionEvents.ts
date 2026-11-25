@@ -49,7 +49,7 @@ export interface CounterfactualBranchState {
   adjustments: Array<{ agent_id: string; method: string; session_entry_id: string }>;
 }
 
-interface EventBase { session_id?: string; task_id?: string; source?: string; }
+interface EventBase { session_id?: string; scheduler_session_id?: string; task_id?: string; source?: string; }
 
 export type BackendEvent =
   | (EventBase & { type: 'connection_ack'; mode: string; message?: string; entry_count?: number; last_entry_id?: string | null })

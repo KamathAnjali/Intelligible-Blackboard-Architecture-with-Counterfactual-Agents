@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-ac3afdfeaa0f-3674",
+  "entries": [
+    {
+      "entry_id": "841e557e196c4499b69323a55c1b5120",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "符合抗震要求是建筑安全的基本保障，重新设计和采购合格材料是必要且合理的措施。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:37:59.087551Z"
+    },
+    {
+      "entry_id": "48f1ee9be74a42ed85c1aaf38648fc7f",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "抗震安全是建筑基本要求，重新设计和采购合格材料是必要且合理的措施。'}",
+      "target_entry_id": "841e557e196c4499b69323a55c1b5120",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:38:01.078462Z"
+    },
+    {
+      "entry_id": "d8aeae83cbb2441ebd69dcdca155fd76",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "抗震安全是建筑基本要求，重新设计和采购合格材料是必要且合理的措施。'}",
+      "target_entry_id": "48f1ee9be74a42ed85c1aaf38648fc7f",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:38:03.101680Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

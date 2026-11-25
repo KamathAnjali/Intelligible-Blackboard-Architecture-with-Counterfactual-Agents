@@ -1,0 +1,22 @@
+{
+  "benchmark": "MSCoRe",
+  "label": "direct Qwen baseline; no blackboard; adapted exact-match judgment scoring; not official harness score",
+  "dataset_revision": "796e5e0558d625198de83814d98dd6d4e62d6a42",
+  "dataset_sha256": "91862727c6f3a3cae69e6f3f410765c648b98ff62d6d17075a260e08254b36a9",
+  "task_ids_sha256": "f07f8ff9669e08ccd4386818602d3214798f190d2cb194c359b07f61e415d5b5",
+  "task_count": 100,
+  "completed_tasks": 100,
+  "scored_tasks": 100,
+  "correct": 86,
+  "accuracy_among_scored": 0.86,
+  "failed_or_unscored": 0,
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "model_options": {
+    "num_ctx": 16384,
+    "num_predict": 4096,
+    "temperature": 0,
+    "seed": 42
+  },
+  "counterfactuals": "not applicable: this direct-model arm has no blackboard or counterfactual mechanism",
+  "updated_at": "2026-11-24T20:42:03.411904+00:00"
+}

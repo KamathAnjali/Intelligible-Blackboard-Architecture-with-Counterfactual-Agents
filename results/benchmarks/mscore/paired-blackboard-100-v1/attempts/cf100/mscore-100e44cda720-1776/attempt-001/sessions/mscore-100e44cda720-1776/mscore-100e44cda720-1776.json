@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-100e44cda720-1776",
+  "entries": [
+    {
+      "entry_id": "58df85ec1ef941e6a6248a4e5251934b",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "不合理",
+      "explanation": "环保要求必须满足，继续原计划施工违反环保规定。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:26:29.219066Z"
+    },
+    {
+      "entry_id": "2d68b604bfe34089bdc239388e51fbed",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "不合理",
+      "explanation": "环保要求必须满足，继续原计划施工会违反环保规定。'}",
+      "target_entry_id": "58df85ec1ef941e6a6248a4e5251934b",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:26:31.187703Z"
+    },
+    {
+      "entry_id": "2281ae4b6256409eb4aada362e2fe308",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "不合理",
+      "explanation": "环保要求必须满足，继续原计划施工会违反环保规定。'}",
+      "target_entry_id": "2d68b604bfe34089bdc239388e51fbed",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:26:33.105374Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

@@ -65,6 +65,7 @@ export function sessionReducer(state: SessionState, action: LocalSessionAction):
   }
 
   const event = action.event;
+  if (state.sessionId && event.session_id && state.sessionId !== event.session_id) return state;
   let next = { ...state };
   if (event.session_id && !next.sessionId) next.sessionId = event.session_id;
   if (event.task_id && !next.taskId) next.taskId = event.task_id;
@@ -86,7 +87,9 @@ export function sessionReducer(state: SessionState, action: LocalSessionAction):
       if (!next.entryIds.includes(id)) {
         next.entryIds = [...next.entryIds, id];
         next.lastEntryId = id;
-        if (!next.agentIds.includes(event.entry.agent_id)) next.agentIds = [...next.agentIds, event.entry.agent_id];
+        if (!next.schedulerEventsPresent && !next.agentIds.includes(event.entry.agent_id)) {
+          next.agentIds = [...next.agentIds, event.entry.agent_id];
+        }
       }
       return reconcile(next, event.entry_count, event.last_entry_id ?? next.lastEntryId);
     }
@@ -96,7 +99,7 @@ export function sessionReducer(state: SessionState, action: LocalSessionAction):
       next.status = next.status === 'failed' ? 'failed' : 'completed';
       next.summary = event.summary;
       next.outcome = event.summary.outcome ?? event.summary.scheduler_status ?? 'completed';
-      if (event.summary.scheduler_status) {
+      if (event.summary.scheduler_status && !next.schedulerEventsPresent) {
         const status = event.summary.scheduler_status.toLowerCase();
         next.schedulerState = status.includes('deadlock') ? 'deadlock' : status.includes('limit') ? 'limit' : status.includes('consensus') ? 'consensus' : next.schedulerState;
       }
@@ -114,6 +117,7 @@ export function sessionReducer(state: SessionState, action: LocalSessionAction):
       next.schedulerEventsPresent = true;
       next.schedulerState = event.state;
       if (event.agents) next.agentIds = [...new Set(event.agents.map((agent) => agent.agent_id))];
+      if (event.state !== 'running') next.activeAgentId = null;
       return next;
     case 'turn_started':
       next.schedulerEventsPresent = true;
@@ -124,7 +128,7 @@ export function sessionReducer(state: SessionState, action: LocalSessionAction):
       return next;
     case 'turn_finished':
       next.schedulerEventsPresent = true;
-      if (next.activeAgentId === event.agent_id) next.activeAgentId = null;
+      if (next.activeAgentId === event.agent_id && next.turn === event.turn) next.activeAgentId = null;
       next.turn = event.turn;
       return next;
     case 'branch_created':

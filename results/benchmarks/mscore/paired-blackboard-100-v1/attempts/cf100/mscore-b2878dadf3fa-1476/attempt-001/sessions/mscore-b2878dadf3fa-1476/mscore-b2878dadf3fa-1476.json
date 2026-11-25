@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-b2878dadf3fa-1476",
+  "entries": [
+    {
+      "entry_id": "242efb2924124703979b3e0d6d50532c",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "地基不均匀可能导致结构损坏，提前加固可避免后续风险，符合工程安全原则。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:31:21.719979Z"
+    },
+    {
+      "entry_id": "2af4352d244c42e2ab89840dd2e105af",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "地基不均匀可能引发结构损坏，提前加固符合安全与质量控制要求。}'}",
+      "target_entry_id": "242efb2924124703979b3e0d6d50532c",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:31:23.993734Z"
+    },
+    {
+      "entry_id": "61304e4188734046a4bbfb7bbc292577",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "地基不均匀可能引发结构损坏，提前加固符合安全与质量控制要求。'}",
+      "target_entry_id": "2af4352d244c42e2ab89840dd2e105af",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:31:26.190703Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

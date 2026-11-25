@@ -1,0 +1,112 @@
+{
+  "task_id": "math500-algebra-694",
+  "entries": [
+    {
+      "entry_id": "f33946b6312247ba8005409495eb44da",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "16",
+      "explanation": "Let blue marbles = 4x, yellow = 3x. After adding 5 blue and removing 3 yellow: (4x+5)/(3x-3) = 7/3. Solving: 3(4x+5) = 7(3x-3) → 12x + 15 = 21x - 21 → 9x = 36 → x = 4. So blue marbles = 4x = 16.",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:20:20.019475Z"
+    },
+    {
+      "entry_id": "6b68f7ca38bf449fab32da733d1bc07a",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "But the original ratio is 4:3, so blue = 4x, yellow = 3x. After adding 5 blue and removing 3 yellow: (4x+5)/(3x-3) = 7/3. Cross-multiplying: 3(4x+5) = 7(3x-3) → 12x + 15 = 21x - 21 → 9x = 36 → x = 4. Blue marbles = 4x = 16. Final answer: 16.",
+      "explanation": "Solving the equation confirms blue marbles before addition were 16.",
+      "target_entry_id": "f33946b6312247ba8005409495eb44da",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:20:43.352615Z"
+    },
+    {
+      "entry_id": "1d6d5a409d504cc2a0fd2c40f5b3e177",
+      "agent_id": "auditor",
+      "tag": "RATIFY",
+      "prediction": "16",
+      "explanation": "The equation (4x+5)/(3x-3) = 7/3 solves to x=4, so blue marbles = 4x = 16. All steps are mathematically valid and consistent with the given ratio.",
+      "target_entry_id": "6b68f7ca38bf449fab32da733d1bc07a",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:21:03.203186Z"
+    },
+    {
+      "entry_id": "15d2f1b03b424833a06c124852a34b9d",
+      "agent_id": "challenger",
+      "tag": "RATIFY",
+      "prediction": "16",
+      "explanation": "Solving (4x+5)/(3x-3) = 7/3 gives x = 4, so blue marbles = 4x = 16. All steps are valid and consistent with the ratio.",
+      "target_entry_id": "1d6d5a409d504cc2a0fd2c40f5b3e177",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:21:18.396558Z"
+    },
+    {
+      "entry_id": "fb336a6abd304880b5ae06ca639eeb99",
+      "agent_id": "second_proposer",
+      "tag": "RATIFY",
+      "prediction": "16",
+      "explanation": "Solving (4x+5)/(3x-3) = 7/3 gives x = 4, so blue marbles = 4x = 16. All steps are mathematically valid and consistent with the given ratio.",
+      "target_entry_id": "15d2f1b03b424833a06c124852a34b9d",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:21:36.983655Z"
+    },
+    {
+      "entry_id": "c380e41d2e7a4ab38ec4c15b89b9f652",
+      "agent_id": "second_verifier",
+      "tag": "RATIFY",
+      "prediction": "16",
+      "explanation": "The equation (4x+5)/(3x-3) = 7/3 solves to x = 4, so blue marbles = 4x = 16. All steps are mathematically valid and consistent with the given ratio.",
+      "target_entry_id": "fb336a6abd304880b5ae06ca639eeb99",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T09:22:01.000992Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "auditor": {
+      "agent_id": "auditor",
+      "persona": "evidence_auditor",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "challenger": {
+      "agent_id": "challenger",
+      "persona": "counterexample_challenger",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "second_proposer": {
+      "agent_id": "second_proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "second_verifier": {
+      "agent_id": "second_verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "UNRESOLVED",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

@@ -1,0 +1,74 @@
+{
+  "task_id": "mscore-0d1eeef394e3-4174",
+  "entries": [
+    {
+      "entry_id": "c5bdd6a047e9446e8afb49a9efe7210a",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "否",
+      "explanation": "若耐久性非主要目标，则增加预算与周期的变更无必要支持。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:20.596759Z"
+    },
+    {
+      "entry_id": "f2e9686be299474cb23a3228c7ff8691",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "若耐久性非主要目标，则增加预算与周期的变更无必要支持。'}",
+      "target_entry_id": "c5bdd6a047e9446e8afb49a9efe7210a",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:22.664091Z"
+    },
+    {
+      "entry_id": "66e63b51a32c4fddb16a4502beba5834",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "否",
+      "explanation": "若耐久性非主要目标，则增加预算与周期的变更无必要支持。'}",
+      "target_entry_id": "f2e9686be299474cb23a3228c7ff8691",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:24.732326Z"
+    },
+    {
+      "entry_id": "2d8709eab7264e279dfcadbb6721bf05",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "若耐久性非主要目标，则增加预算与周期的变更无必要支持。'}",
+      "target_entry_id": "66e63b51a32c4fddb16a4502beba5834",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:27.106770Z"
+    },
+    {
+      "entry_id": "b9c56e6c72ae467c9145e6fa9f73a082",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "若耐久性非主要目标，则增加预算与周期的变更无必要支持。'}",
+      "target_entry_id": "2d8709eab7264e279dfcadbb6721bf05",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:21:29.512724Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

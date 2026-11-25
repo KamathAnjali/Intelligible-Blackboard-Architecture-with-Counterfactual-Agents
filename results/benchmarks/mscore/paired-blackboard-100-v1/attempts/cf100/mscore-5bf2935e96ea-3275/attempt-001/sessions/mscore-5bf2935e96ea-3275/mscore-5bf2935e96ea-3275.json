@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-5bf2935e96ea-3275",
+  "entries": [
+    {
+      "entry_id": "100325e9ad8d4258b1777ab4e8d78558",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "不合理",
+      "explanation": "混凝土强度低于设计要求会危及结构安全，继续施工违反工程安全规范。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:06.444444Z"
+    },
+    {
+      "entry_id": "92cc4975ce7347268a338485df6f0015",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "不合理",
+      "explanation": "混凝土强度低于设计要求会危及结构安全，继续施工违反工程安全规范。'}",
+      "target_entry_id": "100325e9ad8d4258b1777ab4e8d78558",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:08.612155Z"
+    },
+    {
+      "entry_id": "54e344657402477da0bfaeaa0166bd3e",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "不合理",
+      "explanation": "混凝土强度低于设计要求会危及结构安全，继续施工违反工程安全规范。'}",
+      "target_entry_id": "92cc4975ce7347268a338485df6f0015",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:10.846584Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

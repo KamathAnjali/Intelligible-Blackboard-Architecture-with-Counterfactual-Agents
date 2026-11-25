@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-0d1eeef394e3-4174",
+  "entries": [
+    {
+      "entry_id": "441a6b1efa024f418c5738ed36913746",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "否",
+      "explanation": "若耐久性非主要目标，则增加预算与周期的变更无必要支持。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:11:30.824622Z"
+    },
+    {
+      "entry_id": "f452fbc281864981a2bb21b149b72543",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "若耐久性非主要目标，则增加预算与周期的变更无必要支持。",
+      "target_entry_id": "441a6b1efa024f418c5738ed36913746",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:11:32.812662Z"
+    },
+    {
+      "entry_id": "4eddd95a970e4bada5f0d74210f54840",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "若耐久性非主要目标，则增加预算与周期的变更无必要支持。'}",
+      "target_entry_id": "f452fbc281864981a2bb21b149b72543",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:11:34.935521Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

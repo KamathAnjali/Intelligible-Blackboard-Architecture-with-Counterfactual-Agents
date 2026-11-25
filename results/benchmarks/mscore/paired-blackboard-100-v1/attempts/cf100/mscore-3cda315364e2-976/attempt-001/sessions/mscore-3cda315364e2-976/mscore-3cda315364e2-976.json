@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-3cda315364e2-976",
+  "entries": [
+    {
+      "entry_id": "11a743334e374f4da7400a8ae938e38c",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "暂停施工并调整采购计划可有效控制成本与工期风险。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:08:12.611551Z"
+    },
+    {
+      "entry_id": "4da6c94c51d04a1fabaa49ff70dc026c",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "暂停施工并调整采购计划能直接降低补货成本与工期风险，符合成本与进度管控逻辑。}'}",
+      "target_entry_id": "11a743334e374f4da7400a8ae938e38c",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:08:14.895935Z"
+    },
+    {
+      "entry_id": "3a4d4d4868b64c75b224815cb968cbcd",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "暂停施工并调整采购计划可直接降低补货成本与工期风险，符合成本与进度管控逻辑。'}",
+      "target_entry_id": "4da6c94c51d04a1fabaa49ff70dc026c",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:08:17.259884Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

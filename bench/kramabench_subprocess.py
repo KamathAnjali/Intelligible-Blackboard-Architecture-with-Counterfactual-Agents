@@ -9,6 +9,23 @@ import sys
 import types
 from pathlib import Path
 
+
+def apply_effective_model_options(client, *, num_ctx: int, num_predict: int,
+                                  required_num_ctx: int) -> dict[str, int]:
+    """Set and verify the exact context/output options used in Ollama payloads."""
+    if any(type(value) is not int or value <= 0
+           for value in (num_ctx, num_predict, required_num_ctx)):
+        raise RuntimeError("Ollama num_ctx, num_predict, and required context must be positive integers")
+    effective = {**client.options, "num_ctx": num_ctx, "num_predict": num_predict}
+    client.options = effective
+    if effective["num_ctx"] < required_num_ctx:
+        raise RuntimeError(
+            f"effective Ollama context {effective['num_ctx']} is below frozen-scope requirement {required_num_ctx}"
+        )
+    if effective["num_predict"] > effective["num_ctx"]:
+        raise RuntimeError("Ollama num_predict cannot exceed effective num_ctx")
+    return dict(effective)
+
 def main() -> None:
     if os.environ.get("KRAMABENCH_GENUINE_RUN_APPROVED") != "1":
         raise RuntimeError("isolated evaluator requires explicit genuine-run approval")
@@ -92,6 +109,9 @@ def main() -> None:
 
     model = os.environ.get("KRAMABENCH_MODEL", MODEL)
     model_seed = int(os.environ.get("KRAMABENCH_MODEL_SEED", "42"))
+    num_ctx = int(os.environ.get("KRAMABENCH_NUM_CTX", "4096"))
+    num_predict = int(os.environ.get("KRAMABENCH_NUM_PREDICT", "768"))
+    required_num_ctx = int(os.environ.get("KRAMABENCH_REQUIRED_NUM_CTX", str(num_ctx)))
     base_url = os.environ.get("KRAMABENCH_BASE_URL", BASE_URL)
     max_turns = int(os.environ.get("KRAMABENCH_MAX_TURNS", "6"))
     max_retries = int(os.environ.get("KRAMABENCH_MAX_RETRIES", "1"))
@@ -109,11 +129,24 @@ def main() -> None:
     max_counterfactual_simulations = int(os.environ.get("KRAMABENCH_MAX_COUNTERFACTUAL_SIMULATIONS", "1"))
     class ConfiguredKramaBenchSystem(KramaBenchSystem):
         def __init__(self, verbose: bool = False, output_dir=None):
+            client = OllamaClient(
+                model=model, base_url=base_url, model_seed=model_seed,
+                request_timeout_seconds=ollama_request_timeout_seconds,
+            )
+            effective_options = apply_effective_model_options(
+                client, num_ctx=num_ctx, num_predict=num_predict,
+                required_num_ctx=required_num_ctx,
+            )
+            (run_root / "model_runtime_preflight.json").write_text(json.dumps({
+                "status": "passed", "model": model,
+                "scope_required_num_ctx": required_num_ctx,
+                "effective_options": effective_options,
+                "options_sent_in_ollama_generate_payload": True,
+            }, indent=2) + "\n", encoding="utf-8")
             super().__init__(
                 verbose=verbose,
                 output_dir=output_dir or run_root / "system_scratch" / "KramaBenchPXPSystem",
-                client=OllamaClient(model=model, base_url=base_url, model_seed=model_seed,
-                                    request_timeout_seconds=ollama_request_timeout_seconds),
+                client=client,
                 max_turns=max_turns,
                 max_retries=max_retries,
                 data_tool_invocation_cap=data_tool_invocation_cap,

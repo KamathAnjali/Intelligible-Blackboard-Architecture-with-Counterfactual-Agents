@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-9c9d6ab0d9dd-2574",
+  "entries": [
+    {
+      "entry_id": "69b39eb7f50446d7937ee97463074561",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "临时替代材料用于弥补设计缺陷，确保施工进度，符合工程实际需求。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:13.343806Z"
+    },
+    {
+      "entry_id": "894a4a3857594003a91c901a3078c179",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "临时材料替换弥补设计缺陷，确保施工进度，符合工程实际需求。'}",
+      "target_entry_id": "69b39eb7f50446d7937ee97463074561",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:15.345476Z"
+    },
+    {
+      "entry_id": "0e88f6f6a48b44ad9f15fe5f085277f6",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "临时替代材料弥补设计缺陷，确保施工进度，符合工程实际需求。'}",
+      "target_entry_id": "894a4a3857594003a91c901a3078c179",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:17.371354Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

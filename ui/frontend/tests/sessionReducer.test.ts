@@ -8,6 +8,24 @@ import type { SessionState } from '../src/types/sessionReducer.ts';
 import { SchedulerStatus } from '../src/components/SchedulerStatus.ts';
 import { tokenTallyLabels } from '../src/components/tokenTallyLabels.ts';
 import { branchEmptyState, branchTitle, branchVerdict } from '../src/components/counterfactualPresentation.ts';
+import { isActiveTaskSessionEvent } from '../src/types/taskGraphEvents.ts';
+
+test('task graph accepts only events for its selected live task session', () => {
+  const liveStart: BackendEvent = { type: 'session_started', source: 'LIVE', mode: 'LIVE', session_id: 's1', task_id: 'task-1' };
+  const replayEntry: BackendEvent = { type: 'board_entry', source: 'LOG_REPLAY', session_id: 'fixture', task_id: 'other-task', entry: {
+    entry_id: 'fixture-1', agent_id: 'proposer', tag: 'REVISE', prediction: 'x', explanation: 'generic fixture',
+  } };
+  const taskEntry: BackendEvent = { type: 'board_entry', source: 'LIVE', session_id: 's1', task_id: 'task-1', entry: {
+    entry_id: 'task-1-entry', agent_id: 'proposer', tag: 'REVISE', prediction: 'answer', explanation: 'task evidence',
+  } };
+  assert.equal(isActiveTaskSessionEvent(replayEntry, null, 'task-1'), false);
+  assert.equal(isActiveTaskSessionEvent(liveStart, null, 'task-1'), true);
+  assert.equal(isActiveTaskSessionEvent(taskEntry, 's1', 'task-1'), true);
+  assert.equal(isActiveTaskSessionEvent(taskEntry, 'another-session', 'task-1'), false);
+  assert.equal(isActiveTaskSessionEvent(taskEntry, 's1', 'different-task'), false);
+  assert.equal(isActiveTaskSessionEvent({ type: 'session_summary', session_id: 's1', task_id: 'task-1', summary: { outcome: 'completed' } }, 's1', 'task-1'), true,
+    'matching-session status polling remains available after a websocket reconnect');
+});
 
 test('reducer handles connection, start, summary, errors, completion, and source modes', () => {
   let state = sessionReducer(initialSessionState, { type: 'socket_connecting' });
@@ -103,6 +121,33 @@ test('scheduler status component renders explicit unavailable state and active r
   assert.match(rendered, /Scheduler: running/);
   assert.match(rendered, /Turn 2/);
   assert.match(rendered, /agent-chip active[^>]*data-active="true"[^>]*>verifier/);
+});
+
+test('real scheduler event sequence takes precedence over entry-derived roster and ends terminally', () => {
+  let state = sessionReducer(initialSessionState, { type: 'select_session', session_id: 'ui-s1', task_id: 'task-1' });
+  const events: BackendEvent[] = [
+    { type: 'scheduler_status', session_id: 'ui-s1', state: 'running', agents: [
+      { agent_id: 'proposer', persona: 'proposer' }, { agent_id: 'verifier', persona: 'verifier' },
+    ] },
+    { type: 'turn_started', session_id: 'ui-s1', agent_id: 'proposer', turn: 1 },
+    { type: 'board_entry', session_id: 'ui-s1', entry: {
+      entry_id: 'entry-1', agent_id: 'other', tag: 'REVISE', prediction: 'answer', explanation: 'evidence',
+    }, entry_count: 1, last_entry_id: 'entry-1' },
+    { type: 'turn_finished', session_id: 'ui-s1', agent_id: 'proposer', turn: 1, outcome: 'posted' },
+    { type: 'scheduler_status', session_id: 'ui-s1', state: 'consensus', agents: [
+      { agent_id: 'proposer', persona: 'proposer' }, { agent_id: 'verifier', persona: 'verifier' },
+    ] },
+  ];
+  for (const event of events) state = sessionReducer(state, { type: 'backend_event', event });
+  assert.equal(state.schedulerState, 'consensus');
+  assert.equal(state.turn, 1);
+  assert.equal(state.activeAgentId, null);
+  assert.deepEqual(state.agentIds, ['proposer', 'verifier'], 'scheduler roster overrides inferred board agents');
+  assert.equal(state.entryIds.length, 1);
+  const stale = sessionReducer(state, { type: 'backend_event', event: {
+    type: 'turn_started', session_id: 'other-session', agent_id: 'stale', turn: 9,
+  } });
+  assert.equal(stale.activeAgentId, null, 'events from another session are ignored');
 });
 
 test('token tally UI labels show estimates and keep provider totals separate', () => {

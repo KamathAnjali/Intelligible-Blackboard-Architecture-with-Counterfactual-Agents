@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-078ee298e45f-3075",
+  "entries": [
+    {
+      "entry_id": "6d8bb55273c74871ba74bf2bd8561495",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "是",
+      "explanation": "额外施工成本100万元低于减少的运营噪音投诉成本120万元，综合经济性提升。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:20.160447Z"
+    },
+    {
+      "entry_id": "6db19268acb7442a98201c7fd36e8ae3",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "施工增加成本100万元低于噪音投诉减少成本120万元，综合经济性提升。",
+      "target_entry_id": "6d8bb55273c74871ba74bf2bd8561495",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:22.363187Z"
+    },
+    {
+      "entry_id": "b4a3afc87cf64cf89c3df40d1c788097",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "施工增加成本100万元低于减少的噪音投诉成本120万元，综合经济性提升。'}",
+      "target_entry_id": "6db19268acb7442a98201c7fd36e8ae3",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:36:24.824354Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

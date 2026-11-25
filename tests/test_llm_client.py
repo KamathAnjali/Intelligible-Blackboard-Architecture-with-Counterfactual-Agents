@@ -66,7 +66,7 @@ def test_ollama_client_seed_is_configurable_and_keeps_other_defaults():
     options = client.request.call_args.args[1]["options"]
     assert options["seed"] == 73
     assert options["temperature"] == 0
-    assert options["num_ctx"] == 4096
+    assert options["num_ctx"] == client.options["num_ctx"] == 16384
     assert options["num_predict"] == 768
     assert OllamaClient().options["seed"] == 42
 

@@ -105,6 +105,10 @@ Published records are tracked in `results/transcripts/<conversation-id>.json` an
 
 New runs still write to `results/conversations/`; inference reports use `results/ollama/`. These generated directories, benchmark results, and local raw datasets remain ignored. Existing files are preserved when records are copied into the published archive.
 
+The combined KramaBench import is stored at `results/benchmarks/kramabench/latest-20261125` and cataloged in `results/benchmarks/catalog.json`. The dashboard reads 209 selected started attempts across 42 tasks and five conditions from this import; it labels compatibility-evaluator exact-match scores separately from the wildfire MAE regression scores. The batch excludes 171 attempts that never started. Earlier per-task KramaBench archives were removed from `archive/` when this batch replaced them.
+
+The current MATH-500 dashboard import is stored at `results/benchmarks/math500/latest-20261125`. It contains 30 selected task IDs, one solo and four blackboard conditions per task, and local replay transcripts for the 120 blackboard runs. It is a selected comparison cohort, not a full 500-question evaluation.
+
 `bench/ingest/` loads task records with a gold-free agent view and a separate evaluator reference. The default parser sample is a format sample, not benchmark data; run `./.venv/bin/python -m bench.ingest.krama_parser --report` to save its load report. `bench/metrics/trial_runner.py` supports only `example` and `dry_run` fixtures; their outputs are explicitly named `SYNTHETIC` under `bench/results/synthetic/` and are not benchmark evidence. Real paired KramaBench execution is managed by `bench.orchestrator` against the hash-verified scope. Start with `./.venv/bin/python -m bench.orchestrator plan`; real `dry-run`/`pilot` commands require `--approve-genuine-run` and paths supplied by flags or environment. `bench/run_benchmark_chunk.py` was retired in favor of the paired orchestrator.
 # KramaBench checkout setup
 

@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-dc5ec400af65-327",
+  "entries": [
+    {
+      "entry_id": "cf8ba9f9625647e5bdcd44f5f7e3a5fd",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "暂停施工并更换材料符合质量安全管理要求，能有效避免结构安全隐患。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:31:28.420593Z"
+    },
+    {
+      "entry_id": "891559e2a37b4f04b202d59b15b095df",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "暂停施工并更换材料符合质量安全管理要求，能有效避免结构安全隐患。'}",
+      "target_entry_id": "cf8ba9f9625647e5bdcd44f5f7e3a5fd",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:31:30.510407Z"
+    },
+    {
+      "entry_id": "3b73ba81984b4775a94e869659726a95",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "暂停施工并更换材料符合质量安全管理要求，能有效避免结构安全隐患。'}",
+      "target_entry_id": "891559e2a37b4f04b202d59b15b095df",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:31:32.696799Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

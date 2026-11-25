@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-b9558be95eb1-2025",
+  "entries": [
+    {
+      "entry_id": "5122858fc16c4314924b484b1fb7fb14",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "合理",
+      "explanation": "加装智能家居系统可提升房产附加值，从而支持销售价格提高。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:10:54.668431Z"
+    },
+    {
+      "entry_id": "04907b54e0c843da896d36551efee771",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "智能家居系统提升房产附加值，有助于支持销售价格提高。",
+      "target_entry_id": "5122858fc16c4314924b484b1fb7fb14",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:10:56.554366Z"
+    },
+    {
+      "entry_id": "3a0a054506134d9a89ea69449954b16f",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "合理",
+      "explanation": "智能家居系统提升房产附加值，有助于支持销售价格提高。'}",
+      "target_entry_id": "04907b54e0c843da896d36551efee771",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:10:58.495439Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": false,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

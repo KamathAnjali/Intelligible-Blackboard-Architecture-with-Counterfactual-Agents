@@ -5,7 +5,7 @@ import type { PXPTag } from '../constants/tagColors';
 import { HistoryScrubber } from './HistoryScrubber';
 import { TokenTally } from './TokenTally';
 import type { TokenTallyReport } from './TokenTally';
-import type { CounterfactualBranchState } from '../types/sessionEvents';
+import type { CounterfactualBranchState, SchedulerState } from '../types/sessionEvents';
 import { branchEmptyState, branchTitle, branchVerdict } from './counterfactualPresentation';
 
 export type { PXPTag };
@@ -59,6 +59,7 @@ interface CanvasProps {
   onLiveScrub?: (index: number | null) => void;
   branchScrubIndex?: number | null;
   onBranchScrub?: (index: number | null) => void;
+  schedulerState?: SchedulerState;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ interface BottleneckCluster {
   reason: string;
 }
 
-function detectBottlenecks(nodes: GraphNode[]): {
+function detectBottlenecks(nodes: GraphNode[], negativeThreshold: number): {
   bottleneckNodeIds: Set<string>;
   clusters: BottleneckCluster[];
 } {
@@ -106,13 +107,13 @@ function detectBottlenecks(nodes: GraphNode[]): {
   });
 
   Object.entries(negativeByTarget).forEach(([targetId, conflictingIds]) => {
-    if (conflictingIds.length >= 2) {
+    if (conflictingIds.length >= negativeThreshold) {
       bottleneckNodeIds.add(targetId);
       conflictingIds.forEach((id) => bottleneckNodeIds.add(id));
       clusters.push({
         targetId,
         nodeIds: [targetId, ...conflictingIds],
-        reason: `Cascading disagreement (${conflictingIds.length} refutations/rejections on entry ${targetId})`,
+      reason: `Cascading disagreement (${conflictingIds.length} refutations/rejections on entry ${targetId}; threshold ${negativeThreshold})`,
       });
     }
   });
@@ -121,7 +122,7 @@ function detectBottlenecks(nodes: GraphNode[]): {
   nodes.forEach((n) => {
     if (n.tag === 'REFUTE' || n.tag === 'REJECT') {
       consecutiveNeg.push(n.id);
-      if (consecutiveNeg.length >= 2) {
+      if (consecutiveNeg.length >= negativeThreshold) {
         consecutiveNeg.forEach((id) => bottleneckNodeIds.add(id));
       }
     } else {
@@ -151,11 +152,13 @@ export const Canvas: React.FC<CanvasProps> = ({
   onLiveScrub = () => {},
   branchScrubIndex = null,
   onBranchScrub = () => {},
+  schedulerState = 'not_provided',
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('radial');
   const [viewMode, setViewMode] = useState<ViewMode>('unified');
+  const [showTagLegend, setShowTagLegend] = useState(false);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
@@ -175,9 +178,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   }, [scrubIndex, nodes]);
 
+  const rawThreshold = Number(import.meta.env.VITE_REJECT_STREAK_THRESHOLD ?? 2);
+  const negativeThreshold = Number.isInteger(rawThreshold) && rawThreshold > 0 ? rawThreshold : 2;
   const { bottleneckNodeIds, clusters } = useMemo(
-    () => detectBottlenecks(nodes),
-    [nodes],
+    () => detectBottlenecks(nodes, negativeThreshold),
+    [nodes, negativeThreshold],
   );
 
   // Counterfactual nodes for split view
@@ -544,6 +549,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   // ── Render ─────────────────────────────────────────────────────────────────
   const hasNodes = nodes.length > 0;
   const hasBottlenecks = clusters.length > 0;
+  const schedulerReportsDeadlock = schedulerState === 'deadlock';
 
   return (
     <div className="canvas-container">
@@ -612,6 +618,15 @@ export const Canvas: React.FC<CanvasProps> = ({
         <TokenTally tally={tokenTally} />
 
         {streamDone && <div className="stream-done-badge">✓ Stream Complete</div>}
+        <button type="button" className="legend-toggle" aria-expanded={showTagLegend} onClick={() => setShowTagLegend((value) => !value)}>
+          Tags {showTagLegend ? '▲' : '▼'}
+        </button>
+        {showTagLegend && <div className="hud-overlay legend-hud">
+          {(Object.entries(TAG_COLORS) as [PXPTag, string][]).map(([tag, color]) => <div key={tag} className="legend-item">
+            <span className="legend-dot" style={{ backgroundColor: color }} />
+            <span className="legend-text">{tag}</span>
+          </div>)}
+        </div>}
       </div>
 
       {/* Split Panel Headers when Split View active (W3 Day 1) */}
@@ -647,13 +662,14 @@ export const Canvas: React.FC<CanvasProps> = ({
       )}
 
       {/* Bottleneck Alert Banner */}
-      {hasBottlenecks && (
+      {(hasBottlenecks || schedulerReportsDeadlock) && (
         <div className="bottleneck-banner">
           <div className="alert-flashing-icon">🚨</div>
           <div className="alert-content">
-            <strong>Bottleneck Alert:</strong> <span>{clusters[0].reason}</span>
+            <strong>{hasBottlenecks ? 'Bottleneck Alert:' : 'Scheduler reports deadlock:'}</strong>{' '}
+            <span>{hasBottlenecks ? clusters[0].reason : `The backend reports deadlock. No reject-streak details were provided; the local alert threshold remains ${negativeThreshold} consecutive negative entries.`}</span>
           </div>
-          <button
+          {hasBottlenecks && <button
             className="alert-jump-btn"
             onClick={() => {
               const targetNode = nodes.find((n) => n.id === clusters[0].targetId);
@@ -661,20 +677,9 @@ export const Canvas: React.FC<CanvasProps> = ({
             }}
           >
             Inspect Target
-          </button>
+          </button>}
         </div>
       )}
-
-      {/* Tag legend */}
-      <div className="hud-overlay legend-hud">
-        <span className="hud-label">Tags:</span>
-        {(Object.entries(TAG_COLORS) as [PXPTag, string][]).map(([tag, color]) => (
-          <div key={tag} className="legend-item">
-            <span className="legend-dot" style={{ backgroundColor: color }} />
-            <span className="legend-text">{tag}</span>
-          </div>
-        ))}
-      </div>
 
       {/* SVG canvas */}
       <svg

@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-0df91fe12b45-2175",
+  "entries": [
+    {
+      "entry_id": "73e88edb8e064ce39dfe5ca984831800",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "是",
+      "explanation": "施工单位未调整采购计划会导致材料浪费和成本增加。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:25:38.353741Z"
+    },
+    {
+      "entry_id": "c6e6d930dc864559b80507f9c9feb5ef",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "未调整采购计划将导致材料浪费和成本增加，符合原任务逻辑。",
+      "target_entry_id": "73e88edb8e064ce39dfe5ca984831800",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:25:40.242600Z"
+    },
+    {
+      "entry_id": "659994ce779d4fef82713e97d218f8c7",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "未调整采购计划将导致材料浪费和成本增加，符合原任务逻辑。'}",
+      "target_entry_id": "c6e6d930dc864559b80507f9c9feb5ef",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:25:42.222584Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-54937139ccb8-927",
+  "entries": [
+    {
+      "entry_id": "575c6685b3c447d0b155e689eac05753",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "否",
+      "explanation": "项目预算紧张时，增加成本和工期的方案应被拒绝。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:07:52.127246Z"
+    },
+    {
+      "entry_id": "8c5b3108e82a4a7ba0b08e154286d031",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "预算紧张时，增加成本和工期的方案应被拒绝。",
+      "target_entry_id": "575c6685b3c447d0b155e689eac05753",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:07:55.992183Z"
+    },
+    {
+      "entry_id": "7cb3c782a1c043bba5bcc83aa864f7b2",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "项目预算紧张时，增加成本和工期的方案应被拒绝。",
+      "target_entry_id": "8c5b3108e82a4a7ba0b08e154286d031",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:07:57.826443Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

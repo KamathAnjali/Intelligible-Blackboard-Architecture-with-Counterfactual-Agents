@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-51964f383ebb-277",
+  "entries": [
+    {
+      "entry_id": "7dd0d19b12ff4ba5b31c4840de54bc26",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "否",
+      "explanation": "工期严格要求下，延长1周不可接受，调整方案不合理。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:52:52.741214Z"
+    },
+    {
+      "entry_id": "620b8eff08cd49358f5e206d43220422",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "工期严格要求下，延长1周违反约束，调整方案不可行。'}",
+      "target_entry_id": "7dd0d19b12ff4ba5b31c4840de54bc26",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:52:54.728598Z"
+    },
+    {
+      "entry_id": "fc6ace1262a84732a21ed24b7d0c976f",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "否",
+      "explanation": "工期严格要求下，延长1周违反约束，调整方案不可行。'}",
+      "target_entry_id": "620b8eff08cd49358f5e206d43220422",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:52:56.715796Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

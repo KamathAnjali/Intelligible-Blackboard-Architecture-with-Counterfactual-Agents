@@ -1,0 +1,54 @@
+{
+  "task_id": "mscore-3c0ed5f40da1-4975",
+  "entries": [
+    {
+      "entry_id": "bee4ae17ea084d61b5e96a7b11c22b0c",
+      "agent_id": "proposer",
+      "tag": "REVISE",
+      "prediction": "是",
+      "explanation": "增加外墙保温层符合节能需求，降低长期能耗，有利于项目运营效益。'}",
+      "target_entry_id": null,
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:05:30.315820Z"
+    },
+    {
+      "entry_id": "42f7d57b041144758664d5d71bb72a31",
+      "agent_id": "verifier",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "外墙保温层提升节能效果，降低长期运营能耗，符合可持续运营需求。",
+      "target_entry_id": "bee4ae17ea084d61b5e96a7b11c22b0c",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:05:32.415396Z"
+    },
+    {
+      "entry_id": "a64c234e7b574308a8165073c1c5a72e",
+      "agent_id": "proposer",
+      "tag": "RATIFY",
+      "prediction": "是",
+      "explanation": "外墙保温层提升节能效果，降低长期运营能耗，符合可持续运营需求。'}",
+      "target_entry_id": "42f7d57b041144758664d5d71bb72a31",
+      "is_counterfactual_sim": false,
+      "timestamp": "2026-11-24T17:05:34.408132Z"
+    }
+  ],
+  "agents": {
+    "proposer": {
+      "agent_id": "proposer",
+      "persona": "aggressive_proposer",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    },
+    "verifier": {
+      "agent_id": "verifier",
+      "persona": "cautious_verifier",
+      "counterfactual_capable": true,
+      "model_name": "qwen3:4b-instruct-2507-q4_K_M",
+      "active": true
+    }
+  },
+  "intelligibility": "ULTRA_STRONG",
+  "deadlocks": [],
+  "counterfactual_events": []
+}

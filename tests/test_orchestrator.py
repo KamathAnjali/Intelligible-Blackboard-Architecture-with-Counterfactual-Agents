@@ -14,6 +14,7 @@ from bench.orchestrator import (
     _classify_outcome,
     _reconcile_saved_outcomes,
     _correct_from_rule,
+    aggregate_run,
     aggregate_rows,
     balanced_agent_assignment,
     build_matrix,
@@ -111,9 +112,21 @@ def test_every_attempt_including_failure_is_saved_resume_and_plot_gate_rejects(t
     runner = FakeRunner(fail_fraction=.66)
     rows = _experiment(tmp_path, runner)
     assert len(rows) == 4
+    assert "--num-ctx" in runner.calls[0].command
+    assert runner.calls[0].command[runner.calls[0].command.index("--num-ctx") + 1] == "4096"
+    assert runner.calls[0].command[runner.calls[0].command.index("--num-predict") + 1] == "768"
+    assert runner.calls[0].model_options == {
+        "num_ctx": 4096, "temperature": 0, "num_predict": 768, "seed": 42,
+    }
     failed = [row for row in rows if row["attempt_status"] == "failed"]
     assert len(failed) == 1 and "SYNTHETIC injected OOM" in failed[0]["failure_reason"]
     run_dir = tmp_path / "SYNTHETIC-test"
+    manifest = json.loads((run_dir / "SYNTHETIC_results_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["model_options"]["num_ctx"] == 4096
+    assert manifest["model_options"]["num_predict"] == 768
+    aggregate_run(run_dir)
+    aggregate = json.loads((run_dir / "SYNTHETIC_aggregate_summary.json").read_text(encoding="utf-8"))
+    assert aggregate["context_fix_label"] == "pre-context-fix"
     attempts_before = len((run_dir / "SYNTHETIC_attempts.jsonl").read_text().splitlines())
     assert attempts_before == 4
     # Completed keys and failed keys both stay untouched without --retry-failed.

@@ -1,0 +1,44 @@
+{
+  "benchmark": "MSCoRe",
+  "runner": "project_blackboard_adapter",
+  "result_label": "adapted; not the upstream official harness",
+  "created_at": "2026-11-24T17:36:48.195782+00:00",
+  "git_commit": "03e4089ac758863dec07897ab88c169cc68b7139",
+  "git_dirty": false,
+  "source_files_sha256": "28cb9a52027881b71793990c73b9006636ec22436948381e73aaeb70feff6288",
+  "source_path": "/content/MSCoRe-data/Data2/Construction/complex/data.json",
+  "source_sha256": "91862727c6f3a3cae69e6f3f410765c648b98ff62d6d17075a260e08254b36a9",
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "base_url": "http://127.0.0.1:11434",
+  "selection_seed": 0,
+  "model_seed": 42,
+  "model_options": {
+    "num_ctx": 16384,
+    "temperature": 0,
+    "seed": 42,
+    "num_predict": 4096
+  },
+  "task_id_file": null,
+  "task_id_file_sha256": null,
+  "counterfactual_fraction": 0.0,
+  "counterfactual_seed": 1,
+  "retrospective_recovery": false,
+  "requested_tasks": 1,
+  "selection_mode": "explicit_task_ids",
+  "selected_tasks": [
+    "mscore-1429a53030ec-3325"
+  ],
+  "counts": {
+    "attempted": 1,
+    "completed_without_crash": 1,
+    "scored": 1,
+    "correct": 1,
+    "failed_before_scoring": 0
+  },
+  "turn_limit": 6,
+  "retry_limit": 1,
+  "reference_answers_in_agent_context": false,
+  "review_mode": "task_facts",
+  "scoring": "adapted normalized exact match for objective judgment/choice/order labels; open-ended unscored",
+  "token_accounting": "Ollama prompt_eval_count/eval_count, including review calls and counterfactual attempts when present"
+}

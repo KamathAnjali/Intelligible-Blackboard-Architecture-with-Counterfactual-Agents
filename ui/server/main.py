@@ -34,7 +34,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from agents.conversation import run_conversation
+from agents.conversation import DEFAULT_AGENTS, run_conversation
 from agents.llm_client import OllamaClient
 from ui.server.board_tap import (
     BOARD_MODE,
@@ -64,7 +64,7 @@ _SCOPE_PATH = Path(__file__).resolve().parents[2] / "bench" / "scope" / "pilot_s
 class ConversationStartRequest(BaseModel):
     """Settings for a local agent conversation streamed over /ws."""
 
-    prompt: str | None = None
+    prompt: str | None = Field(default=None, max_length=12000)
     turns: int = Field(default=6, ge=1, le=12)
     retries: int = Field(default=2, ge=0, le=5)
     scenario: str = "default"
@@ -80,6 +80,12 @@ class TaskRunRequest(BaseModel):
 def _configured_cors_origins() -> list[str]:
     raw = os.environ.get("UI_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def _genuine_run_approved() -> bool:
+    return os.environ.get(
+        "UI_APPROVE_GENUINE_RUN", os.environ.get("KRAMA_UI_APPROVE_GENUINE_RUN", "")
+    ).strip().casefold() in {"1", "true", "yes"}
 
 
 # ── Lifespan: start the board tap once at server startup ─────────────────────
@@ -152,6 +158,662 @@ def _load_json(path: Path) -> dict | None:
         return value if isinstance(value, dict) else None
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_BENCHMARK_RESULTS_ROOT = _REPO_ROOT / "results" / "benchmarks"
+_MSCORE_RESULTS_ROOT = _BENCHMARK_RESULTS_ROOT / "mscore" / "paired-blackboard-100-v1"
+_KRAMABENCH_RESULTS_ROOT = _BENCHMARK_RESULTS_ROOT / "kramabench" / "latest-20261125"
+
+
+def _mscore_results_root() -> Path:
+    configured = os.environ.get("MSCORE_RESULTS_DIR")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    if _MSCORE_RESULTS_ROOT.is_dir():
+        return _MSCORE_RESULTS_ROOT.resolve()
+    # Backward compatibility for workspaces that have not moved the imported run.
+    return (_REPO_ROOT / "results" / "mscore-paired-100-v1").resolve()
+
+
+def _mscore_direct_results_root() -> Path:
+    configured = os.environ.get("MSCORE_DIRECT_RESULTS_DIR")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    canonical = _BENCHMARK_RESULTS_ROOT / "mscore" / "direct-baseline-100-v1"
+    if canonical.is_dir():
+        return canonical.resolve()
+    return (_REPO_ROOT / "results" / "mscore-direct-baseline-100-v1").resolve()
+
+
+def _benchmark_result_rows(path: Path) -> list[dict]:
+    rows: list[dict] = []
+    try:
+        with path.open(encoding="utf-8") as stream:
+            for line in stream:
+                if line.strip():
+                    value = json.loads(line)
+                    if isinstance(value, dict):
+                        rows.append(value)
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return []
+    return rows
+
+
+def _safe_artifact(root: Path, relative: str | None) -> Path | None:
+    """Resolve a saved result reference strictly within its imported artifact tree."""
+    if not relative:
+        return None
+    candidate = (root / relative).resolve()
+    if root.resolve() not in candidate.parents or not candidate.is_file():
+        return None
+    return candidate
+
+
+def _safe_result_directory(root: Path, relative: str | None) -> Path | None:
+    if not relative:
+        return None
+    candidate = (root / relative).resolve()
+    if root.resolve() not in candidate.parents or not candidate.is_dir():
+        return None
+    return candidate
+
+
+def _total_usage_tokens(usage: dict) -> int | None:
+    prompt = usage.get("prompt_tokens")
+    completion = usage.get("output_tokens")
+    if isinstance(prompt, (int, float)) and isinstance(completion, (int, float)):
+        return int(prompt + completion)
+    return None
+
+
+def _safe_transcript_detail(transcript: dict | None, result: dict, *, transcript_available: bool) -> dict:
+    """Expose replay fields only; never return expected/reference fields from source records."""
+    transcript = transcript or {}
+    board = transcript.get("board") if isinstance(transcript.get("board"), dict) else {}
+    entries = board.get("entries") if isinstance(board.get("entries"), list) else transcript.get("entries", [])
+    events = board.get("counterfactual_events") if isinstance(board.get("counterfactual_events"), list) else []
+    run = {
+        key: result.get(key) for key in (
+            "run_id", "condition", "run", "result_source", "status", "outcome", "score", "correct", "scored",
+            "score_label", "metric_summary", "evaluation_status", "prediction", "total_tokens", "elapsed_seconds", "iterations",
+            "deadlock_count", "model", "evaluator_mode", "adapted", "failure_reason",
+            "counterfactual_fraction", "counterfactual_simulations",
+        ) if key in result
+    }
+    return {
+        "run": run,
+        "transcript_available": transcript_available,
+        "task": transcript.get("task"),
+        "outcome": transcript.get("outcome") or result.get("outcome"),
+        "entries": entries if isinstance(entries, list) else [],
+        "counterfactual_events": events,
+        "counterfactual_attempts": transcript.get("counterfactual_attempts", []),
+        "counterfactual_skips": transcript.get("counterfactual_skips", []),
+    }
+
+
+def _math500_rows() -> tuple[Path, list[dict]]:
+    root = _BENCHMARK_RESULTS_ROOT / "math500" / "latest-20261125"
+    result_file = root / "summary.jsonl"
+    if not result_file.is_file():
+        result_file = root / "results.jsonl"
+    rows = _benchmark_result_rows(result_file)
+    metadata = _load_json(root / "summary.json") or {}
+    for row in rows:
+        row.setdefault("model", metadata.get("model"))
+    return root, rows
+
+
+def _math500_trace_reference(row: dict) -> str | None:
+    """Map source-host absolute MATH-500 trace paths to imported local files."""
+    condition = str(row.get("condition") or "")
+    if condition not in {"cf-00", "cf-33", "cf-50", "cf-66"}:
+        return None
+    parts = str(row.get("task_id") or "").split("/")
+    if len(parts) != 3 or parts[0] != "test" or not parts[2].endswith(".json"):
+        return None
+    domain, item_id = parts[1], parts[2][:-5]
+    if not domain or not item_id or not all(ch.isalnum() or ch in "_-" for ch in domain + item_id):
+        return None
+    return f"{condition}/math500-{domain}-{item_id}/transcript.json"
+
+
+def _medagent_rows() -> tuple[Path, list[dict]]:
+    root = _BENCHMARK_RESULTS_ROOT / "medagentbench" / "latest-20261125"
+    return root, _benchmark_result_rows(root / "results.jsonl")
+
+
+def _kramabench_rows() -> tuple[Path, list[dict]]:
+    """Read the imported combined KramaBench batch and attach safe replay paths."""
+    root = _KRAMABENCH_RESULTS_ROOT
+    rows: list[dict] = []
+    csv_path = root / "results.csv"
+    try:
+        with csv_path.open(encoding="utf-8", newline="") as stream:
+            source_rows = list(csv.DictReader(stream))
+    except (OSError, UnicodeError, csv.Error):
+        return root, rows
+
+    for source in source_rows:
+        attempt_dir = _safe_result_directory(root, source.get("result_directory"))
+        if attempt_dir is None:
+            continue
+        manifest_paths = sorted(attempt_dir.glob("*/run_manifest.json"))
+        if not manifest_paths:
+            continue
+        manifest_path = manifest_paths[0]
+        run_root = manifest_path.parent
+        manifest = _load_json(manifest_path) or {}
+        if manifest.get("task_id") != source.get("task_id"):
+            continue
+        record_paths = sorted((run_root / "system_scratch" / "KramaBenchPXPSystem" / "krama_task_records").glob("*.json"))
+        record = _load_json(record_paths[0]) if record_paths else {}
+        record = record or {}
+        usage = record.get("provider_token_usage") if isinstance(record.get("provider_token_usage"), dict) else {}
+        counters = record.get("workflow_counters") if isinstance(record.get("workflow_counters"), dict) else {}
+        transcript_paths = sorted((run_root / "system_scratch" / "KramaBenchPXPSystem" / "krama_conversations").rglob("transcript.json"))
+        transcript_path = transcript_paths[0] if transcript_paths else None
+        try:
+            success = float(source["success"]) if source.get("success") not in (None, "") else None
+        except (TypeError, ValueError):
+            success = None
+        try:
+            mae = float(source["mean_absolute_error"]) if source.get("mean_absolute_error") not in (None, "") else None
+        except (TypeError, ValueError):
+            mae = None
+        try:
+            mse = float(source["mean_squared_error"]) if source.get("mean_squared_error") not in (None, "") else None
+        except (TypeError, ValueError):
+            mse = None
+        try:
+            rae = float(source["rae_score"]) if source.get("rae_score") not in (None, "") else None
+        except (TypeError, ValueError):
+            rae = None
+        status = str(source.get("status") or "unknown")
+        condition = str(source.get("condition") or "unknown")
+        score = success if success is not None else mae
+        score_label = "Success" if success is not None else "MAE" if mae is not None else None
+        metric_summary = None
+        if mae is not None:
+            metric_summary = f"MAE {mae:g}" + (f" · MSE {mse:g}" if mse is not None else "") + (f" · RAE {rae:g}" if rae is not None else "")
+        errors = record.get("errors") if isinstance(record.get("errors"), list) else []
+        failure_reason = " | ".join(
+            str(item.get("message", item)) if isinstance(item, dict) else str(item) for item in errors
+        ) or None
+        run_id = f"{condition}:{manifest.get('run_id') or run_root.name}"
+        rows.append({
+            "run_id": run_id, "task_id": source.get("task_id"), "condition": condition, "workload": source.get("workload"),
+            "result_source": source.get("result_source"), "status": status,
+            "outcome": source.get("board_outcome") or status,
+            "score": score, "score_label": score_label,
+            "correct": success == 1.0 if success is not None else None,
+            "scored": status == "scored", "evaluation_status": status,
+            "prediction": record.get("agent_answer") or record.get("answer"),
+            "metric_summary": metric_summary,
+            "total_tokens": _total_usage_tokens(usage),
+            "elapsed_seconds": record.get("runtime_seconds") or usage.get("wall_seconds"),
+            "iterations": usage.get("calls"), "deadlock_count": source.get("deadlocks"),
+            "model": manifest.get("model"), "evaluator_mode": manifest.get("evaluator_mode"),
+            "adapted": manifest.get("evaluator_mode") != "official",
+            "failure_reason": failure_reason,
+            "counterfactual_fraction": manifest.get("counterfactual_fraction", record.get("counterfactual_fraction")),
+            "counterfactual_simulations": counters.get("counterfactual_simulations", source.get("replays", 0)),
+            "transcript_available": transcript_path is not None,
+            "result_directory": source.get("result_directory"),
+            "transcript_path": transcript_path.relative_to(root).as_posix() if transcript_path else None,
+            "record_path": record_paths[0].relative_to(root).as_posix() if record_paths else None,
+        })
+    return root, rows
+
+
+def _parse_mscore_result_row(row: dict[str, str]) -> dict:
+    number_fields = {
+        "counterfactual_fraction", "attempt", "score", "iterations", "deadlock_count",
+        "reviewer_rejections", "counterfactual_triggers", "counterfactual_simulations",
+        "counterfactual_changed_outcome", "num_ctx", "num_predict", "temperature", "model_seed",
+        "live_prompt_tokens", "live_completion_tokens", "simulation_prompt_tokens",
+        "simulation_completion_tokens", "total_prompt_tokens", "total_completion_tokens",
+        "total_tokens", "live_elapsed_seconds", "simulation_elapsed_seconds", "elapsed_seconds",
+    }
+    boolean_fields = {"retrospective_recovery", "completed_without_crash", "scored", "correct", "adapted"}
+    parsed: dict = {}
+    for key, value in row.items():
+        if value == "":
+            parsed[key] = None
+        elif key in number_fields:
+            try:
+                parsed[key] = float(value) if "." in value else int(value)
+            except ValueError:
+                parsed[key] = None
+        elif key in boolean_fields:
+            parsed[key] = value.casefold() == "true"
+        elif key == "counterfactual_capable_agents":
+            try:
+                parsed[key] = json.loads(value)
+            except json.JSONDecodeError:
+                parsed[key] = []
+        else:
+            parsed[key] = value
+    return parsed
+
+
+@app.get("/api/benchmark-results/mscore")
+async def mscore_results_index():
+    """Read the imported paired MSCoRe run without touching evaluator data."""
+    root = _mscore_results_root()
+    manifest = _load_json(root / "results_manifest.json")
+    csv_path = root / "results.csv"
+    if not root.is_dir() or manifest is None or not csv_path.is_file():
+        raise HTTPException(status_code=404, detail=f"MSCoRe results not found under {root}")
+    try:
+        with csv_path.open(encoding="utf-8", newline="") as stream:
+            rows = [_parse_mscore_result_row(row) for row in csv.DictReader(stream)]
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not read MSCoRe results: {exc}") from exc
+    task_ids = sorted({row["task_id"] for row in rows if row.get("task_id")})
+    summaries = {}
+    for condition in ("cf00", "cf100"):
+        subset = [row for row in rows if row.get("condition") == condition]
+        summaries[condition] = {
+            "attempts": len(subset),
+            "scored": sum(row.get("scored") is True for row in subset),
+            "correct": sum(row.get("correct") is True for row in subset),
+            "failed_before_scoring": sum(row.get("evaluation_status") == "failed_before_scoring" for row in subset),
+            "unscored": sum(row.get("evaluation_status") == "not_scored" for row in subset),
+            "counterfactual_simulations": sum(row.get("counterfactual_simulations") or 0 for row in subset),
+        }
+    direct_root = _mscore_direct_results_root()
+    direct_rows = []
+    direct_csv = direct_root / "results.csv"
+    if direct_csv.is_file():
+        with direct_csv.open(encoding="utf-8", newline="") as stream:
+            for row in csv.DictReader(stream):
+                if not row.get("task_id"):
+                    continue
+                correct = row.get("correct", "").casefold() == "true"
+                direct_rows.append({
+                    "task_id": row.get("task_id"), "condition": row.get("condition"),
+                    "outcome": row.get("status"), "prediction": row.get("prediction"),
+                    "score": float(row["score"]) if row.get("score") not in (None, "") else None,
+                    "correct": correct, "scored": row.get("scored", "").casefold() == "true",
+                    "evaluator_mode": "project-adapted-exact", "adapted": True,
+                    "model": row.get("model"),
+                    "total_tokens": sum(int(row.get(key) or 0) for key in ("prompt_tokens", "completion_tokens")),
+                    "elapsed_seconds": float(row["wall_seconds"]) if row.get("wall_seconds") else None,
+                    "counterfactual_simulations": 0,
+                })
+    return {"manifest": manifest, "task_count": len(task_ids), "rows": rows, "by_condition": summaries,
+            "direct_baseline": {"manifest": _load_json(direct_root / "results_manifest.json"),
+                                "task_count": len({row["task_id"] for row in direct_rows}),
+                                "rows": direct_rows}}
+
+
+@app.get("/api/benchmark-dashboard/catalog")
+async def benchmark_dashboard_catalog():
+    """Return task IDs and result availability without exposing benchmark references."""
+    mscore_root = _mscore_results_root()
+    mscore_ids: set[str] = set()
+    mscore_runs: dict[str, int] = {}
+    mscore_attempts: dict[str, list[dict]] = {}
+    mscore_manifest = _load_json(mscore_root / "results_manifest.json") or {}
+    mscore_csv = mscore_root / "results.csv"
+    if mscore_csv.is_file():
+        with mscore_csv.open(encoding="utf-8", newline="") as stream:
+            for row in csv.DictReader(stream):
+                task_id = row.get("task_id")
+                if task_id:
+                    mscore_ids.add(task_id)
+                    mscore_runs[task_id] = mscore_runs.get(task_id, 0) + 1
+                    condition = row.get("condition", "")
+                    attempt_dir = (mscore_root / str(row.get("attempt_dir") or "")).resolve()
+                    transcript_rel = Path(str(row.get("transcript") or ""))
+                    transcript_path = (attempt_dir / transcript_rel).resolve()
+                    transcript_available = (
+                        mscore_root in attempt_dir.parents
+                        and attempt_dir in transcript_path.parents
+                        and transcript_path.name == "transcript.json"
+                        and transcript_path.is_file()
+                    )
+                    mscore_attempts.setdefault(task_id, []).append({
+                        "run_id": condition,
+                        "condition": condition,
+                        "status": row.get("attempt_status"),
+                        "outcome": row.get("outcome"),
+                        "score": (float(row["score"]) if row.get("scored", "").casefold() == "true"
+                                  and row.get("score") not in (None, "") else None),
+                        "scored": row.get("scored", "").casefold() == "true",
+                        "correct": row.get("correct", "").casefold() == "true",
+                        "evaluation_status": row.get("evaluation_status"),
+                        "prediction": row.get("prediction"),
+                        "total_tokens": int(row["total_tokens"]) if row.get("total_tokens") not in (None, "") else None,
+                        "elapsed_seconds": float(row["elapsed_seconds"]) if row.get("elapsed_seconds") not in (None, "") else None,
+                        "iterations": int(row["iterations"]) if row.get("iterations") not in (None, "") else None,
+                        "deadlock_count": int(row["deadlock_count"]) if row.get("deadlock_count") not in (None, "") else None,
+                        "model": mscore_manifest.get("model"),
+                        "evaluator_mode": row.get("evaluator_mode"),
+                        "adapted": row.get("adapted", "").casefold() == "true",
+                        "failure_reason": row.get("failure_reason") or row.get("error"),
+                        "counterfactual_fraction": float(row["counterfactual_fraction"])
+                            if row.get("counterfactual_fraction") not in (None, "") else None,
+                        "counterfactual_simulations": int(row["counterfactual_simulations"] or 0),
+                        "transcript_available": transcript_available,
+                    })
+    direct_root = _mscore_direct_results_root()
+    direct_csv = direct_root / "results.csv"
+    if direct_csv.is_file():
+        direct_manifest = _load_json(direct_root / "results_manifest.json") or {}
+        with direct_csv.open(encoding="utf-8", newline="") as stream:
+            for row in csv.DictReader(stream):
+                task_id = row.get("task_id")
+                if not task_id:
+                    continue
+                mscore_ids.add(task_id)
+                mscore_runs[task_id] = mscore_runs.get(task_id, 0) + 1
+                try:
+                    score = float(row["score"]) if row.get("score") not in (None, "") else None
+                except ValueError:
+                    score = None
+                try:
+                    token_count = sum(int(row.get(key) or 0) for key in ("prompt_tokens", "completion_tokens"))
+                except ValueError:
+                    token_count = None
+                try:
+                    elapsed = float(row["wall_seconds"]) if row.get("wall_seconds") else None
+                except ValueError:
+                    elapsed = None
+                mscore_attempts.setdefault(task_id, []).append({
+                    "run_id": row.get("condition", "direct_model_no_blackboard"),
+                    "condition": row.get("condition", "direct_model_no_blackboard"),
+                    "status": row.get("status"), "outcome": row.get("status"),
+                    "score": score,
+                    "scored": row.get("scored", "").casefold() == "true",
+                    "correct": row.get("correct", "").casefold() == "true",
+                    "evaluation_status": "scored" if row.get("scored", "").casefold() == "true" else "not_scored",
+                    "prediction": row.get("prediction"), "total_tokens": token_count,
+                    "elapsed_seconds": elapsed, "model": row.get("model") or direct_manifest.get("model"),
+                    "evaluator_mode": "project-adapted-exact", "adapted": True,
+                    "failure_reason": row.get("error") or None,
+                    "counterfactual_fraction": 0.0, "counterfactual_simulations": 0,
+                    "transcript_available": False,
+                })
+
+    krama_root, krama_rows = _kramabench_rows()
+    krama_tasks_by_id: dict[str, list[dict]] = {}
+    for attempt in krama_rows:
+        task_id = str(attempt.get("task_id") or "")
+        if task_id:
+            krama_tasks_by_id.setdefault(task_id, []).append(attempt)
+    condition_order = {name: index for index, name in enumerate(("solo", "cf-00", "cf-33", "cf-50", "cf-66"))}
+    krama_tasks = [{
+        "task_id": task_id,
+        "split": "combined results",
+        "evaluator_mode": next((row.get("evaluator_mode") for row in attempts if row.get("evaluator_mode")), None),
+        "adapted": any(row.get("adapted") for row in attempts),
+        "result_count": len(attempts),
+        "attempts": [{key: value for key, value in row.items() if key not in {"result_directory", "transcript_path", "record_path"}}
+                     for row in sorted(attempts, key=lambda item: condition_order.get(str(item.get("condition")), 99))],
+        "runnable_in_ui": False,
+    } for task_id, attempts in sorted(krama_tasks_by_id.items())]
+
+    math_root, math_rows = _math500_rows()
+    math_tasks_by_id: dict[str, list[dict]] = {}
+    for index, source_row in enumerate(math_rows):
+        task_id = str(source_row.get("task_id") or "")
+        if not task_id:
+            continue
+        trace_rel = _math500_trace_reference(source_row)
+        if trace_rel is None and source_row.get("trace") and not Path(str(source_row["trace"])).is_absolute():
+            trace_rel = str(source_row["trace"])
+        transcript_available = _safe_artifact(math_root, trace_rel) is not None
+        correct = source_row.get("correct") if isinstance(source_row.get("correct"), bool) else None
+        usage = source_row.get("usage") if isinstance(source_row.get("usage"), dict) else {}
+        condition = str(source_row.get("condition") or "unknown")
+        math_tasks_by_id.setdefault(task_id, []).append({
+            "run_id": f"{condition}:{index}", "condition": condition,
+            "status": source_row.get("outcome"), "outcome": source_row.get("outcome"),
+            "score": (1.0 if correct else 0.0) if correct is not None else None,
+            "score_label": "Exact match",
+            "scored": correct is not None, "correct": correct,
+            "evaluation_status": "scored" if correct is not None else "not_scored",
+            "prediction": source_row.get("prediction"),
+            "total_tokens": _total_usage_tokens(usage),
+            "elapsed_seconds": source_row.get("wall_seconds"),
+            "model": source_row.get("model"), "evaluator_mode": "project exact-answer check (adapted)", "adapted": True,
+            "counterfactual_fraction": source_row.get("requested_fraction"),
+            "counterfactual_simulations": source_row.get("replays", 0),
+            "transcript_available": transcript_available,
+        })
+    math_tasks = [{"task_id": task_id, "result_count": len(attempts), "attempts": attempts,
+                   "runnable_in_ui": False}
+                  for task_id, attempts in sorted(math_tasks_by_id.items())]
+
+    med_root, med_rows = _medagent_rows()
+    med_tasks_by_id: dict[str, list[dict]] = {}
+    for index, source_row in enumerate(med_rows):
+        task_id = str(source_row.get("task_id") or "")
+        if not task_id:
+            continue
+        trace_rel = source_row.get("trace")
+        trace_path = _safe_artifact(med_root, trace_rel)
+        transcript_available = bool(trace_path and trace_path.name == "transcript.json")
+        correct = source_row.get("correct") if isinstance(source_row.get("correct"), bool) else None
+        usage = source_row.get("usage") if isinstance(source_row.get("usage"), dict) else {}
+        condition = str(source_row.get("condition") or "unknown")
+        run_label = str(source_row.get("run") or "unknown")
+        try:
+            requested_fraction = float(source_row["requested_fraction"])
+        except (KeyError, TypeError, ValueError):
+            requested_fraction = None
+        med_tasks_by_id.setdefault(task_id, []).append({
+            "run_id": f"{run_label}:{condition}:{index}", "condition": condition, "run": run_label,
+            "status": source_row.get("outcome"), "outcome": source_row.get("outcome"),
+            "score": (1.0 if correct else 0.0) if correct is not None else None,
+            "scored": correct is not None, "correct": correct,
+            "evaluation_status": "scored" if correct is not None else "not_scored",
+            "prediction": source_row.get("prediction"),
+            "total_tokens": _total_usage_tokens(usage),
+            "elapsed_seconds": source_row.get("wall_seconds") or usage.get("wall_seconds"),
+            "iterations": usage.get("calls"), "model": None,
+            "evaluator_mode": "project normalized exact-answer check (adapted)", "adapted": True,
+            "counterfactual_fraction": requested_fraction,
+            # This artifact's coverage report records zero counterfactual attempts.
+            "counterfactual_simulations": 0,
+            "transcript_available": transcript_available,
+        })
+    med_tasks = [{"task_id": task_id, "result_count": len(attempts), "attempts": attempts,
+                  "runnable_in_ui": False}
+                 for task_id, attempts in sorted(med_tasks_by_id.items())]
+
+    return {
+        "benchmarks": [
+            {"id": "kramabench", "name": "KramaBench", "task_source": "combined saved batch · latest 25 Nov 2026 · five conditions",
+             "task_count": len(krama_tasks), "result_count": len(krama_rows),
+             "tasks": krama_tasks, "run_support": "saved combined results; use the separate runner for new live runs"},
+            {"id": "mscore", "name": "MSCoRe", "task_source": "imported paired cohort · adapted project evaluator",
+             "task_count": len(mscore_ids), "result_count": sum(mscore_runs.values()),
+             "tasks": [{"task_id": task_id, "result_count": mscore_runs.get(task_id, 0),
+                        "attempts": mscore_attempts.get(task_id, []),
+                        "runnable_in_ui": False} for task_id in sorted(mscore_ids)],
+             "run_support": "saved results are viewable; UI execution is not wired"},
+            {"id": "math500", "name": "MATH-500", "task_source": "30 selected tasks × five conditions · Qwen3 4B GPU · self-check off",
+             "task_count": len(math_tasks), "result_count": sum(len(items) for items in math_tasks_by_id.values()),
+             "tasks": math_tasks,
+             "run_support": "saved replays only; this complete cohort covers 30 selected questions, not the full 500-question set"},
+            {"id": "medagentbench", "name": "MedAgentBench", "task_source": "562 saved project records from pilot and remaining batches · adapted project answer check",
+             "task_count": len(med_tasks), "result_count": sum(len(items) for items in med_tasks_by_id.values()),
+             "tasks": med_tasks,
+             "run_support": "saved replays only; 562 records are available, with some planned remaining-batch records absent"},
+        ]
+    }
+
+
+@app.get("/api/benchmark-results/math500/tasks/{task_id:path}")
+async def math500_result_detail(task_id: str, run_id: str):
+    root, rows = _math500_rows()
+    index_text = run_id.rsplit(":", 1)[-1]
+    try:
+        index = int(index_text)
+        source_row = rows[index]
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=404, detail="No MATH-500 result exists for this run") from None
+    if source_row.get("task_id") != task_id:
+        raise HTTPException(status_code=404, detail="No MATH-500 result exists for this task and run")
+    trace_rel = _math500_trace_reference(source_row)
+    if trace_rel is None and source_row.get("trace") and not Path(str(source_row["trace"])).is_absolute():
+        trace_rel = str(source_row["trace"])
+    trace_path = _safe_artifact(root, trace_rel)
+    transcript = _load_json(trace_path) if trace_path else None
+    usage = source_row.get("usage") if isinstance(source_row.get("usage"), dict) else {}
+    correct = source_row.get("correct") if isinstance(source_row.get("correct"), bool) else None
+    safe_result = {
+        "run_id": run_id, "condition": source_row.get("condition"), "outcome": source_row.get("outcome"),
+        "score_label": "Exact match",
+        "score": (1.0 if correct else 0.0) if correct is not None else None,
+        "correct": correct, "scored": correct is not None,
+        "evaluation_status": "scored" if correct is not None else "not_scored",
+        "prediction": source_row.get("prediction"), "total_tokens": _total_usage_tokens(usage),
+        "model": source_row.get("model"),
+        "elapsed_seconds": source_row.get("wall_seconds"), "adapted": True,
+        "evaluator_mode": "project exact-answer check (adapted)",
+        "counterfactual_fraction": source_row.get("requested_fraction"),
+        "counterfactual_simulations": source_row.get("replays", 0),
+    }
+    return _safe_transcript_detail(transcript, safe_result, transcript_available=transcript is not None)
+
+
+@app.get("/api/benchmark-results/medagentbench/tasks/{task_id}")
+async def medagentbench_result_detail(task_id: str, run_id: str):
+    root, rows = _medagent_rows()
+    selected: dict | None = None
+    selected_index: int | None = None
+    try:
+        index = int(run_id.rsplit(":", 1)[-1])
+        candidate = rows[index]
+        if candidate.get("task_id") == task_id:
+            selected, selected_index = candidate, index
+    except (ValueError, IndexError):
+        selected = None
+    if selected is None:
+        raise HTTPException(status_code=404, detail="No MedAgentBench result exists for this task and run")
+    transcript_path = _safe_artifact(root, selected.get("trace"))
+    transcript = _load_json(transcript_path) if transcript_path and transcript_path.name == "transcript.json" else None
+    if transcript is None and selected.get("replay_snapshot"):
+        snapshot = _load_json(_safe_artifact(root, selected.get("replay_snapshot")))
+        if snapshot:
+            transcript = {"entries": snapshot.get("entries", []), "counterfactual_attempts": [],
+                          "counterfactual_skips": [], "outcome": selected.get("outcome")}
+    usage = selected.get("usage") if isinstance(selected.get("usage"), dict) else {}
+    correct = selected.get("correct") if isinstance(selected.get("correct"), bool) else None
+    condition = str(selected.get("condition") or "unknown")
+    safe_result = {
+        "run_id": run_id, "condition": condition, "run": selected.get("run"),
+        "outcome": selected.get("outcome"), "score": (1.0 if correct else 0.0) if correct is not None else None,
+        "correct": correct, "scored": correct is not None,
+        "evaluation_status": "scored" if correct is not None else "not_scored",
+        "prediction": selected.get("prediction"),
+        "total_tokens": _total_usage_tokens(usage),
+        "elapsed_seconds": selected.get("wall_seconds") or usage.get("wall_seconds"),
+        "iterations": usage.get("calls"), "adapted": True,
+        "evaluator_mode": "project normalized exact-answer check (adapted)",
+        "counterfactual_fraction": selected.get("requested_fraction"), "counterfactual_simulations": 0,
+    }
+    return _safe_transcript_detail(transcript, safe_result, transcript_available=transcript is not None)
+
+
+@app.get("/api/benchmark-dashboard/krama/{task_id}")
+async def krama_saved_task_detail(task_id: str, run_id: str | None = None):
+    """Load one selected attempt from the canonical imported KramaBench batch."""
+    root, attempts = _kramabench_rows()
+    selected = next((item for item in attempts
+                     if item.get("task_id") == task_id and (run_id is None or item.get("run_id") == run_id)), None)
+    if selected is None:
+        raise HTTPException(status_code=404, detail="No imported KramaBench attempt exists for this task and run")
+    record_path = _safe_artifact(root, selected.get("record_path"))
+    record = _load_json(record_path) if record_path else None
+    transcript_path = _safe_artifact(root, selected.get("transcript_path"))
+    transcript = _load_json(transcript_path) if transcript_path else None
+    if transcript is None and record:
+        transcript = {"board": {"entries": record.get("board_evidence_entries", [])}}
+    safe_result = {key: selected[key] for key in (
+        "run_id", "condition", "result_source", "status", "outcome", "score", "score_label", "correct", "scored",
+        "evaluation_status", "prediction", "metric_summary", "total_tokens", "elapsed_seconds",
+        "iterations", "deadlock_count", "model", "evaluator_mode", "adapted", "failure_reason",
+        "counterfactual_fraction", "counterfactual_simulations",
+    ) if key in selected}
+    return _safe_transcript_detail(transcript, safe_result, transcript_available=transcript_path is not None)
+
+
+@app.get("/api/benchmark-results/mscore/tasks/{task_id}")
+async def mscore_result_detail(task_id: str, condition: str):
+    if condition == "direct_model_no_blackboard":
+        root = _mscore_direct_results_root()
+        csv_path = root / "results.csv"
+        if not csv_path.is_file():
+            raise HTTPException(status_code=404, detail="MSCoRe direct-baseline results are not available")
+        with csv_path.open(encoding="utf-8", newline="") as stream:
+            row = next((item for item in csv.DictReader(stream)
+                        if item.get("task_id") == task_id and item.get("condition") == condition), None)
+        if row is None:
+            raise HTTPException(status_code=404, detail="No direct-baseline result exists for this task")
+        try:
+            score = float(row["score"]) if row.get("score") not in (None, "") else None
+            total_tokens = sum(int(row.get(key) or 0) for key in ("prompt_tokens", "completion_tokens"))
+            elapsed_seconds = float(row["wall_seconds"]) if row.get("wall_seconds") else None
+        except ValueError:
+            score, total_tokens, elapsed_seconds = None, None, None
+        return _safe_transcript_detail(None, {
+            "run_id": condition, "condition": condition, "outcome": row.get("status"),
+            "score": score, "correct": row.get("correct", "").casefold() == "true",
+            "scored": row.get("scored", "").casefold() == "true",
+            "evaluation_status": "scored" if row.get("scored", "").casefold() == "true" else "not_scored",
+            "prediction": row.get("prediction"), "total_tokens": total_tokens,
+            "elapsed_seconds": elapsed_seconds, "model": row.get("model"),
+            "evaluator_mode": "project-adapted-exact", "adapted": True,
+            "counterfactual_fraction": 0.0, "counterfactual_simulations": 0,
+        }, transcript_available=False)
+    root = _mscore_results_root()
+    csv_path = root / "results.csv"
+    if not csv_path.is_file():
+        raise HTTPException(status_code=404, detail="MSCoRe results are not available")
+    with csv_path.open(encoding="utf-8", newline="") as stream:
+        row = next((item for item in csv.DictReader(stream)
+                    if item.get("task_id") == task_id and item.get("condition") == condition), None)
+    if row is None:
+        raise HTTPException(status_code=404, detail="No result exists for this task and condition")
+    parsed = _parse_mscore_result_row(row)
+    attempt_root = (root / str(parsed["attempt_dir"])).resolve()
+    if root not in attempt_root.parents:
+        raise HTTPException(status_code=400, detail="Invalid result artifact path")
+    transcript_rel = Path(str(parsed.get("transcript") or ""))
+    transcript_path = (attempt_root / transcript_rel).resolve()
+    if attempt_root not in transcript_path.parents or transcript_path.name != "transcript.json":
+        raise HTTPException(status_code=400, detail="Invalid transcript path")
+    transcript = _load_json(transcript_path)
+    if transcript is None:
+        raise HTTPException(status_code=404, detail="Transcript is missing or unreadable")
+    # Return only post-run agent/session evidence. Gold/reference fields are omitted.
+    return {
+        "result": parsed,
+        "transcript": {
+            "created_at": transcript.get("created_at"),
+            "finished_at": transcript.get("finished_at"),
+            "task": transcript.get("task"),
+            "turns": transcript.get("turns", []),
+            "outcome": transcript.get("outcome"),
+            "workflow_counters": transcript.get("workflow_counters", {}),
+            "counterfactual_attempts": transcript.get("counterfactual_attempts", []),
+            "counterfactual_skips": transcript.get("counterfactual_skips", []),
+            "counterfactual_capable_agents": transcript.get("counterfactual_capable_agents", []),
+            "scheduler_status": transcript.get("scheduler_status"),
+            "board": {
+                "entries": (transcript.get("board") or {}).get("entries", []),
+                "counterfactual_events": (transcript.get("board") or {}).get("counterfactual_events", []),
+                "deadlocks": (transcript.get("board") or {}).get("deadlocks", []),
+                "intelligibility": (transcript.get("board") or {}).get("intelligibility"),
+            },
+        },
+    }
 
 
 def _find_run_artifacts(output_root: Path, task_id: str, metric_name: str = "success") -> tuple[Path | None, dict | None, dict | None, float | None]:
@@ -324,6 +986,12 @@ async def _execute_scope_task(session: dict, task: dict, scope: dict) -> dict:
                         event = board_tap.process_counterfactual_event(event)
                         if event is None:
                             continue
+                    elif event.get("type") in board_tap.SCHEDULER_EVENT_TYPES:
+                        event = board_tap.process_scheduler_event(
+                            event, session_id=session["session_id"], task_id=task["task_id"],
+                        )
+                        if event is None:
+                            continue
                     session["entry_count"] += int(event.get("type") == "board_entry")
                     session["last_entry_id"] = event.get("last_entry_id", session["last_entry_id"])
                     await bus.publish(event)
@@ -360,6 +1028,12 @@ async def _execute_scope_task(session: dict, task: dict, scope: dict) -> dict:
                 event = board_tap.process_board_entry_event(event)
             elif event.get("type") in board_tap.COUNTERFACTUAL_EVENT_TYPES:
                 event = board_tap.process_counterfactual_event(event)
+                if event is None:
+                    continue
+            elif event.get("type") in board_tap.SCHEDULER_EVENT_TYPES:
+                event = board_tap.process_scheduler_event(
+                    event, session_id=session["session_id"], task_id=task["task_id"],
+                )
                 if event is None:
                     continue
             session["entry_count"] += int(event.get("type") == "board_entry")
@@ -488,18 +1162,26 @@ async def _run_task_session(session_id: str, task: dict, scope: dict) -> None:
 async def start_live_conversation(request: ConversationStartRequest):
     """Run the actual local conversation runner and stream its board entries."""
     global _conversation_task
+    if not _genuine_run_approved():
+        raise HTTPException(status_code=403, detail="Real model execution is disabled. Set UI_APPROVE_GENUINE_RUN=1 after approving a genuine run.")
     if BOARD_MODE != "LIVE_TAP":
         raise HTTPException(status_code=409, detail="Start the server with BOARD_MODE=LIVE_TAP")
     if request.scenario not in {"default", "disagreement"}:
         raise HTTPException(status_code=422, detail="scenario must be default or disagreement")
     if _conversation_task is not None and not _conversation_task.done():
         raise HTTPException(status_code=409, detail="A conversation is already running")
+    if _active_task_session_id is not None and _task_sessions.get(_active_task_session_id, {}).get("status") == "running":
+        raise HTTPException(status_code=409, detail="A benchmark task session is already running")
 
     session_id = uuid4().hex
+    task_id = f"playground-{session_id[:8]}"
     board_tap.reset_token_usage(session_id)
     bus.reset_history()
     await bus.publish({"type": "session_started", "source": "LIVE_TAP", "mode": "LIVE",
-                       "session_id": session_id})
+                       "session_id": session_id, "task_id": task_id,
+                       "model": OllamaClient().model,
+                       "agents": [agent_id for agent_id, _ in DEFAULT_AGENTS],
+                       "entry_count": 0, "last_entry_id": None})
 
     async def run_and_publish_result() -> None:
         try:
@@ -517,6 +1199,7 @@ async def start_live_conversation(request: ConversationStartRequest):
             conversation_kwargs = {
                 "scenario": request.scenario,
                 "on_board_created": attach_live_board,
+                "task_id": task_id,
             }
             try:
                 parameters = inspect.signature(run_conversation).parameters
@@ -538,10 +1221,13 @@ async def start_live_conversation(request: ConversationStartRequest):
             await bus.publish({
                 "type": "session_summary",
                 "source": "LIVE_TAP",
+                "session_id": session_id,
+                "task_id": task_id,
                 "summary": {
                     "outcome": report.get("outcome", "unknown"),
                     "scheduler_status": report.get("scheduler_status"),
                     "failures": report.get("failures", []),
+                    "evaluator_score_available": False,
                     **bus.snapshot(),
                 },
                 "transcript_path": str(transcript_path),
@@ -551,11 +1237,14 @@ async def start_live_conversation(request: ConversationStartRequest):
             await bus.publish({
                 "type": "session_error",
                 "source": "LIVE_TAP",
+                "session_id": session_id,
+                "task_id": task_id,
                 "error": str(exc),
             })
         finally:
             detach_live_board()
-            await bus.publish({"type": "stream_complete", "source": "LIVE_TAP"})
+            await bus.publish({"type": "stream_complete", "source": "LIVE_TAP",
+                               "session_id": session_id, "task_id": task_id})
 
     _conversation_task = asyncio.create_task(run_and_publish_result(), name="live-agent-conversation")
     return {"status": "started", "source": "LIVE_TAP", "session_id": session_id}
@@ -574,8 +1263,8 @@ async def list_scope_tasks():
 @app.post("/api/tasks/run", status_code=202)
 async def start_scope_task(request: TaskRunRequest):
     global _active_task_session_id
-    if os.environ.get("KRAMA_UI_APPROVE_GENUINE_RUN", "").strip().casefold() not in {"1", "true", "yes"}:
-        raise HTTPException(status_code=403, detail="Real model execution is disabled. Set KRAMA_UI_APPROVE_GENUINE_RUN=1 after approving a genuine run.")
+    if not _genuine_run_approved():
+        raise HTTPException(status_code=403, detail="Real model execution is disabled. Set UI_APPROVE_GENUINE_RUN=1 after approving a genuine run.")
     if BOARD_MODE != "LIVE_TAP":
         raise HTTPException(status_code=409, detail="Start the UI server with BOARD_MODE=LIVE_TAP to run and stream a real task.")
     if _active_task_session_id is not None:
