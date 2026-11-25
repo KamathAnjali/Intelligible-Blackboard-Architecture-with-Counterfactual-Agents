@@ -4,6 +4,7 @@
 
 ## Implemented
 
+- Two BBH development suites run published formal-fallacy and human causal-judgment questions through three-agent conversations. `make bbh-setup` downloads and verifies pinned source snapshots; `make bbh-check` validates the local cache without inference. `BBH_TASKS` controls question count per suite (default 5). Recovery defaults to off; `BBH_CONDITION=both` enables the paired comparison. Runs keep reference labels outside prompts, disable pre-board model explanation review, and record correctness, outcomes, deadlock provenance, replay activity, and usage under `results/bbh/`. The existing sequential protocol and four-negative-tag deadlock definition are retained.
 - The board validates PXP entries, serializes snapshots, emits events and provides isolated history forks. The scheduler enforces round-robin turn ownership and sends run status and turn events to the dashboard. A recovery or evidence review can reopen the board under the same session ID.
 - Four Ollama personas produce validated predictions and explanations, with bounded retries and an explanation self-check. Two- and three-agent conversations save transcripts and usage.
 - Explanation review uses the task's facts for ordinary questions and requires supplied data-tool evidence for benchmark tasks. This fixes a regression introduced during integration; the earlier prompt-library freeze is a historical checkpoint.
@@ -12,6 +13,8 @@
 - The conversation runner supports both the earlier single-proposal experiment and an opt-in retrospective replay with live guidance after a deadlock. Benchmark and UI integration remain incomplete.
 
 ## Evidence and remaining work
+
+On 25 November, the BBH setup verified 250 formal-fallacy questions and 187 causal-judgment questions against pinned hashes. A live check ran one question per suite with recovery off and on (four conversations, six-turn limit, no retries, explanation review off). All four reached expected-label consensus. The causal question showed a `No` to `Yes` correction; no deadlocks or replays occurred. This verifies the local path, not deadlock recovery or full-benchmark performance. The local summary is `results/bbh/all-20261125T132445365197Z/summary.json`.
 
 The 18 October six-case local agent check recorded 6/6 correct unanimous outcomes. It was a small synthetic sanity check, not a benchmark. Two controlled deadlock fixtures made no model calls. Compact records are in `results/transcripts/`.
 

@@ -16,10 +16,14 @@ TURNS ?= 6
 AB_TURNS ?= 10
 COUNTERBENCH_TURNS ?= 10
 COUNTERBENCH_SET ?= pilot
+BBH_TASKS ?= 5
+BBH_START ?= 0
+BBH_TURNS ?= 12
+BBH_CONDITION ?= off
 AGENTS ?= 2
 RUNNER := powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run.ps1
 
-.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas sessions deadlocks deadlock-ab counterbench-setup counterbench test stop
+.PHONY: help start chat query gpu latency samples pex entry conversation disagreement demo personas sessions deadlocks deadlock-ab counterbench-setup counterbench bbh-setup bbh-check bbh bbh-fallacies bbh-causal test stop
 
 help:
 	@echo make start                 Start Ollama if needed
@@ -39,6 +43,12 @@ help:
 	@echo make counterbench-setup   Download and verify CounterBench data
 	@echo make counterbench         Run five paired CounterBench cases
 	@echo make counterbench COUNTERBENCH_SET=extended  Run 30 paired CounterBench cases
+	@echo make bbh-setup            Download and verify both BBH datasets
+	@echo make bbh-check            Check local BBH data without inference
+	@echo make bbh-fallacies BBH_TASKS=5  Run formal-fallacy questions, recovery off
+	@echo make bbh-causal BBH_TASKS=5     Run causal-judgment questions, recovery off
+	@echo make bbh BBH_TASKS=15     Run 15 questions per suite, recovery off
+	@echo make bbh BBH_CONDITION=both    Compare recovery off and on
 	@echo make disagreement TURNS=6  Run a seeded three-agent disagreement scenario
 	@echo make demo                  Require a clean three-turn RATIFY demonstration
 	@echo make test                  Run offline tests without requiring Ollama
@@ -73,6 +83,9 @@ counterbench-setup:
 
 counterbench:
 	@$(RUNNER) counterbench -CounterBenchSet "$(COUNTERBENCH_SET)" -Turns "$(COUNTERBENCH_TURNS)" -Retries "$(RETRIES)"
+
+bbh-setup bbh-check bbh bbh-fallacies bbh-causal:
+	@$(RUNNER) $@ -BbhTasks "$(BBH_TASKS)" -BbhStart "$(BBH_START)" -BbhCondition "$(BBH_CONDITION)" -Turns "$(BBH_TURNS)" -Retries "$(RETRIES)"
 
 disagreement:
 	@$(RUNNER) disagreement -Turns "$(TURNS)" -Retries "$(RETRIES)"

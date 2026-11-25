@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('help', 'start', 'chat', 'query', 'gpu', 'latency', 'samples', 'pex', 'entry', 'conversation', 'disagreement', 'demo', 'personas', 'sessions', 'deadlocks', 'deadlock-ab', 'counterbench-setup', 'counterbench', 'test', 'stop')]
+    [ValidateSet('help', 'start', 'chat', 'query', 'gpu', 'latency', 'samples', 'pex', 'entry', 'conversation', 'disagreement', 'demo', 'personas', 'sessions', 'deadlocks', 'deadlock-ab', 'counterbench-setup', 'counterbench', 'bbh-setup', 'bbh-check', 'bbh', 'bbh-fallacies', 'bbh-causal', 'test', 'stop')]
     [string]$Task = 'help',
     [string]$Prompt = 'Explain a blackboard architecture in three sentences.',
     [ValidateRange(1, 100)][int]$Runs = 3,
@@ -8,7 +8,10 @@ param(
     [ValidateRange(0, 5)][int]$Retries = 2,
     [ValidateRange(1, 12)][int]$Turns = 6,
     [ValidateSet(2, 3)][int]$Agents = 2,
-    [ValidateSet('pilot', 'extended')][string]$CounterBenchSet = 'pilot'
+    [ValidateSet('pilot', 'extended')][string]$CounterBenchSet = 'pilot',
+    [ValidateRange(1, 250)][int]$BbhTasks = 5,
+    [ValidateRange(0, 249)][int]$BbhStart = 0,
+    [ValidateSet('off', 'on', 'both')][string]$BbhCondition = 'off'
 )
 $ErrorActionPreference = 'Stop'
 $model = 'qwen3:4b-instruct-2507-q4_K_M'
@@ -17,9 +20,10 @@ $ollamaCommand = Get-Command ollama -ErrorAction SilentlyContinue
 $ollamaExe = if ($ollamaCommand) { $ollamaCommand.Source } else { Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe' }
 if ($Task -eq 'help') {
     Write-Host 'Tasks: start | chat | query [-Prompt "..."] | gpu | latency [-Runs 3] | samples | pex | entry [-Persona cautious_verifier] [-Retries 2] [-Prompt "..."] | conversation [-Agents 2|3] [-Turns 6] [-Prompt "..."] | disagreement [-Turns 6] | demo | personas | sessions | deadlocks | deadlock-ab [-Turns 10] | counterbench-setup | counterbench [-Turns 10] | test | stop'
+    Write-Host 'BBH: bbh-setup | bbh-check | bbh | bbh-fallacies | bbh-causal [-BbhTasks 5] [-BbhStart 0] [-BbhCondition off|on|both] [-Turns 12]'
     exit 0
 }
-$needsOllama = $Task -notin @('test', 'deadlocks', 'counterbench-setup')
+$needsOllama = $Task -notin @('test', 'deadlocks', 'counterbench-setup', 'bbh-setup', 'bbh-check')
 if ($needsOllama -and -not (Test-Path -LiteralPath $ollamaExe)) { throw 'Install Ollama for Windows first.' }
 if ($Task -eq 'start') {
     try {
@@ -76,6 +80,12 @@ try {
         if ($Task -eq 'counterbench-setup') { $clientArgs += '--setup' }
         elseif ($PSBoundParameters.ContainsKey('Turns')) { $clientArgs += @('--turns', $Turns) }
         $clientArgs += @('--retries', $Retries)
+    } elseif ($Task -in @('bbh-setup', 'bbh-check', 'bbh', 'bbh-fallacies', 'bbh-causal')) {
+        $bbhSuite = if ($Task -eq 'bbh-fallacies') { 'fallacies' } elseif ($Task -eq 'bbh-causal') { 'causal' } else { 'all' }
+        $bbhTurns = if ($PSBoundParameters.ContainsKey('Turns')) { $Turns } else { 12 }
+        $clientArgs = @('-m', 'bench.bbh_pilot', '--suite', $bbhSuite, '--tasks', $BbhTasks, '--start', $BbhStart, '--condition', $BbhCondition, '--turns', $bbhTurns, '--retries', $Retries)
+        if ($Task -eq 'bbh-setup') { $clientArgs += '--setup' }
+        if ($Task -eq 'bbh-check') { $clientArgs += '--check' }
     } elseif ($Task -eq 'sessions' -or $Task -eq 'deadlocks') {
         $clientArgs = @('-m', 'agents.session_suite')
         if ($Task -eq 'deadlocks') { $clientArgs += '--deadlock-fixtures' }

@@ -206,3 +206,27 @@ bash bench/colab_pilot.sh counterbench-run
 ```
 
 The Colab launcher defaults to the same Qwen3 4B model as the local pilot. It also accepts `qwen3:8b` or `qwen3:14b-q4_K_M` after `counterbench-run`. The launcher verifies GPU placement and records the Git commit, transcripts, and scores under `/content/blackboard-results/counterbench/`.
+
+### BBH formal fallacies and causal judgment
+
+Two local text-only suites use the published BBH `formal_fallacies` (250 questions) and `causal_judgement` (187 questions) datasets. Setup downloads the complete source JSON files and repository license at revision `9ee07bd481feebf959a6b59d61ea57bdcf30964d`, verifies SHA-256 checksums, and caches them in the Git-ignored `bench/data/bbh_raw/` directory. Runs read the cached data without accessing external datasets. Only local Ollama is required during inference.
+
+Run from the repository in WSL or a Windows terminal with Make:
+
+```sh
+make bbh-setup                              # Download and verify both datasets
+make bbh-check                              # Verify cached data without inference
+make bbh-fallacies BBH_TASKS=5               # 5 questions, recovery off
+make bbh-causal BBH_TASKS=10                 # 10 questions, recovery off
+make bbh BBH_TASKS=15                        # 15 per suite, 30 conversations
+make bbh BBH_TASKS=5 BBH_CONDITION=both       # Optional comparison: 20 conversations
+make bbh BBH_TASKS=1 BBH_TURNS=6 RETRIES=0    # Short check: 2 conversations
+```
+
+Each question runs with the existing three-agent roster and recovery off by default. `BBH_TASKS` controls the number of questions per selected suite (default 5). `BBH_CONDITION=on` runs only recovery; `both` runs each question with recovery off and then on. `BBH_START=5` skips the first five selected questions per suite. Source indices use a fixed shuffle with seed 42, independent of answers or model performance. Defaults are 12 scheduled turns and two retries. Recovery may add the existing runner's bounded continuation turns and sandbox calls, so compare recorded usage as well as accuracy.
+
+The runner keeps the original sequential discussion protocol. It does not inject wrong answers or force negative tags. It also does not add an independent opening-answer round. Model explanation review defaults to off to avoid turning self-check failures into apparent agent disagreement. To enable it explicitly, use `python -m bench.bbh_pilot --suite causal --tasks 5 --explanation-review` with the project environment active.
+
+Reference targets stay out of model prompts and replay guidance. Only a final consensus prediction matching the normalized dataset label counts as correct; unresolved runs count as incorrect. Formal fallacies use `valid`/`invalid`. Causal judgment uses `yes`/`no` and measures agreement with the dataset's human judgments, not objective philosophical truth.
+
+Results under `results/bbh/` include transcripts, an incremental `summary.jsonl`, and `summary.json` with accuracy, outcomes, deadlocks, reviewer involvement, replay activity, token usage, source hashes, prompt hashes, and model settings. A question-level failure is retained and the next case runs. A zero exit status indicates the batch completed without runner errors; it does not require any particular accuracy or number of deadlocks. These are development pilots; they do not guarantee deadlocks or establish performance on the full benchmark.
