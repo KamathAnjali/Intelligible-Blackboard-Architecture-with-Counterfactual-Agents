@@ -158,6 +158,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('radial');
   const [viewMode, setViewMode] = useState<ViewMode>('unified');
+  const [showTagLegend, setShowTagLegend] = useState(false);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
@@ -617,6 +618,15 @@ export const Canvas: React.FC<CanvasProps> = ({
         <TokenTally tally={tokenTally} />
 
         {streamDone && <div className="stream-done-badge">✓ Stream Complete</div>}
+        <button type="button" className="legend-toggle" aria-expanded={showTagLegend} onClick={() => setShowTagLegend((value) => !value)}>
+          Tags {showTagLegend ? '▲' : '▼'}
+        </button>
+        {showTagLegend && <div className="hud-overlay legend-hud">
+          {(Object.entries(TAG_COLORS) as [PXPTag, string][]).map(([tag, color]) => <div key={tag} className="legend-item">
+            <span className="legend-dot" style={{ backgroundColor: color }} />
+            <span className="legend-text">{tag}</span>
+          </div>)}
+        </div>}
       </div>
 
       {/* Split Panel Headers when Split View active (W3 Day 1) */}
@@ -670,17 +680,6 @@ export const Canvas: React.FC<CanvasProps> = ({
           </button>}
         </div>
       )}
-
-      {/* Tag legend */}
-      <div className="hud-overlay legend-hud">
-        <span className="hud-label">Tags:</span>
-        {(Object.entries(TAG_COLORS) as [PXPTag, string][]).map(([tag, color]) => (
-          <div key={tag} className="legend-item">
-            <span className="legend-dot" style={{ backgroundColor: color }} />
-            <span className="legend-text">{tag}</span>
-          </div>
-        ))}
-      </div>
 
       {/* SVG canvas */}
       <svg

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import './MsCoReResults.css';
-import { TaskTraceGraph } from './TaskTraceGraph';
+import { TaskTraceGraph, type TraceEntry } from './TaskTraceGraph';
+import { getApiJson } from '../api';
 
 type Condition = 'cf00' | 'cf100';
 type ResultRow = Record<string, unknown> & { task_id: string; condition: Condition };
@@ -42,26 +43,35 @@ export function MsCoReResults({ compact = false }: { compact?: boolean }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(0);
+
+  const traceEntries = useMemo(() => {
+    const entries: TraceEntry[] = [...(detail?.transcript.board?.entries ?? [])];
+    const seen = new Set(entries.map((entry) => String(entry.entry_id ?? '')));
+    for (const event of detail?.transcript.board?.counterfactual_events ?? []) {
+      const simulated = event.simulated_entry;
+      if (!simulated || typeof simulated !== 'object') continue;
+      const entry = simulated as TraceEntry;
+      const id = String(entry.entry_id ?? '');
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      entries.push({ ...entry, is_counterfactual_sim: true });
+    }
+    return entries;
+  }, [detail]);
 
   useEffect(() => {
-    fetch('/api/benchmark-results/mscore')
-      .then(async (response) => {
-        if (!response.ok) throw new Error((await response.json()).detail || `Request failed (${response.status})`);
-        return response.json() as Promise<ResultsIndex>;
-      })
+    setLoading(true);
+    getApiJson<ResultsIndex>('/api/benchmark-results/mscore')
       .then((payload) => { setData(payload); setError(''); })
       .catch((reason: unknown) => setError(String(reason)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     if (!selected) { setDetail(null); return; }
     setDetail(null);
-    fetch(`/api/benchmark-results/mscore/tasks/${encodeURIComponent(selected.taskId)}?condition=${selected.condition}`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error((await response.json()).detail || `Request failed (${response.status})`);
-        return response.json() as Promise<Detail>;
-      })
+    getApiJson<Detail>(`/api/benchmark-results/mscore/tasks/${encodeURIComponent(selected.taskId)}?condition=${selected.condition}`)
       .then(setDetail)
       .catch((reason: unknown) => setError(String(reason)));
   }, [selected]);
@@ -73,7 +83,7 @@ export function MsCoReResults({ compact = false }: { compact?: boolean }) {
   ), [data, condition, query]);
 
   if (loading) return <main className={`mscore-results${compact ? ' compact' : ''}`}><div className="mscore-loading">Loading saved MSCoRe results…</div></main>;
-  if (error && !data) return <main className={`mscore-results${compact ? ' compact' : ''}`}><div className="mscore-error" role="alert">{error}</div></main>;
+  if (error && !data) return <main className={`mscore-results${compact ? ' compact' : ''}`}><div className="mscore-error" role="alert">{error}<button type="button" onClick={() => { setError(''); setRefresh((value) => value + 1); }}>Retry loading results</button></div></main>;
   if (!data) return null;
 
   return (
@@ -157,8 +167,8 @@ export function MsCoReResults({ compact = false }: { compact?: boolean }) {
             {detail.result.failure_reason && <div className="mscore-failure">{show(detail.result.failure_reason)}</div>}
             <details className="mscore-task-prompt"><summary>Task prompt used by the agents</summary><p>{show(detail.transcript.task)}</p></details>
             <h3>Blackboard entries</h3>
-            <TaskTraceGraph entries={detail.transcript.board?.entries ?? []} />
-            <div className="mscore-entry-list">{(detail.transcript.board?.entries ?? []).map((entry, index) => <article className="mscore-entry" key={String(entry.entry_id ?? index)}>
+            <TaskTraceGraph entries={traceEntries} title={`${detail.result.task_id} · recorded action sequence`} />
+            <div className="mscore-entry-list">{traceEntries.map((entry, index) => <article className="mscore-entry" key={String(entry.entry_id ?? index)}>
               <div><b>{show(entry.agent_id)}</b><span className={`entry-tag tag-${String(entry.tag ?? '').toLowerCase()}`}>{show(entry.tag)}</span>{entry.is_counterfactual_sim ? <span className="sim-label">SIMULATION</span> : null}</div>
               <strong>{show(entry.prediction)}</strong><p>{show(entry.explanation)}</p>
             </article>)}</div>

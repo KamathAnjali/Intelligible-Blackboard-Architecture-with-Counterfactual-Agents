@@ -15,6 +15,7 @@ def _reset_ui_state():
     main._task_sessions.clear()
     main._task_session_workers.clear()
     main._active_task_session_id = None
+    main._conversation_task = None
     bus.reset_history()
 
 
@@ -55,6 +56,49 @@ def test_task_run_requires_approval_and_rejects_unknown_ids(monkeypatch):
         monkeypatch.setenv("KRAMA_UI_APPROVE_GENUINE_RUN", "1")
         unknown = client.post("/api/tasks/run", json={**body, "task_id": "unlisted-task"})
         assert unknown.status_code == 404
+
+
+def test_blackboard_question_requires_approval_and_streams_unscored_session(monkeypatch):
+    _reset_ui_state()
+    monkeypatch.setattr(main, "BOARD_MODE", "LIVE_TAP")
+    monkeypatch.setattr(board_tap, "BOARD_MODE", "LIVE_TAP")
+    monkeypatch.delenv("UI_APPROVE_GENUINE_RUN", raising=False)
+    monkeypatch.delenv("KRAMA_UI_APPROVE_GENUINE_RUN", raising=False)
+    with TestClient(main.app) as client:
+        denied = client.post("/api/conversation/start", json={"prompt": "SYNTHETIC question"})
+        assert denied.status_code == 403
+
+    received_prompts = []
+
+    class FakeClient:
+        model = "SYNTHETIC-fake-model"
+
+    def fake_conversation(client, prompt, turns, retries, **kwargs):
+        received_prompts.append(prompt)
+        return ({"outcome": "scheduler_consensus", "scheduler_status": "consensus", "failures": []},
+                "SYNTHETIC_TRANSCRIPT_PATH")
+
+    monkeypatch.setenv("UI_APPROVE_GENUINE_RUN", "1")
+    monkeypatch.setattr(main, "OllamaClient", FakeClient)
+    monkeypatch.setattr(main, "run_conversation", fake_conversation)
+    with TestClient(main.app) as client:
+        with client.websocket_connect("/ws") as websocket:
+            assert websocket.receive_json()["type"] == "connection_ack"
+            response = client.post("/api/conversation/start", json={
+                "prompt": "SYNTHETIC ask the agents to explain the example",
+                "turns": 2, "retries": 0, "scenario": "default",
+            })
+            assert response.status_code == 202
+            session_id = response.json()["session_id"]
+            events = [websocket.receive_json() for _ in range(3)]
+
+    assert [event["type"] for event in events] == ["session_started", "session_summary", "stream_complete"]
+    assert events[0]["session_id"] == session_id
+    assert events[0]["task_id"].startswith("playground-")
+    assert events[1]["summary"]["evaluator_score_available"] is False
+    assert "evaluator_score" not in events[1]["summary"]
+    assert all(event["session_id"] == session_id for event in events)
+    assert received_prompts == ["SYNTHETIC ask the agents to explain the example"]
 
 
 def test_task_session_streams_lifecycle_and_withholds_score_until_complete(monkeypatch):

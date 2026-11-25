@@ -5,6 +5,7 @@ import type { GraphLink, GraphNode, PXPTag } from './components/Canvas';
 import type { TokenTallyReport } from './components/TokenTally';
 import type { BackendEvent, BoardEntryPayload, SessionMode } from './types/sessionEvents';
 import { initialSessionState, reconnectDelayMs, sessionReducer } from './types/sessionReducer';
+import { isActiveTaskSessionEvent } from './types/taskGraphEvents';
 import { BenchmarkDashboard } from './components/BenchmarkDashboard';
 
 interface ScopeTask {
@@ -59,16 +60,25 @@ export const App: React.FC = () => {
   const [taskLoadError, setTaskLoadError] = useState<string | null>(null);
   const [runPending, setRunPending] = useState(false);
   const [apiSessionId, setApiSessionId] = useState<string | null>(null);
-  const [controlsPosition, setControlsPosition] = useState({ x: 18, y: 96 });
-  const [controlsCollapsed, setControlsCollapsed] = useState(false);
+  const [controlsPosition, setControlsPosition] = useState(() => ({ x: 18, y: Math.min(190, Math.max(125, Math.round(window.innerHeight * 0.13))) }));
+  const [controlsCollapsed, setControlsCollapsed] = useState(true);
   const runnerViewRef = useRef<HTMLDivElement | null>(null);
   const controlDragRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const seenNodeIdsRef = useRef<Set<string>>(new Set());
   const seenLinkKeysRef = useRef<Set<string>>(new Set());
   const reconnectsRef = useRef(0);
+  const activeGraphSessionIdRef = useRef<string | null>(null);
+  const activeGraphTaskIdRef = useRef<string | null>(null);
 
   const acceptEvent = useCallback((event: BackendEvent) => {
+    if (!isActiveTaskSessionEvent(event, activeGraphSessionIdRef.current, activeGraphTaskIdRef.current)) return;
+    if (event.type === 'session_started') {
+      activeGraphSessionIdRef.current = event.session_id ?? null;
+      if (event.session_id && event.task_id) {
+        dispatch({ type: 'select_session', session_id: event.session_id, task_id: event.task_id });
+      }
+    }
     dispatch({ type: 'backend_event', event });
     if (event.type === 'board_entry') {
       const id = event.entry.entry_id;
@@ -172,12 +182,19 @@ export const App: React.FC = () => {
     return () => { cancelled = true; clearInterval(timer); };
   }, [apiSessionId, session.status, acceptEvent]);
 
-  const startTask = async () => {
+  const startSession = async () => {
     const task = tasks.find((item) => item.task_id === selectedTask);
-    if (!task || runPending) return;
-    if (!window.confirm(`Run ${task.task_id} through the real local model? This starts a genuine KramaBench execution.`)) return;
+    if (runPending || !task || session.mode !== 'LIVE') return;
+    const confirmation = `Run ${task.task_id} through the real local model? This starts a genuine KramaBench execution.`;
+    if (!window.confirm(confirmation)) return;
     setRunPending(true);
     setTaskLoadError(null);
+    activeGraphTaskIdRef.current = task.task_id;
+    activeGraphSessionIdRef.current = null;
+    seenNodeIdsRef.current.clear();
+    seenLinkKeysRef.current.clear();
+    setNodes([]); setLinks([]); setTokenTally({ total_tokens: 0, turn_count: 0, agents: {} });
+    setScrubIndex(null); setLiveScrubIndex(null); setBranchScrubIndex(null);
     try {
       const response = await fetch(`${apiRoot}/api/tasks/run`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -185,16 +202,19 @@ export const App: React.FC = () => {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || `Run request failed (${response.status}).`);
-      seenNodeIdsRef.current.clear();
-      seenLinkKeysRef.current.clear();
-      setNodes([]); setLinks([]); setTokenTally({ total_tokens: 0, turn_count: 0, agents: {} });
-      setScrubIndex(null); setApiSessionId(payload.session_id);
-      dispatch({ type: 'select_session', session_id: payload.session_id, task_id: task.task_id });
-    } catch (error) { setTaskLoadError(String(error)); }
+      setApiSessionId(payload.session_id);
+      if (activeGraphSessionIdRef.current !== payload.session_id) {
+        activeGraphSessionIdRef.current = payload.session_id;
+        dispatch({ type: 'select_session', session_id: payload.session_id, task_id: payload.task_id ?? task.task_id });
+      }
+    } catch (error) { activeGraphSessionIdRef.current = null; activeGraphTaskIdRef.current = null; setTaskLoadError(String(error)); }
     finally { setRunPending(false); }
   };
 
   const openKramaRunner = (taskId: string) => {
+    activeGraphSessionIdRef.current = null;
+    activeGraphTaskIdRef.current = null;
+    setApiSessionId(null); setNodes([]); setLinks([]);
     setSelectedTask(taskId);
     setTaskLoadError(null);
     setActiveView('runner');
@@ -217,9 +237,12 @@ export const App: React.FC = () => {
     const height = panel?.height ?? 60;
     const x = event.clientX - parent.left - controlDragRef.current.offsetX;
     const y = event.clientY - parent.top - controlDragRef.current.offsetY;
+    const bottomClearance = 88;
+    const maxTop = Math.max(0, parent.height - height - bottomClearance);
+    const topClearance = Math.min(120, maxTop);
     setControlsPosition({
       x: Math.max(0, Math.min(x, Math.max(0, parent.width - width))),
-      y: Math.max(0, Math.min(y, Math.max(0, parent.height - Math.min(height, 100)))),
+      y: Math.max(topClearance, Math.min(y, maxTop)),
     });
   };
 
@@ -239,19 +262,19 @@ export const App: React.FC = () => {
       <nav className="app-view-nav" aria-label="Project views">
         <span className="app-brand">INTELLIGIBLE BLACKBOARD</span>
         <button type="button" className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>Benchmark dashboard</button>
-        <button type="button" className={activeView === 'runner' ? 'active' : ''} onClick={() => setActiveView('runner')}>Live Krama run</button>
+        <button type="button" aria-label="Krama task runner" title="Krama task runner" className={`runner-nav-tab${activeView === 'runner' ? ' active' : ''}`} onClick={() => setActiveView('runner')}>Krama task runner</button>
       </nav>
       {activeView === 'dashboard' ? <BenchmarkDashboard onOpenKramaRunner={openKramaRunner} /> : <div className="runner-view" ref={runnerViewRef}>
-      <section className={`session-control-panel${controlsCollapsed ? ' collapsed' : ''}`} aria-label="KramaBench session controls" style={{ left: controlsPosition.x, top: controlsPosition.y }}>
+      <section className={`session-control-panel${controlsCollapsed ? ' collapsed' : ''}`} aria-label="Blackboard session controls" style={{ left: controlsPosition.x, top: controlsPosition.y }}>
         <div className="session-control-grip" onPointerDown={startControlsDrag} onPointerMove={moveControls} onPointerUp={stopControlsDrag} onPointerCancel={stopControlsDrag} title="Drag to move this panel">
-          <span className="grip-icon" aria-hidden="true">⠿</span><strong>Krama task controls</strong><span className="grip-help">drag to move</span>
+          <span className="grip-icon" aria-hidden="true">⠿</span><strong>KramaBench task runner</strong><span className="grip-help">drag to move</span>
           <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setControlsCollapsed((value) => !value)} aria-expanded={!controlsCollapsed} aria-label={controlsCollapsed ? 'Expand task controls' : 'Collapse task controls'}>{controlsCollapsed ? '＋' : '−'}</button>
         </div>
         {!controlsCollapsed && <div className="session-control-content">
-        {session.mode === 'REPLAY' && !apiSessionId && <div className="runner-replay-note">This is the board’s general replay stream, not a selected task’s saved result. For task-specific agent playback across benchmarks, use Benchmark dashboard. This page monitors a new, approved KramaBench model run.</div>}
+        <div className="runner-replay-note">This page runs a new KramaBench task. Its graph shows only that task’s live session. For saved KramaBench, MSCoRE, MATH-500, and MedAgentBench traces, choose a run in Benchmark dashboard. Current connection: {session.mode ?? 'unknown'}{session.mode !== 'LIVE' ? ' — live execution is disabled. Start the backend with BOARD_MODE=LIVE_TAP to run a task.' : ''}</div>
         <div className="session-control-row">
-          <label>Frozen task
-            <select value={selectedTask} onChange={(event) => setSelectedTask(event.target.value)} disabled={runPending || session.status === 'running'}>
+          <label>Frozen KramaBench task
+            <select value={selectedTask} onChange={(event) => { activeGraphSessionIdRef.current = null; activeGraphTaskIdRef.current = null; setApiSessionId(null); setNodes([]); setLinks([]); setSelectedTask(event.target.value); }} disabled={runPending || session.status === 'running'}>
               {tasks.map((task) => <option key={task.task_id} value={task.task_id}>{task.task_id} · {task.split} · {task.evaluator_mode}</option>)}
             </select>
           </label>
@@ -260,12 +283,13 @@ export const App: React.FC = () => {
               <option value="0">0%</option><option value="0.33">33%</option><option value="0.66">66%</option><option value="1">100%</option>
             </select>
           </label>
-          <button type="button" onClick={() => void startTask()} disabled={!selectedTask || runPending || session.status === 'running'}>
-            {runPending ? 'Starting…' : session.status === 'running' ? 'Run in progress' : 'Run real task'}
+          <button type="button" onClick={() => void startSession()} disabled={!selectedTask || runPending || session.status === 'running' || session.mode !== 'LIVE'}>
+            {runPending ? 'Starting…' : session.status === 'running' ? 'Run in progress' : session.mode !== 'LIVE' ? 'Live mode required' : 'Run KramaBench task'}
           </button>
           <span className={`session-mode-pill mode-${(session.mode ?? 'unknown').toLowerCase()}`}>{session.mode ?? 'MODE UNKNOWN'}</span>
           <span className={`session-status status-${session.status}`}>{session.status.toUpperCase()}</span>
         </div>
+        {selectedTask && <div className="runner-task-context"><b>Task selected:</b> {selectedTask} <span>· Frozen KramaBench scope · evaluator-scored when the run completes</span></div>}
         {session.taskId && <div className="session-meta">Task: {session.taskId} · Session: {session.sessionId} · Reconnects: {session.reconnectCount}</div>}
         {session.activeAgentId && <div className="active-turn">Turn {session.turn ?? '—'} active: {session.activeAgentId}</div>}
         <SchedulerStatus state={session} />
@@ -276,10 +300,10 @@ export const App: React.FC = () => {
         {taskLoadError && <div className="session-error-banner" role="alert">UI/API error: {taskLoadError}</div>}
         </div>}
       </section>
-      <Canvas
+      {session.mode === 'LIVE' && apiSessionId && session.sessionId === apiSessionId && session.taskId === selectedTask ? <Canvas
         wsStatus={wsStatus}
         boardMode={toCanvasMode(session.mode)}
-        syntheticStream={session.mode === 'SYNTHETIC'}
+        syntheticStream={false}
         nodes={[...nodes, ...branchNodes]} links={[...links, ...branchLinks]}
         streamDone={session.status === 'completed' || session.status === 'failed'}
         tokenTally={tokenTally} scrubIndex={scrubIndex} onScrub={setScrubIndex}
@@ -287,7 +311,14 @@ export const App: React.FC = () => {
         liveScrubIndex={liveScrubIndex} onLiveScrub={setLiveScrubIndex}
         branchScrubIndex={branchScrubIndex} onBranchScrub={setBranchScrubIndex}
         schedulerState={session.schedulerState}
-      />
+      /> : <section className="task-graph-empty" aria-live="polite">
+        <div className="task-graph-empty-kicker">TASK-SPECIFIC BLACKBOARD TRACE</div>
+        <h2>{session.mode === 'REPLAY' ? 'Generic replay hidden' : 'No live task trace yet'}</h2>
+        <p>{session.mode === 'REPLAY'
+          ? 'The server is sending a general visualization replay, not this task’s saved result. It is hidden to avoid a misleading graph. Open Benchmark dashboard and select a saved run to inspect task-specific agent actions.'
+          : 'After an approved KramaBench run starts in LIVE mode, each agent action appears here in order. Nodes show the agent and PXP action; arrows show which earlier entry was addressed. Counterfactual simulations are shown separately from live history.'}</p>
+        <div className="task-graph-legend"><span><i className="legend-dot live" />Live agent entries</span><span><i className="legend-dot branch" />Counterfactual simulation</span><span>Arrows = response or critique target</span></div>
+      </section>}
       </div>}
     </div>
   );

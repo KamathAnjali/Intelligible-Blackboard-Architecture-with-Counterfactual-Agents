@@ -9,6 +9,7 @@
 - Explanation review uses the task's facts for ordinary questions and requires supplied data-tool evidence for benchmark tasks. This fixes a regression introduced during integration; the earlier prompt-library freeze is a historical checkpoint.
 - A four-case local sanity workload and two controlled deadlock fixtures are available through `make sessions` and `make deadlocks`. `RetrospectiveSandbox` generates an alternative in an isolated history fork and replays scheduled agent turns. Its delta compares the largest matching RATIFY group as a fraction of active agents; this is agreement progress, not answer correctness.
 - The React/D3 UI and FastAPI backend support board visualization and a scoped KramaBench task endpoint. The benchmark adapter and paired orchestrator are present in the integrated Student 4 work.
+- The benchmark dashboard reads the combined KramaBench import from `results/benchmarks/kramabench/latest-20261125`, with condition-level summaries and per-attempt trace replay. Earlier KramaBench archives were replaced in the dashboard source.
 - The conversation runner supports both the earlier single-proposal experiment and an opt-in retrospective replay with live guidance after a deadlock. Benchmark and UI integration remain incomplete.
 
 ## Evidence and remaining work
@@ -36,8 +37,12 @@ The 18 November five-task baseline with a 16,384-token context produced one corr
 
 The data workflow skips repeated successful searches and aggregates. For repeated rate requests, it can collect the declared category counts within the existing budget. In the 21 November four-configuration rerun, environment-easy-1 scored correctly in all four settings. The other eight attempts ended without scores, and no counterfactual simulations ran. The full batch remains pending.
 
+The combined KramaBench batch imported on 25 November contains 209 started attempts across 42 tasks and five conditions; 171 planned attempts did not start. It records 97 binary exact-match scores (17 correct, 80 incorrect), five wildfire MAE regression scores, 103 unscored attempts, and four interrupted attempts. Scores use the recorded compatibility-no-key evaluator and are not upstream official-harness scores.
+
 The Colab launcher compares Qwen3 8B and 14B on the same five tuning tasks at 0% recovery with a 16,384-token context. Offline checks cover both model configurations, pinned task preflight and evaluator integration. The live launcher checks GPU placement before running tasks.
 
 The MATH-500 pilot supports 24 pinned, self-contained problems across levels 3 to 5 and compares solo answers with six-agent runs at 0%, 33%, 50%, and 66% replay eligibility. The follow-up selects previously deadlocked problems from saved summaries. It includes the first proposer in nonzero settings and lets eligible agents revisit their own rejected proposals when no eligible posted revision exists.
+
+On 25 November, the dashboard's MATH-500 data was replaced with a complete 30-problem Qwen3 4B GPU cohort (150 runs, five conditions) with self-check/review disabled. Project exact-answer accuracy was 0/30 solo, 11/30 at 0%, 11/30 at 33%, 11/30 at 50%, and 13/30 at 66%. This is a selected 30-question comparison, not a full MATH-500 evaluation. The API now resolves all 120 blackboard traces from the imported local bundle.
 
 The CounterBench pilot compares three agents with recovery off and with all three eligible, grading yes/no predictions after inference. The five-question local run on 24 November scored 2/5 in both conditions. The enabled run replayed one deadlock and finished that case with an incorrect prediction. The extended local set adds 30 pinned questions balanced by type and answer, spanning all five graph sizes. Input verification passed, and the extended run is pending.
