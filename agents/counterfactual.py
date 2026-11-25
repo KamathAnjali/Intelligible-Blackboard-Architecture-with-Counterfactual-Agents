@@ -101,6 +101,33 @@ def consensus_progress(state: BlackboardState) -> float:
     return max(counts.values(), default=0) / len(active)
 
 
+def later_deadlock_objections(state: BlackboardState, cutoff_entry_id: str) -> list[dict]:
+    """Return distinct objections from the latest deadlock after the replaced entry."""
+    if not state.deadlocks:
+        return []
+    positions = {entry.entry_id: index for index, entry in enumerate(state.entries)}
+    deadlock = state.deadlocks[-1]
+    end = positions.get(deadlock.triggered_at_entry_id)
+    if end is None:
+        return []
+    start = max(positions[cutoff_entry_id] + 1, end - deadlock.loop_length + 1)
+    objections = []
+    seen = set()
+    for entry in state.entries[start:end + 1]:
+        if entry.tag not in (PXPTag.REFUTE, PXPTag.REJECT):
+            continue
+        reason = " ".join(entry.explanation.split()).casefold()
+        if reason in seen:
+            continue
+        seen.add(reason)
+        objection = {"tag": entry.tag.value, "explanation": entry.explanation}
+        target_index = positions.get(entry.target_entry_id)
+        if target_index is not None:
+            objection["target_prediction"] = state.entries[target_index].prediction
+        objections.append(objection)
+    return objections
+
+
 class RetrospectiveSandbox:
     """Generate an altered contribution and replay agents on an isolated board."""
 
@@ -135,10 +162,12 @@ class RetrospectiveSandbox:
                              "explanation": proposal.explanation}
                     if request.rejected_proposal is not None:
                         prior["reviewer_rejection"] = original.explanation
-                    guidance = ("Reconsider this unverified earlier contribution: "
-                                + json.dumps(prior, ensure_ascii=False) + "\n"
-                                + request.alternative_instruction + "\n"
-                                + "Propose an alternative tag or explanation using only supported facts.")
+                    guidance = "Reconsider this unverified earlier contribution: " + json.dumps(prior, ensure_ascii=False)
+                    objections = later_deadlock_objections(baseline, original.entry_id)
+                    if objections:
+                        guidance += ("\nUnverified objections from later turns in the original deadlock: "
+                                     + json.dumps(objections, ensure_ascii=False))
+                    guidance += "\n" + request.alternative_instruction
                 generated = None
                 for _ in range(request.max_alternatives if turn == 0 else 1):
                     kwargs = {"max_retries": request.max_retries, "is_counterfactual_sim": True}

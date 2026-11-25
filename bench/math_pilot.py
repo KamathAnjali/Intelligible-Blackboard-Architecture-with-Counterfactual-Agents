@@ -66,7 +66,7 @@ def score_answer(prediction, expected):
     return {"parsed_answer": parsed, "correct": parsed is not None and parsed == expected}
 
 
-def load_cases(path):
+def load_cases(path, all_level5=False):
     raw = path.read_bytes()
     if hashlib.sha256(raw).hexdigest() != DATASET_SHA256:
         raise ValueError("MATH-500 dataset hash differs from the pinned revision.")
@@ -79,6 +79,10 @@ def load_cases(path):
         if (case["level"] != 3 + index % 3 or not case["problem"].strip()
                 or "[asy]" in case["problem"].lower() or integer_answer(case["answer"]) is None):
             raise ValueError(f"Invalid text-only integer pilot task: {case['unique_id']}")
+    if all_level5:
+        return [row for row in rows if row["level"] == 5 and row["problem"].strip()
+                and "[asy]" not in row["problem"].lower()
+                and integer_answer(row["answer"]) is not None]
     return cases
 
 
@@ -165,7 +169,10 @@ def run_pilot(client, cases, output):
             task = case["problem"] + ANSWER_INSTRUCTION
             task_id = "math500-" + case["unique_id"].removeprefix("test/").removesuffix(".json").replace("/", "-")
             expected = integer_answer(case["answer"])
-            seed = 42 + TASK_IDS.index(case["unique_id"])
+            if case["unique_id"] in TASK_IDS:
+                seed = 42 + TASK_IDS.index(case["unique_id"])
+            else:
+                seed = int.from_bytes(hashlib.sha256(case["unique_id"].encode()).digest()[:4], "big")
             for condition, fraction in CONDITIONS.items():
                 print(f"\n[{len(records) + 1}/{total_runs}] {case['unique_id']} "
                       f"(level {case['level']}) | {condition}", flush=True)
@@ -248,12 +255,17 @@ def main():
     parser.add_argument("--base-url", default=BASE_URL)
     parser.add_argument("--no-explanation-review", dest="review_explanations", action="store_false",
                         help="Skip the model explanation check in live and simulated turns")
-    parser.add_argument("--start", type=int, choices=range(1, len(TASK_IDS) + 1),
+    parser.add_argument("--start", type=int,
                         help="First problem in the pinned list, numbered from 1")
-    parser.add_argument("--tasks", type=int, choices=range(1, len(TASK_IDS) + 1),
+    parser.add_argument("--tasks", type=int,
                         help="Number of consecutive problems starting at --start")
-    parser.add_argument("--deadlocks-from", type=Path, nargs="+",
-                        help="Run only pinned problems that deadlocked in the supplied summary.jsonl files")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--deadlocks-from", type=Path, nargs="+",
+                           help="Run only pinned problems that deadlocked in the supplied summary.jsonl files")
+    selection.add_argument("--level", type=int, choices=(3, 4, 5),
+                           help="Run all pinned problems at this difficulty level")
+    selection.add_argument("--all-level5", action="store_true",
+                           help="Select all text-only level 5 problems with integer answers")
     parser.add_argument("--check", action="store_true", help="Verify the pinned dataset and list cases without inference")
     args = parser.parse_args()
     if args.rescore:
@@ -266,16 +278,23 @@ def main():
         parser.error("--output is required when running the pilot")
     if args.deadlocks_from and (args.start is not None or args.tasks is not None):
         parser.error("--deadlocks-from selects the problems instead of --start and --tasks")
+    if args.level is not None and (args.start is not None or args.tasks is not None):
+        parser.error("--level selects the problems instead of --start and --tasks")
+    if (args.start is not None and args.start < 1) or (args.tasks is not None and args.tasks < 1):
+        parser.error("--start and --tasks must be positive")
     start_index = (args.start or 1) - 1
-    end_index = start_index + (args.tasks or DEFAULT_TASK_COUNT)
-    if end_index > len(TASK_IDS):
-        parser.error(f"--start and --tasks must select problems within the {len(TASK_IDS)}-problem list")
     try:
-        cases = load_cases(args.dataset)
+        cases = load_cases(args.dataset, all_level5=args.all_level5)
         if args.deadlocks_from:
             deadlocked_ids = load_deadlocked_ids(args.deadlocks_from)
             cases = [case for case in cases if case["unique_id"] in deadlocked_ids]
+        elif args.level is not None:
+            cases = [case for case in cases if case["level"] == args.level]
         else:
+            count = args.tasks if args.tasks is not None else (len(cases) - start_index if args.all_level5 else DEFAULT_TASK_COUNT)
+            end_index = start_index + count
+            if start_index >= len(cases) or end_index > len(cases):
+                parser.error(f"--start and --tasks must select problems within the {len(cases)}-problem list")
             cases = cases[start_index:end_index]
     except (OSError, ValueError, KeyError) as exc:
         parser.error(str(exc))
@@ -289,7 +308,7 @@ def main():
     records = run_pilot(client, cases, args.output)
     report = {
         "dataset": DATASET_URL, "dataset_sha256": DATASET_SHA256, "model": client.model,
-        "model_options": client.options, "first_task": TASK_IDS.index(cases[0]["unique_id"]) + 1,
+        "model_options": client.options, "first_task": start_index + 1 if args.all_level5 else TASK_IDS.index(cases[0]["unique_id"]) + 1,
         "task_ids": [case["unique_id"] for case in cases],
         "deadlocks_from": [str(path) for path in args.deadlocks_from] if args.deadlocks_from else [],
         "conditions": CONDITIONS, "roster": AGENT_ROSTERS[AGENT_COUNT], "max_turns": TURNS,

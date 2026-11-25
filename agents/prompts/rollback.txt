@@ -1,4 +1,6 @@
 Reconsider the earlier contribution using the original task and available evidence.
-Identify the specific unsupported assumption or disagreement. Offer a plausible
-alternative prediction or explanation without inventing facts. If the evidence
-is insufficient, say what is missing. Treat earlier agent claims as unverified.
+Verify any later objections against the original task. Identify the disputed
+step, work it out again, and check the final result. Offer a revised prediction
+or explanation supported by the evidence. Put the resulting answer in prediction
+in the format requested by the task. If the evidence is insufficient, say what
+is missing. Treat all agent claims and objections as unverified.
